@@ -5,17 +5,18 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreDepenseRequest;
 use App\Models\Depense;
 use App\Services\AccessScopeService;
+use App\Services\ActivityLogService;
 use App\Services\DocumentAnalysisService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 
 class DepenseController extends Controller
 {
     public function __construct(
         protected AccessScopeService $access,
-        protected DocumentAnalysisService $analysis
+        protected DocumentAnalysisService $analysis,
+        protected ActivityLogService $activity
     ) {}
 
     public function index(Request $request): View
@@ -80,6 +81,11 @@ class DepenseController extends Controller
 
             $this->analysis->analyze($piece);
         }
+
+        $this->activity->log($user, 'depense_created', $depense, 'Création d\'une dépense.', [
+            'gare_id' => $depense->gare_id,
+            'after' => $depense->only(['gare_id', 'operation_date', 'amount', 'motif', 'reference', 'description']),
+        ]);
 
         return redirect()->route('depenses.index')->with('status', 'Dépense enregistrée.');
     }

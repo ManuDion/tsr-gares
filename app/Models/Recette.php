@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class Recette extends Model
 {
@@ -57,6 +58,11 @@ class Recette extends Model
     public function histories(): HasMany
     {
         return $this->hasMany(RecetteHistory::class);
+    }
+
+    public function justificatives(): MorphMany
+    {
+        return $this->morphMany(PieceJustificative::class, 'attachable');
     }
 
     public function isEditableBy(User $user): bool

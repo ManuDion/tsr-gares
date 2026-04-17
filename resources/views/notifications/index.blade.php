@@ -5,11 +5,25 @@
 @section('subheading', 'Suivi des anomalies, rappels et contrôles journaliers')
 
 @section('content')
+    @php
+        $statusLabels = [
+            'generated' => 'Générée',
+            'read' => 'Lue',
+            'sent' => 'Envoyée',
+        ];
+
+        $operationLabels = [
+            'recette' => 'Recette',
+            'depense' => 'Dépense',
+            'versement_bancaire' => 'Versement bancaire',
+        ];
+    @endphp
+
     <div class="panel">
         <div class="hero-inline">
             <div>
                 <h2>Notifications actives</h2>
-                <p class="text-muted">Le contrôle journalier du jour précédent est automatiquement recalculé à l’ouverture de cet écran.</p>
+                <p class="text-muted">Chaque utilisateur voit uniquement les notifications qui le concernent selon son rôle et ses gares autorisées.</p>
             </div>
             <span class="badge badge-success">Synchronisé</span>
         </div>
@@ -21,7 +35,6 @@
                 <tr>
                     <th>Date génération</th>
                     <th>Objet</th>
-                    <th>Destinataire</th>
                     <th>Gares</th>
                     <th>Opérations</th>
                     <th>Statut</th>
@@ -35,17 +48,26 @@
                             <strong>{{ $notification->subject }}</strong>
                             <div class="text-muted">{{ $notification->content }}</div>
                         </td>
-                        <td>{{ $notification->user->name ?? 'Système' }}</td>
                         <td>{{ collect($notification->gares)->implode(', ') ?: '—' }}</td>
-                        <td>{{ collect($notification->operations)->implode(', ') ?: '—' }}</td>
-                        <td><span class="badge {{ $notification->status === 'generated' ? 'badge-success' : '' }}">{{ ucfirst($notification->status) }}</span></td>
+                        <td>
+                            {{
+                                collect($notification->operations)
+                                    ->map(fn ($operation) => $operationLabels[$operation] ?? \Illuminate\Support\Str::headline($operation))
+                                    ->implode(', ') ?: '—'
+                            }}
+                        </td>
+                        <td>
+                            <span class="badge {{ $notification->status === 'generated' ? 'badge-success' : '' }}">
+                                {{ $statusLabels[$notification->status] ?? \Illuminate\Support\Str::headline($notification->status) }}
+                            </span>
+                        </td>
                     </tr>
                 @empty
-                    <tr><td colspan="6">Aucune notification enregistrée.</td></tr>
+                    <tr><td colspan="5">Aucune notification enregistrée.</td></tr>
                 @endforelse
             </tbody>
         </table>
     </div>
 
-    {{ $notifications->links() }}
+    {{ $notifications->links('partials.pagination') }}
 @endsection

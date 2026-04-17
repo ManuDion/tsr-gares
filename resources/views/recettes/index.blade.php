@@ -45,6 +45,7 @@
                     <th>Gare</th>
                     <th>Montant</th>
                     <th>Référence</th>
+                    <th>Justificatif</th>
                     <th>Saisi par</th>
                     <th></th>
                 </tr>
@@ -56,6 +57,20 @@
                         <td>{{ $recette->gare->name }}</td>
                         <td>{{ number_format($recette->amount, 0, ',', ' ') }} FCFA</td>
                         <td>{{ $recette->reference ?: '—' }}</td>
+                        <td>
+                            @forelse($recette->justificatives as $piece)
+                                <div class="doc-links">
+                                    <a class="btn btn-sm btn-outline" href="{{ route('justificatifs.preview', $piece) }}" target="_blank">
+                                        <span class="icon">{!! app_icon('eye') !!}</span> Lire
+                                    </a>
+                                    <a class="btn btn-sm btn-outline" href="{{ route('justificatifs.download', $piece) }}">
+                                        <span class="icon">{!! app_icon('download') !!}</span> Télécharger
+                                    </a>
+                                </div>
+                            @empty
+                                —
+                            @endforelse
+                        </td>
                         <td>{{ $recette->creator->name ?? '—' }}</td>
                         <td class="actions-cell">
                             @can('update', $recette)
@@ -66,11 +81,11 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="6">Aucune recette trouvée.</td></tr>
+                    <tr><td colspan="7">Aucune recette trouvée.</td></tr>
                 @endforelse
             </tbody>
         </table>
     </div>
 
-    {{ $recettes->links() }}
+    {{ $recettes->links('partials.pagination') }}
 @endsection

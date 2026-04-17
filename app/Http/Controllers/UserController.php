@@ -7,12 +7,15 @@ use App\Http\Requests\StoreUserRequest;
 use App\Http\Requests\UpdateUserRequest;
 use App\Models\Gare;
 use App\Models\User;
+use App\Services\ActivityLogService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class UserController extends Controller
 {
+    public function __construct(protected ActivityLogService $activity) {}
+
     public function index(Request $request): View
     {
         $this->authorize('viewAny', User::class);
@@ -55,6 +58,17 @@ class UserController extends Controller
         $user = User::create($data);
         $user->gares()->sync($zoneGares);
 
+        $this->activity->log($request->user(), 'user_created', $user, 'Création d\'un utilisateur.', [
+            'after' => [
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $user->role?->value,
+                'gare_id' => $user->gare_id,
+                'gares' => $zoneGares,
+                'is_active' => $user->is_active,
+            ],
+        ]);
+
         return redirect()->route('users.index')->with('status', 'Utilisateur créé.');
     }
 
@@ -73,6 +87,15 @@ class UserController extends Controller
     {
         $this->authorize('update', $user);
 
+        $before = [
+            'name' => $user->name,
+            'email' => $user->email,
+            'role' => $user->role?->value,
+            'gare_id' => $user->gare_id,
+            'gares' => $user->gares()->pluck('gares.id')->all(),
+            'is_active' => $user->is_active,
+        ];
+
         $data = $request->validated();
         $zoneGares = $this->resolveZoneGares($request, $data);
         $data = $this->normalizePayload($request, $data, $user);
@@ -83,6 +106,18 @@ class UserController extends Controller
 
         $user->update($data);
         $user->gares()->sync($zoneGares);
+
+        $this->activity->log($request->user(), 'user_updated', $user, 'Mise à jour d\'un utilisateur.', [
+            'before' => $before,
+            'after' => [
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $user->role?->value,
+                'gare_id' => $user->gare_id,
+                'gares' => $zoneGares,
+                'is_active' => $user->is_active,
+            ],
+        ]);
 
         return redirect()->route('users.index')->with('status', 'Utilisateur mis à jour.');
     }
@@ -95,7 +130,25 @@ class UserController extends Controller
             return back()->with('error', 'Vous ne pouvez pas supprimer votre propre compte.');
         }
 
+        $snapshot = [
+            'name' => $user->name,
+            'email' => $user->email,
+            'role' => $user->role?->value,
+            'gare_id' => $user->gare_id,
+            'gares' => $user->gares()->pluck('gares.id')->all(),
+            'is_active' => $user->is_active,
+        ];
+
+        $userId = $user->id;
+        $subject = $user->email;
         $user->delete();
+
+        $this->activity->log(auth()->user(), 'user_deleted', 'User', 'Suppression d\'un utilisateur.', [
+            'entity_type' => 'User',
+            'entity_id' => $userId,
+            'subject' => $subject,
+            'before' => $snapshot,
+        ]);
 
         return redirect()->route('users.index')->with('status', 'Utilisateur supprimé.');
     }
@@ -108,8 +161,14 @@ class UserController extends Controller
             return back()->with('error', 'Vous ne pouvez pas désactiver votre propre compte.');
         }
 
+        $before = ['is_active' => $user->is_active];
         $user->update([
             'is_active' => ! $user->is_active,
+        ]);
+
+        $this->activity->log(auth()->user(), 'user_toggled', $user, $user->is_active ? 'Activation d\'un utilisateur.' : 'Désactivation d\'un utilisateur.', [
+            'before' => $before,
+            'after' => ['is_active' => $user->is_active],
         ]);
 
         return back()->with('status', $user->is_active ? 'Utilisateur activé.' : 'Utilisateur désactivé.');

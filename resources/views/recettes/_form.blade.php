@@ -24,6 +24,11 @@
         <label>Description</label>
         <textarea name="description" rows="4">{{ old('description', $recette->description ?? '') }}</textarea>
     </div>
+    <div class="col-span-2">
+        <label>Fichier justificatif</label>
+        <input type="file" name="justificatif" accept=".pdf,.jpg,.jpeg,.png,image/*,application/pdf">
+        <small>Vous pouvez joindre un justificatif de recette pour lecture ou téléchargement ultérieur.</small>
+    </div>
     @isset($recette)
         <div class="col-span-2">
             <label>Commentaire historique</label>

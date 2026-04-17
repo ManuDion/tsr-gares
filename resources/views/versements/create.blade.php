@@ -5,7 +5,7 @@
 @section('subheading', 'Le bordereau est obligatoire. Téléversez-le, vérifiez les champs préremplis puis validez.')
 
 @section('content')
-    <div class="grid-2">
+    <div class="stack-lg">
         <div class="panel">
             <h2>1. Téléchargement du bordereau</h2>
             <p class="muted">PDF, photo mobile ou scan. La caméra mobile est acceptée. Le bordereau reste obligatoire, même en saisie manuelle.</p>
@@ -45,7 +45,7 @@
             @else
                 <div class="empty-state">
                     <strong>Analyse en attente</strong>
-                    <p>Téléchargez le bordereau à gauche pour obtenir les champs préremplis, puis validez après vérification.</p>
+                    <p>Téléchargez le bordereau à l’étape 1 pour obtenir les champs préremplis, puis validez après vérification.</p>
                 </div>
             @endif
         </div>

@@ -20,6 +20,12 @@ class UpdateRecetteRequest extends FormRequest
             'reference' => ['nullable', 'string', 'max:100'],
             'description' => ['nullable', 'string', 'max:500'],
             'history_comment' => ['nullable', 'string', 'max:255'],
+            'justificatif' => [
+                'nullable',
+                'file',
+                'mimes:pdf,jpg,jpeg,png',
+                'max:'.(int) env('JUSTIFICATIF_MAX_SIZE_KB', 5120),
+            ],
         ];
     }
 }

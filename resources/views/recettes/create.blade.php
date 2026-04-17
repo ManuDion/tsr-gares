@@ -5,7 +5,7 @@
 
 @section('content')
     <div class="panel panel-narrow">
-        <form method="POST" action="{{ route('recettes.store') }}" class="stack-md">
+        <form method="POST" action="{{ route('recettes.store') }}" enctype="multipart/form-data" class="stack-md">
             @csrf
             @include('recettes._form')
             <div class="form-actions">

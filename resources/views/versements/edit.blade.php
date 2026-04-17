@@ -43,12 +43,38 @@
 
         <div class="panel">
             <h2>Historique des modifications</h2>
+            @php
+                $filteredHistories = $versement->histories->filter(function ($history) {
+                    return collect($history->before ?? [])->keys()->contains(function ($key) use ($history) {
+                        return (string) data_get($history->before, $key) !== (string) data_get($history->after, $key);
+                    });
+                });
+            @endphp
             <div class="timeline">
-                @forelse($versement->histories as $history)
-                    <div class="timeline-item">
+                @forelse($filteredHistories as $history)
+versement->histories as $history)
+                    <div class="timeline-item timeline-item-detailed">
                         <strong>{{ $history->modifier->name ?? 'Système' }}</strong>
                         <small>{{ $history->created_at?->format('d/m/Y H:i') }}</small>
                         <p>{{ $history->comment ?: 'Modification de versement' }}</p>
+                        <div class="history-diff-grid">
+                            <div>
+                                <h3>Avant</h3>
+                                <ul class="change-list">
+                                    @foreach($history->before ?? [] as $key => $value)
+                                        <li><strong>{{ \Illuminate\Support\Str::headline($key) }} :</strong> {{ $value === null || $value === '' ? '—' : $value }}</li>
+                                    @endforeach
+                                </ul>
+                            </div>
+                            <div>
+                                <h3>Après</h3>
+                                <ul class="change-list">
+                                    @foreach($history->after ?? [] as $key => $value)
+                                        <li><strong>{{ \Illuminate\Support\Str::headline($key) }} :</strong> {{ $value === null || $value === '' ? '—' : $value }}</li>
+                                    @endforeach
+                                </ul>
+                            </div>
+                        </div>
                     </div>
                 @empty
                     <p>Aucune modification enregistrée.</p>

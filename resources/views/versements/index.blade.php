@@ -89,5 +89,5 @@
         </table>
     </div>
 
-    {{ $versements->links() }}
+    {{ $versements->links('partials.pagination') }}
 @endsection

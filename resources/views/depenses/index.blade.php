@@ -77,5 +77,5 @@
         </table>
     </div>
 
-    {{ $depenses->links() }}
+    {{ $depenses->links('partials.pagination') }}
 @endsection

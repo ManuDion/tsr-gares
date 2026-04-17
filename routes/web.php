@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\ActivityLogController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DepenseController;
@@ -41,6 +42,8 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/notifications', [NotificationHistoryController::class, 'index'])->name('notifications.index');
     Route::get('/rapports/performance', PerformanceReportController::class)->name('reports.performance');
+    Route::get('/historique-systeme', [ActivityLogController::class, 'index'])->name('activity-logs.index');
+    Route::get('/historique-systeme/{activityLog}', [ActivityLogController::class, 'show'])->name('activity-logs.show');
 
     Route::get('/exports/recettes', [ExportController::class, 'recettes'])->name('exports.recettes');
     Route::get('/exports/depenses', [ExportController::class, 'depenses'])->name('exports.depenses');

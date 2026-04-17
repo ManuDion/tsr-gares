@@ -137,6 +137,7 @@ class DailyControlService
         foreach ($anomalies as $control) {
             $users = User::query()
                 ->where('is_active', true)
+                ->whereIn('role', [UserRole::ChefDeGare->value, UserRole::Caissiere->value, UserRole::ChefDeZone->value])
                 ->where(function ($query) use ($control) {
                     $query->where('gare_id', $control->gare_id)
                         ->orWhereHas('gares', fn ($garesQuery) => $garesQuery->where('gares.id', $control->gare_id));

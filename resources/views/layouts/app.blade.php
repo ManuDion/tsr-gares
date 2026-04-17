@@ -11,9 +11,9 @@
     <link rel="stylesheet" href="{{ asset('assets/app.css') }}">
     @livewireStyles
 </head>
-<body>
+<body class="app-body">
     @php($user = auth()->user())
-    @php($notificationCount = $user ? \App\Models\NotificationHistory::query()->when(! $user->canViewAllGares(), fn ($query) => $query->where('user_id', $user->id))->whereNull('read_at')->count() : 0)
+    @php($notificationCount = $user ? \App\Models\NotificationHistory::query()->where('user_id', $user->id)->whereNull('read_at')->count() : 0)
 
     <div class="mobile-topbar">
         <button class="menu-toggle" type="button" data-menu-toggle>
@@ -31,7 +31,7 @@
                 <img src="{{ asset('assets/logo-tsr.jpg') }}" alt="TSR Côte d'Ivoire">
                 <div>
                     <strong>TSR Gares Finance</strong>
-                    <small>Laravel 12 · MySQL</small>
+                    <small>Gestion financière multi-gares</small>
                 </div>
             </div>
 
@@ -52,9 +52,11 @@
                     <span class="icon">{!! app_icon('bank') !!}</span><span>Versements</span>
                 </a>
 
-                <a href="{{ route('gares.index') }}" class="{{ request()->routeIs('gares.*') ? 'active' : '' }}">
-                    <span class="icon">{!! app_icon('train') !!}</span><span>Gares</span>
-                </a>
+                @unless($user->isChefDeGare())
+                    <a href="{{ route('gares.index') }}" class="{{ request()->routeIs('gares.*') ? 'active' : '' }}">
+                        <span class="icon">{!! app_icon('train') !!}</span><span>Gares</span>
+                    </a>
+                @endunless
 
                 <a href="{{ route('notifications.index') }}" class="{{ request()->routeIs('notifications.*') ? 'active' : '' }}">
                     <span class="icon">{!! app_icon('bell') !!}</span>
@@ -73,6 +75,11 @@
                 @if($user->isAdmin() || $user->isResponsable())
                     <a href="{{ route('reports.performance') }}" class="{{ request()->routeIs('reports.performance') ? 'active' : '' }}">
                         <span class="icon">{!! app_icon('trophy') !!}</span><span>Top 5 & rapports</span>
+                    </a>
+                @endif
+                @if($user->isAdmin() || $user->isResponsable())
+                    <a href="{{ route('activity-logs.index') }}" class="{{ request()->routeIs('activity-logs.*') ? 'active' : '' }}">
+                        <span class="icon">{!! app_icon('history') !!}</span><span>Historique système</span>
                     </a>
                 @endif
             </nav>
@@ -107,9 +114,11 @@
                 </div>
             </header>
 
-            @include('partials.flash')
+            <div class="page-stack">
+                @include('partials.flash')
 
-            @yield('content')
+                @yield('content')
+            </div>
         </main>
     </div>
 
@@ -152,7 +161,7 @@
         const chefSection = document.querySelector('[data-chef-gare-section]');
         const caissiereSection = document.querySelector('[data-caissiere-section]');
         const allGaresCheckbox = document.querySelector('[data-all-gares]');
-        const zoneSelect = document.querySelector('[data-zone-gares]');
+        const zoneCheckboxes = Array.from(document.querySelectorAll('[data-zone-gares]'));
 
         function syncUserRoleForm() {
             if (! roleSelect) return;
@@ -166,8 +175,10 @@
         }
 
         function syncAllGaresState() {
-            if (! allGaresCheckbox || ! zoneSelect) return;
-            zoneSelect.disabled = allGaresCheckbox.checked;
+            if (! allGaresCheckbox || ! zoneCheckboxes.length) return;
+            zoneCheckboxes.forEach(function(checkbox) {
+                checkbox.disabled = allGaresCheckbox.checked;
+            });
         }
 
         if (roleSelect) {
@@ -179,6 +190,24 @@
             allGaresCheckbox.addEventListener('change', syncAllGaresState);
             syncAllGaresState();
         }
+
+        document.querySelectorAll('[data-copy-text]').forEach(function(button) {
+            button.addEventListener('click', async function() {
+                const target = button.getAttribute('data-copy-text');
+                if (! target) return;
+
+                try {
+                    await navigator.clipboard.writeText(target);
+                    const previous = button.innerHTML;
+                    button.innerHTML = `<span class="icon">{!! app_icon('copy') !!}</span> Copié`;
+                    window.setTimeout(function() {
+                        button.innerHTML = previous;
+                    }, 1400);
+                } catch (error) {
+                    console.error(error);
+                }
+            });
+        });
     </script>
     @livewireScripts
 </body>

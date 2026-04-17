@@ -19,6 +19,12 @@ class StoreRecetteRequest extends FormRequest
             'amount' => ['required', 'numeric', 'min:0'],
             'reference' => ['nullable', 'string', 'max:100'],
             'description' => ['nullable', 'string', 'max:500'],
+            'justificatif' => [
+                'nullable',
+                'file',
+                'mimes:pdf,jpg,jpeg,png',
+                'max:'.(int) env('JUSTIFICATIF_MAX_SIZE_KB', 5120),
+            ],
         ];
     }
 }

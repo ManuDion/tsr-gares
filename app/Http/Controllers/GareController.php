@@ -5,12 +5,15 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreGareRequest;
 use App\Http\Requests\UpdateGareRequest;
 use App\Models\Gare;
+use App\Services\ActivityLogService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class GareController extends Controller
 {
+    public function __construct(protected ActivityLogService $activity) {}
+
     public function index(Request $request): View
     {
         $this->authorize('viewAny', Gare::class);
@@ -50,7 +53,12 @@ class GareController extends Controller
         $data = $request->validated();
         $data['is_active'] = $request->boolean('is_active');
 
-        Gare::create($data);
+        $gare = Gare::create($data);
+
+        $this->activity->log($request->user(), 'gare_created', $gare, 'Création d\'une gare.', [
+            'gare_id' => $gare->id,
+            'after' => $gare->only(['name', 'code', 'city', 'zone', 'address', 'is_active']),
+        ]);
 
         return redirect()->route('gares.index')->with('status', 'Gare créée avec succès.');
     }
@@ -75,10 +83,17 @@ class GareController extends Controller
     {
         $this->authorize('update', $gare);
 
+        $before = $gare->only(['name', 'code', 'city', 'zone', 'address', 'is_active']);
         $data = $request->validated();
         $data['is_active'] = $request->boolean('is_active');
 
         $gare->update($data);
+
+        $this->activity->log($request->user(), 'gare_updated', $gare, 'Mise à jour d\'une gare.', [
+            'gare_id' => $gare->id,
+            'before' => $before,
+            'after' => $gare->fresh()->only(['name', 'code', 'city', 'zone', 'address', 'is_active']),
+        ]);
 
         return redirect()->route('gares.index')->with('status', 'Gare mise à jour.');
     }
@@ -87,7 +102,18 @@ class GareController extends Controller
     {
         $this->authorize('delete', $gare);
 
+        $snapshot = $gare->only(['name', 'code', 'city', 'zone', 'address', 'is_active']);
+        $gareId = $gare->id;
+        $gareName = $gare->name;
         $gare->delete();
+
+        $this->activity->log(auth()->user(), 'gare_deleted', 'Gare', 'Suppression d\'une gare.', [
+            'gare_id' => $gareId,
+            'subject' => $gareName,
+            'before' => $snapshot,
+            'entity_type' => 'Gare',
+            'entity_id' => $gareId,
+        ]);
 
         return redirect()->route('gares.index')->with('status', 'Gare supprimée.');
     }
@@ -96,8 +122,15 @@ class GareController extends Controller
     {
         $this->authorize('update', $gare);
 
+        $before = $gare->only(['is_active']);
         $gare->update([
             'is_active' => ! $gare->is_active,
+        ]);
+
+        $this->activity->log(auth()->user(), 'gare_toggled', $gare, $gare->is_active ? 'Activation d\'une gare.' : 'Désactivation d\'une gare.', [
+            'gare_id' => $gare->id,
+            'before' => $before,
+            'after' => $gare->fresh()->only(['is_active']),
         ]);
 
         return back()->with('status', $gare->is_active ? 'Gare activée.' : 'Gare désactivée.');

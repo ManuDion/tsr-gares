@@ -1,50 +1,35 @@
-# TSR Gares Finance
+# TSR Gares Finance — Version N
 
-Application Laravel 12 de gestion financière multi-gares pour **TSR Côte d'Ivoire**.
+Application web Laravel 12 de gestion financière multi-gares pour **TSR Côte d’Ivoire**.
 
-Ce README est désormais le **document de référence unique** pour l'installation, la configuration, les rôles, l'OCR des bordereaux, les notifications, les exports et le dépannage courant. Vous n'avez plus besoin de lire plusieurs fichiers séparés pour exploiter le projet.
+Ce `README.md` est le **document unique de référence** du projet. Les anciens fichiers `FIX-*.md` ont été retirés de la livraison finale afin d’éviter plusieurs documents à consulter.
 
 ---
 
 ## 1. Fonctionnalités livrées
 
-### Authentification et rôles
-Profils pris en charge :
-- **Administrateur**
-- **Responsable**
-- **Chef de gare**
-- **Caissière**
-
-### Gestion métier
-- gestion des gares
+### Modules principaux
+- authentification sécurisée
+- tableau de bord dynamique
 - gestion des utilisateurs
+- gestion des gares
 - gestion des recettes
 - gestion des dépenses
 - gestion des versements bancaires
+- justificatifs lisibles et téléchargeables
+- notifications ciblées selon le rôle et les gares autorisées
 - historique des modifications
-- historique des notifications
+- historique système détaillé
 - exports Excel
-- dashboard dynamique et adapté au rôle
-- stockage privé des justificatifs
 - base PWA
+- interface responsive mobile / tablette / desktop
 
-### Notifications et contrôle journalier
-- contrôle journalier automatique à **10h00 GMT / Afrique-Abidjan**
-- suivi des gares conformes / en anomalie
-- alertes visibles sur dashboard
-- historique des notifications
-
-### Versements bancaires OCR
-Le module versement fonctionne désormais selon ce cheminement :
-1. téléversement du bordereau
-2. lecture automatique du document
-3. préremplissage des champs
-4. vérification / correction utilisateur
-5. validation
-6. enregistrement en base
-7. consultation / lecture / téléchargement du bordereau
-
-Le bordereau est **obligatoire**, y compris en saisie manuelle.
+### Ergonomie
+- menu adaptatif selon le rôle
+- interface harmonisée avec les couleurs et le style de la page de connexion
+- titres et boutons modernisés
+- marges et espacements uniformisés dans toute l’application
+- formulaires et tableaux utilisables sur mobile
 
 ---
 
@@ -53,345 +38,378 @@ Le bordereau est **obligatoire**, y compris en saisie manuelle.
 ### Administrateur
 Droits :
 - consulter toutes les gares
-- consulter toutes les recettes, dépenses et versements
+- consulter toutes les recettes, dépenses et versements bancaires
 - gérer les utilisateurs
 - gérer les gares
 - consulter le dashboard global
 - consulter les notifications
-- consulter l'historique des notifications
+- consulter l’historique des notifications
+- consulter l’historique système
 - exporter les données
 
 Restriction :
-- pas un profil de saisie terrain
+- n’est pas un profil de saisie terrain
 
 ### Responsable
 Droits :
 - consulter toutes les gares
-- consulter recettes, dépenses, versements
-- consulter le dashboard
+- consulter les recettes, dépenses et versements bancaires
+- consulter le dashboard financier
 - consulter les notifications
 - consulter les rapports financiers
-- consulter l'historique des notifications
-- exporter
+- consulter l’historique des notifications
+- consulter l’historique système
+- exporter les données
 
 Restrictions :
-- ne crée pas de recette
-- ne crée pas de dépense
-- ne crée pas de versement
+- ne peut pas créer de recette
+- ne peut pas créer de dépense
+- ne peut pas créer de versement bancaire
 
 ### Chef de gare
 Droits :
-- consulter uniquement sa gare
-- enregistrer recettes, dépenses et versements de sa gare
-- modifier les recettes et versements selon les règles métier
+- consulter les données liées à sa gare
+- enregistrer les recettes de sa gare
+- enregistrer les dépenses de sa gare
+- enregistrer les versements bancaires de sa gare
+- modifier certaines recettes et certains versements selon la règle métier
 - consulter ses notifications métier
 
 Particularités :
-- gare imposée par la connexion
-- aucun choix de gare à la saisie
-- alertes visibles sur le dashboard
+- la gare est imposée automatiquement
+- aucun choix de gare n’est affiché à la saisie
+- le menu **Gares** n’apparaît pas
+- des alertes sont visibles sur le dashboard en cas d’oubli de saisie
 
 ### Caissière
 Droits :
-- consulter les données des gares affectées
-- enregistrer recettes, dépenses et versements
+- consulter les données des gares qui lui sont attribuées
+- enregistrer les recettes
+- enregistrer les dépenses
+- enregistrer les versements bancaires
 
 Particularités :
-- choix de la gare au moment de la saisie
+- la gare est choisie au moment de la saisie
 - seules les gares autorisées sont proposées
-- possibilité d'affecter plusieurs gares ou toutes les gares au moment de la création utilisateur
+- l’affectation des gares se fait par **cases à cocher**
+- l’option **Toutes les gares actives** est disponible
 
 ---
 
-## 3. Pré-requis techniques
+## 3. Parcours métier des versements bancaires
+
+Le versement suit désormais ce flux :
+
+1. téléversement obligatoire du bordereau
+2. lecture automatique du document
+3. préremplissage des champs
+4. affichage des extraits OCR à côté des champs
+5. vérification / correction par l’utilisateur
+6. validation
+7. enregistrement en base
+8. lecture / téléchargement du bordereau
+
+### Champs de versement
+- **Gare affectée** : issue de la connexion pour le chef de gare, choisie parmi les gares autorisées pour la caissière
+- **Date opération** : préremplie
+- **Date de la recette** : saisie manuelle
+- **Montant** : prérempli
+- **Banque** : préremplie
+- **Référence** : correspond au **nom de l’agence**
+- **Description** : libre si besoin
+
+### OCR pris en charge
+- **Ecobank** : modèle international
+- **Coris Bank** : modèle national
+
+### Règles OCR
+- si l’analyse aboutit, les champs sont préremplis
+- si l’analyse échoue, le bordereau reste conservé et l’utilisateur peut continuer en saisie manuelle
+- les PDF nécessitent la présence de Poppler sur Windows
+
+---
+
+## 4. Justificatifs
+
+### Recettes
+- ajout possible d’un justificatif
+- lecture dans l’interface
+- téléchargement
+
+### Dépenses
+- justificatif pris en charge
+- lecture dans l’interface
+- téléchargement
+
+### Versements
+- bordereau obligatoire
+- lecture dans l’interface
+- téléchargement
+
+Tous les justificatifs sont stockés sur un disque privé.
+
+---
+
+## 5. Historique et audit
+
+### Historique détaillé des modifications
+Les modifications importantes sont historisées avec :
+- l’utilisateur ayant fait la modification
+- la date et l’heure
+- l’objet concerné
+- la gare associée
+- la description
+- le détail des **valeurs avant modification** et **après modification**
+
+### Règle appliquée
+Une saisie sans changement réel ne doit pas créer d’historique de modification.
+
+### Historique système
+Accessible uniquement à :
+- l’administrateur
+- le responsable
+
+Tableau disponible avec les colonnes :
+- **Objet**
+- **Utilisateur**
+- **Date et Heure**
+- **Événement**
+- **Gare**
+- **Description**
+- **Détail**
+
+---
+
+## 6. Notifications
+
+### Contrôle journalier
+Le système exécute un contrôle journalier à **10h00 GMT** sur les données du jour précédent.
+
+### Règles de diffusion
+- **Admin** et **Responsable** reçoivent uniquement les notifications de supervision globale
+- **Chef de gare** reçoit uniquement les notifications de sa gare
+- **Caissière** reçoit uniquement les notifications des gares qui lui sont affectées
+
+### Affichage
+Le tableau des notifications affiche :
+- **Date génération**
+- **Objet**
+- **Gares**
+- **Opérations**
+- **Statut**
+
+Le statut `generated` est affiché en français : **Générée**.
+
+---
+
+## 7. Dashboard et rapports
+
+### Dashboard
+Le dashboard est adapté au rôle utilisateur :
+- le chef de gare voit uniquement les indicateurs utiles à sa gare
+- les superviseurs voient une vue globale consolidée
+- les alertes de non-saisie sont visibles dès la connexion
+
+### Rapports de supervision
+Page **Top 5 et rapports de supervision** :
+- Top 5 en saisie
+- Top 5 recettes
+- Top 5 dépenses
+
+Les trois blocs sont affichés sur la même ligne sur grand écran.
+
+---
+
+## 8. Pré-requis techniques
 
 - PHP **8.2+**
 - MySQL **8+**
 - Composer
-- extensions PHP Laravel usuelles :
-  - pdo_mysql
-  - mbstring
-  - openssl
-  - fileinfo
-  - tokenizer
-  - xml
-  - ctype
-  - json
+- Node.js facultatif si vous souhaitez enrichir le front plus tard
+- extensions PHP usuelles Laravel :
+  - `pdo_mysql`
+  - `mbstring`
+  - `openssl`
+  - `fileinfo`
+  - `tokenizer`
+  - `xml`
+  - `ctype`
+  - `json`
 
-### Recommandé pour l'OCR PDF
+### OCR recommandé
 - **Tesseract OCR**
-- **Poppler** (`pdftotext`, `pdftoppm`, `pdftocairo`)  
-  ou à défaut
-- **ImageMagick**
-- **Ghostscript**
-- **MuPDF / mutool**
-- extension PHP **Imagick** si disponible
-
-Le projet essaie plusieurs méthodes automatiquement pour les PDF :
-1. extraction texte PDF directe
-2. conversion PDF → image
-3. OCR Tesseract sur l'image générée
+- **Poppler for Windows**
+  - `pdftotext.exe`
+  - `pdftoppm.exe`
+  - `pdftocairo.exe`
 
 ---
 
-## 4. Installation
-
-### 4.1 Copier le projet et installer les dépendances
+## 9. Installation
 
 ```bash
 composer install
-cp .env.example .env
+copy .env.example .env
 php artisan key:generate
+php artisan storage:link
+php artisan migrate --seed
+php artisan serve
 ```
 
-### 4.2 Configurer MySQL
+---
 
-Dans `.env` :
+## 10. Configuration MySQL
+
+Dans le fichier `.env` :
 
 ```env
+APP_NAME="TSR Gares Finance"
+APP_ENV=local
+APP_DEBUG=true
+APP_URL=http://127.0.0.1:8000
+
 DB_CONNECTION=mysql
 DB_HOST=127.0.0.1
 DB_PORT=3306
-DB_DATABASE=tsr_gares_finance
+DB_DATABASE=tsr_gares
 DB_USERNAME=root
 DB_PASSWORD=
 ```
 
-### 4.3 Lancer la base et le stockage
+---
 
-```bash
-php artisan migrate --seed
-php artisan storage:link
-php artisan optimize:clear
-php artisan serve
+## 11. Configuration OCR Windows
+
+### Tesseract
+Exemple :
+
+```env
+TESSERACT_PATH="C:/Program Files/Tesseract-OCR/tesseract.exe"
 ```
 
-Application :
-- `http://127.0.0.1:8000`
-- connexion : `/login`
+### Poppler
+Exemple :
 
----
+```env
+PDF_TEXT_BINARY="C:/poppler/Library/bin/pdftotext.exe"
+PDF_TO_IMAGE_BINARY="C:/poppler/Library/bin/pdftoppm.exe"
+PDF_TO_IMAGE_CAIRO_BINARY="C:/poppler/Library/bin/pdftocairo.exe"
+```
 
-## 5. Comptes de démonstration
-
-Après `php artisan migrate --seed` :
-
-- **admin@tsr.test** / `password`
-- **responsable@tsr.test** / `password`
-- **chef.gare@tsr.test** / `password`
-- **caissiere@tsr.test** / `password`
-
----
-
-## 6. Configuration OCR Windows
-
-Exemple recommandé dans `.env` :
+### Bloc conseillé
 
 ```env
 OCR_DRIVER=local_tesseract
 OCR_ENABLED=true
 TESSERACT_PATH="C:/Program Files/Tesseract-OCR/tesseract.exe"
-PDF_TEXT_BINARY=pdftotext
-PDF_TO_IMAGE_BINARY=pdftoppm
-PDF_TO_IMAGE_CAIRO_BINARY=pdftocairo
-MUTOOL_BINARY=mutool
-IMAGEMAGICK_BINARY=magick
-GHOSTSCRIPT_BINARY=gswin64c
+PDF_TEXT_BINARY="C:/poppler/Library/bin/pdftotext.exe"
+PDF_TO_IMAGE_BINARY="C:/poppler/Library/bin/pdftoppm.exe"
+PDF_TO_IMAGE_CAIRO_BINARY="C:/poppler/Library/bin/pdftocairo.exe"
 OCR_LANGUAGES=fra+eng
-OCR_BANK_KEYWORDS="ECOBANK,CORIS BANK,CORIS,NSIA BANQUE,NSIA,SGBCI,SGCI,BNI,UBA,BOA,BANK OF AFRICA,SIB,ORABANK,BICICI,ACCESS BANK,BDK"
-JUSTIFICATIF_MAX_SIZE_KB=5120
-JUSTIFICATIF_PRIVATE_DISK=private
-```
-
-### Important sur Windows
-- utilisez **des slashs `/`** dans les chemins du `.env`
-- mettez les chemins avec espaces **entre guillemets**
-- exemple correct :
-
-```env
-TESSERACT_PATH="C:/Program Files/Tesseract-OCR/tesseract.exe"
-```
-
-### Si `php artisan optimize:clear` échoue à cause du `.env`
-Vérifiez qu'il n'y a :
-- ni antislash non échappé `\`
-- ni espace non protégé
-- ni guillemet typographique
-
----
-
-## 7. OCR des bordereaux de versement
-
-### Documents pris en compte
-La version actuelle est optimisée pour les deux modèles transmis :
-- **Ecobank**
-- **Coris Bank**
-
-### Champs préremplis automatiquement
-- **Gare affectée**  
-  suggérée via le document ou imposée par la connexion pour un chef de gare
-- **Date opération**
-- **Montant**
-- **Banque**
-- **Référence**
-
-### Champ restant manuel
-- **Date de la recette**
-
-### Règles métier
-- le bordereau est obligatoire, même en saisie manuelle
-- si l'OCR aboutit, les champs sont préremplis
-- si l'OCR échoue, le bordereau est conservé et l'utilisateur peut poursuivre en manuel
-- la validation finale reste humaine
-- le bordereau reste lisible et téléchargeable après enregistrement
-- la modification d'un versement suit la même logique métier que les recettes
-
-### Mapping Ecobank
-Préremplissage privilégié depuis :
-- `DATE`
-- `REFERENCE`
-- `MONTANT VERSE`
-- `MONTANT CREDITE`
-- `AGENCE`, `MOTIF`, `REMARQUES` pour suggérer une gare
-
-### Mapping Coris Bank
-Préremplissage privilégié depuis :
-- date/heure d'opération
-- `BORDEREAU DE VERSEMENT ESPECES N° ...`
-- `MONTANT NET`
-- `MONTANT`
-- `ADRESSE`, `MOTIF`, `AGENCE` pour suggérer une gare
-
----
-
-## 8. Notifications et planification
-
-### Commande manuelle
-```bash
-php artisan gares:run-daily-control
-```
-
-### Planification serveur
-La tâche est planifiée pour **10h00 Afrique/Abidjan**.
-
-Exemple cron Linux :
-
-```bash
-* * * * * cd /chemin/vers/tsr-gares && php artisan schedule:run >> /dev/null 2>&1
-```
-
-Sur Windows, utilisez le **Planificateur de tâches** pour exécuter périodiquement :
-
-```bash
-php artisan schedule:run
+OCR_BANK_KEYWORDS="ECOBANK,CORIS BANK,CORIS"
 ```
 
 ---
 
-## 9. Exports
+## 12. Comptes de démonstration
 
-Exports disponibles :
-- recettes
-- dépenses
-- contrôles journaliers
+Après `php artisan migrate --seed` :
 
-Format :
-- Excel
-- une feuille par date sur la période sélectionnée
+- `admin@tsr.test`
+- `responsable@tsr.test`
+- `chef.gare@tsr.test`
+- `caissiere@tsr.test`
 
----
+Mot de passe :
 
-## 10. Justificatifs
-
-Les justificatifs de dépenses et de versements sont stockés sur un disque privé.
-
-Fonctions disponibles :
-- lecture
-- téléchargement
-- consultation depuis la fiche concernée
-
----
-
-## 11. Utilisation rapide du module versement
-
-### Cas normal
-1. ouvrir **Versements**
-2. cliquer sur **Nouveau versement**
-3. téléverser le bordereau
-4. vérifier les champs préremplis
-5. renseigner **Date de la recette**
-6. valider
-
-### Si l'OCR ne lit pas le document
-1. téléverser quand même le bordereau
-2. laisser l'application conserver le document
-3. compléter manuellement les champs
-4. valider
-
----
-
-## 12. Dépannage courant
-
-### L'image passe mais pas le PDF
-Causes fréquentes :
-- `pdftotext` absent
-- `pdftoppm` absent
-- `pdftocairo` absent
-- ImageMagick installé sans support PDF
-- Ghostscript absent
-
-Solutions :
-- installer **Poppler for Windows**
-- ou installer **ImageMagick + Ghostscript**
-- ou installer **MuPDF / mutool**
-- puis relancer :
-
-```bash
-php artisan optimize:clear
-php artisan serve
+```text
+password
 ```
-
-### L'OCR ne remplit pas bien un champ
-Vérifiez :
-- la lisibilité du scan
-- la présence du mot-clé sur le bordereau
-- la qualité de la date
-- l'exactitude des noms de gares dans la base
-
-### L'application ne démarre pas après modification du `.env`
-Lancez :
-
-```bash
-php artisan optimize:clear
-```
-
-Puis corrigez les lignes OCR mal formatées.
 
 ---
 
 ## 13. Commandes utiles
 
+### Lancer l’application
 ```bash
-composer dump-autoload
-php artisan optimize:clear
-php artisan migrate
-php artisan migrate:fresh --seed
-php artisan storage:link
 php artisan serve
-php artisan gares:run-daily-control
+```
+
+### Nettoyer les caches
+```bash
+php artisan optimize:clear
+php artisan view:clear
+php artisan route:clear
+php artisan config:clear
+```
+
+### Réinitialiser la base
+```bash
+php artisan migrate:fresh --seed
+```
+
+### Lancer le scheduler en local
+```bash
+php artisan schedule:work
 ```
 
 ---
 
-## 14. Notes de version intégrées
+## 14. Dépannage rapide
 
-Cette version intègre notamment :
-- OCR réel sur images
-- amélioration OCR PDF avec plusieurs stratégies
-- mapping spécifique **Ecobank / Coris Bank**
-- bordereau obligatoire même en manuel
-- fallback manuel si lecture automatique échoue
-- README unifié
-- lecture et téléchargement des justificatifs
-- rôles et menus adaptés
-- dashboard dynamique et responsive
+### Erreur `.env` sur les chemins Windows
+Utilisez des **slashes `/`** et gardez les chemins entre guillemets :
+
+```env
+TESSERACT_PATH="C:/Program Files/Tesseract-OCR/tesseract.exe"
+```
+
+### OCR PDF ne fonctionne pas
+Vérifiez :
+- que Poppler est bien installé
+- que `pdftotext.exe`, `pdftoppm.exe` et `pdftocairo.exe` existent
+- que les chemins sont corrects dans `.env`
+
+### L’image OCR fonctionne mais pas le PDF
+Dans la plupart des cas, il manque Poppler ou les chemins `.env` sont erronés.
+
+### Un changement ne doit pas créer d’historique
+La version finale ignore désormais les mises à jour sans différence réelle entre les valeurs avant/après.
+
+---
+
+## 15. Arborescence utile
+
+- `app/Http/Controllers` : contrôleurs métier
+- `app/Services/DocumentAnalysisService.php` : OCR / lecture documentaire
+- `app/Services/DailyControlService.php` : contrôle journalier / notifications
+- `app/Services/ActivityLogService.php` : historique système
+- `resources/views` : vues Blade
+- `public/assets/app.css` : thème principal
+- `storage/app/private` : stockage privé des justificatifs
+
+---
+
+## 16. Évolutions possibles pour une version encore plus professionnelle
+
+- workflow de validation à 2 niveaux avec approbation superviseur
+- notifications email / SMS / WhatsApp
+- recherche globale plein texte sur opérations et justificatifs
+- export PDF des journaux d’audit
+- OCR enrichi avec modèles bancaires supplémentaires
+- file d’attente Laravel pour l’OCR et les exports lourds
+- tableau de bord décisionnel par gare, zone, période et opérateur
+- mode hors ligne PWA avec synchronisation différée
+- journal de connexion et suivi de sécurité renforcé
+
+---
+
+## 17. Livraison finale
+
+Cette version est livrée comme **version finale consolidée** avec :
+- une interface harmonisée
+- un OCR versements opérationnel
+- un historique système exploitable
+- des notifications filtrées par destinataire
+- un README unique
+

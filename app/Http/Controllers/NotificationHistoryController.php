@@ -22,12 +22,9 @@ class NotificationHistoryController extends Controller
 
         $query = NotificationHistory::query()
             ->with('user')
+            ->where('user_id', $user->id)
             ->orderByDesc('concerned_date')
             ->orderByDesc('created_at');
-
-        if (! $user->canViewAllGares()) {
-            $query->where('user_id', $user->id);
-        }
 
         return view('notifications.index', [
             'notifications' => $query->paginate(20)->withQueryString(),

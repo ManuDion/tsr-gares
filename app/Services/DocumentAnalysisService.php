@@ -32,43 +32,53 @@ class DocumentAnalysisService
         return $this->persistAnalysis($piece, $analysis);
     }
 
-    public function analyzeFile(
-        string $absolutePath,
-        string $originalName,
-        ?string $mimeType = null,
-        Collection|array $availableGares = [],
-        ?int $preferredGareId = null
-    ): array {
-        if (! Config::boolean('services.ocr.enabled')) {
-            throw new RuntimeException("L'OCR local n'est pas activé dans le fichier .env.");
-        }
-
-        $gares = $availableGares instanceof Collection ? $availableGares->values() : collect($availableGares)->values();
-
-        $result = $this->extractRawText($absolutePath, $mimeType);
-
-        $parsed = $this->parseVersementData(
-            $result['text'],
-            $gares,
-            $preferredGareId,
-            $originalName
-        );
-
-        return [
-            'status' => 'completed',
-            'provider' => Config::get('services.ocr.driver', 'local_tesseract'),
-            'extracted_data' => $parsed['fields'],
-            'confidence' => $parsed['confidence'],
-            'raw_payload' => [
-                'source_name' => $originalName,
-                'source_mime' => $mimeType,
-                'raw_text' => $result['text'],
-                'diagnostics' => $result['diagnostics'],
-                'preview_lines' => $this->previewLines($result['text']),
-                'detected_template' => $parsed['detected_template'] ?? 'Générique',
-            ],
-        ];
+public function analyzeFile(
+    string $absolutePath,
+    string $originalName,
+    ?string $mimeType = null,
+    Collection|array $availableGares = [],
+    ?int $preferredGareId = null
+): array {
+    if (! Config::boolean('services.ocr.enabled')) {
+        throw new RuntimeException("L'OCR local n'est pas activé dans le fichier .env.");
     }
+
+    $gares = $availableGares instanceof Collection ? $availableGares->values() : collect($availableGares)->values();
+    $result = $this->extractRawText($absolutePath, $mimeType);
+    $originalLines = collect(preg_split('/\r\n|\r|\n/', $result['text']) ?: [])
+        ->map(fn ($line) => trim($line))
+        ->filter()
+        ->values();
+    $normalizedLines = $originalLines
+        ->map(fn ($line) => $this->normalizeForSearch($line))
+        ->filter()
+        ->values();
+
+    $parsed = $this->parseVersementData(
+        $result['text'],
+        $originalLines,
+        $normalizedLines,
+        $gares,
+        $preferredGareId,
+        $originalName
+    );
+
+    return [
+        'status' => 'completed',
+        'provider' => Config::get('services.ocr.driver', 'local_tesseract'),
+        'extracted_data' => $parsed['fields'],
+        'confidence' => $parsed['confidence'],
+        'raw_payload' => [
+            'source_name' => $originalName,
+            'source_mime' => $mimeType,
+            'raw_text' => $result['text'],
+            'diagnostics' => $result['diagnostics'],
+            'preview_lines' => $this->previewLines($result['text']),
+            'detected_template' => $parsed['detected_template'] ?? 'Générique',
+            'field_snippets' => $parsed['field_snippets'] ?? [],
+        ],
+    ];
+}
 
     public function persistAnalysis(PieceJustificative $piece, array $analysis): DocumentAnalysis
     {
@@ -126,8 +136,13 @@ class DocumentAnalysisService
     {
         $txtPath = $workingDirectory.'/source.txt';
 
-        $binaries = array_filter([
+        $binaries = $this->resolveBinaryCandidates([
             Config::get('services.ocr.pdf_text_binary', 'pdftotext'),
+        ], [
+            'C:/Program Files/poppler/bin/pdftotext.exe',
+            'C:/Program Files/poppler/Library/bin/pdftotext.exe',
+            'C:/poppler/bin/pdftotext.exe',
+            'C:/poppler/Library/bin/pdftotext.exe',
         ]);
 
         foreach ($binaries as $binary) {
@@ -162,34 +177,81 @@ class DocumentAnalysisService
             return $pngPath;
         }
 
-        $pdftoppmBinary = Config::get('services.ocr.pdf_to_image_binary', 'pdftoppm');
-        $pdftocairoBinary = Config::get('services.ocr.pdf_to_image_cairo_binary', 'pdftocairo');
-        $mutoolBinary = Config::get('services.ocr.mutool_binary', 'mutool');
-        $imageMagickBinary = Config::get('services.ocr.imagemagick_binary', 'magick');
-        $ghostscriptBinary = Config::get('services.ocr.ghostscript_binary', 'gswin64c');
+        $pdftoppmBinaries = $this->resolveBinaryCandidates([
+            Config::get('services.ocr.pdf_to_image_binary', 'pdftoppm'),
+        ], [
+            'C:/Program Files/poppler/bin/pdftoppm.exe',
+            'C:/Program Files/poppler/Library/bin/pdftoppm.exe',
+            'C:/poppler/bin/pdftoppm.exe',
+            'C:/poppler/Library/bin/pdftoppm.exe',
+        ]);
 
-        $attempts = [
-            [
+        $pdftocairoBinaries = $this->resolveBinaryCandidates([
+            Config::get('services.ocr.pdf_to_image_cairo_binary', 'pdftocairo'),
+        ], [
+            'C:/Program Files/poppler/bin/pdftocairo.exe',
+            'C:/Program Files/poppler/Library/bin/pdftocairo.exe',
+            'C:/poppler/bin/pdftocairo.exe',
+            'C:/poppler/Library/bin/pdftocairo.exe',
+        ]);
+
+        $mutoolBinaries = $this->resolveBinaryCandidates([
+            Config::get('services.ocr.mutool_binary', 'mutool'),
+        ], [
+            'C:/Program Files/MuPDF/mutool.exe',
+            'C:/MuPDF/mutool.exe',
+        ]);
+
+        $imageMagickBinaries = $this->resolveBinaryCandidates([
+            Config::get('services.ocr.imagemagick_binary', 'magick'),
+        ], [
+            'C:/Program Files/ImageMagick-*/magick.exe',
+            'C:/ImageMagick*/magick.exe',
+        ]);
+
+        $ghostscriptBinaries = $this->resolveBinaryCandidates([
+            Config::get('services.ocr.ghostscript_binary', 'gswin64c'),
+        ], [
+            'C:/Program Files/gs/gs*/bin/gswin64c.exe',
+            'C:/Program Files/Ghostscript/*/bin/gswin64c.exe',
+        ]);
+
+        $attempts = [];
+
+        foreach ($pdftoppmBinaries as $binary) {
+            $attempts[] = [
                 'label' => 'pdftoppm',
-                'command' => [$pdftoppmBinary, '-png', '-r', '300', '-f', '1', '-singlefile', $pdfPath, $outputPrefix],
-            ],
-            [
+                'command' => [$binary, '-png', '-r', '300', '-f', '1', '-singlefile', $pdfPath, $outputPrefix],
+            ];
+        }
+
+        foreach ($pdftocairoBinaries as $binary) {
+            $attempts[] = [
                 'label' => 'pdftocairo',
-                'command' => [$pdftocairoBinary, '-png', '-r', '300', '-f', '1', '-l', '1', '-singlefile', $pdfPath, $outputPrefix],
-            ],
-            [
+                'command' => [$binary, '-png', '-r', '300', '-f', '1', '-l', '1', '-singlefile', $pdfPath, $outputPrefix],
+            ];
+        }
+
+        foreach ($mutoolBinaries as $binary) {
+            $attempts[] = [
                 'label' => 'mutool',
-                'command' => [$mutoolBinary, 'draw', '-r', '300', '-o', $pngPath, $pdfPath, '1'],
-            ],
-            [
+                'command' => [$binary, 'draw', '-r', '300', '-o', $pngPath, $pdfPath, '1'],
+            ];
+        }
+
+        foreach ($imageMagickBinaries as $binary) {
+            $attempts[] = [
                 'label' => 'imagemagick',
-                'command' => [$imageMagickBinary, '-density', '300', $pdfPath.'[0]', '-alpha', 'remove', '-colorspace', 'Gray', '-strip', $pngPath],
-            ],
-            [
+                'command' => [$binary, '-density', '300', $pdfPath.'[0]', '-alpha', 'remove', '-colorspace', 'Gray', '-strip', $pngPath],
+            ];
+        }
+
+        foreach ($ghostscriptBinaries as $binary) {
+            $attempts[] = [
                 'label' => 'ghostscript',
-                'command' => [$ghostscriptBinary, '-dSAFER', '-dBATCH', '-dNOPAUSE', '-sDEVICE=png16m', '-r300', '-dFirstPage=1', '-dLastPage=1', '-o', $pngPath, $pdfPath],
-            ],
-        ];
+                'command' => [$binary, '-dSAFER', '-dBATCH', '-dNOPAUSE', '-sDEVICE=png16m', '-r300', '-dFirstPage=1', '-dLastPage=1', '-o', $pngPath, $pdfPath],
+            ];
+        }
 
         foreach ($attempts as $attempt) {
             try {
@@ -204,7 +266,7 @@ class DocumentAnalysisService
         }
 
         throw new RuntimeException(
-            "La conversion PDF a échoué. Installez pdftoppm, pdftocairo, MuPDF, ImageMagick ou Ghostscript. Détails : ".implode(' | ', $errors)
+            "La conversion PDF a échoué. Installez Poppler (pdftoppm/pdftocairo) ou configurez le chemin complet d'un convertisseur PDF dans le fichier .env. Détails : ".implode(' | ', $errors)
         );
     }
 
@@ -236,28 +298,35 @@ class DocumentAnalysisService
     {
         $extension = pathinfo($imagePath, PATHINFO_EXTENSION) ?: 'png';
         $preparedPath = $workingDirectory.'/prepared.'.$extension;
-        $imageMagickBinary = Config::get('services.ocr.imagemagick_binary', 'magick');
+        $imageMagickBinaries = $this->resolveBinaryCandidates([
+            Config::get('services.ocr.imagemagick_binary', 'magick'),
+        ], [
+            'C:/Program Files/ImageMagick-*/magick.exe',
+            'C:/ImageMagick*/magick.exe',
+        ]);
 
         if ($this->prepareImageUsingImagickExtension($imagePath, $preparedPath)) {
             return $preparedPath;
         }
 
-        try {
-            $this->runProcess([
-                $imageMagickBinary,
-                $imagePath,
-                '-auto-orient',
-                '-colorspace', 'Gray',
-                '-strip',
-                '-resize', '2200x2200>',
-                $preparedPath,
-            ]);
+        foreach ($imageMagickBinaries as $imageMagickBinary) {
+            try {
+                $this->runProcess([
+                    $imageMagickBinary,
+                    $imagePath,
+                    '-auto-orient',
+                    '-colorspace', 'Gray',
+                    '-strip',
+                    '-resize', '2200x2200>',
+                    $preparedPath,
+                ]);
 
-            if (File::exists($preparedPath)) {
-                return $preparedPath;
+                if (File::exists($preparedPath)) {
+                    return $preparedPath;
+                }
+            } catch (\Throwable $exception) {
+                // Fallback to the original image.
             }
-        } catch (\Throwable $exception) {
-            // Fallback to the original image.
         }
 
         return $imagePath;
@@ -286,53 +355,68 @@ class DocumentAnalysisService
 
     protected function runTesseract(string $imagePath): string
     {
-        $binary = Config::get('services.ocr.tesseract_binary', 'tesseract');
         $languages = Config::get('services.ocr.ocr_languages', 'fra+eng');
+        $binaries = $this->resolveBinaryCandidates([
+            Config::get('services.ocr.tesseract_binary', 'tesseract'),
+        ], [
+            'C:/Program Files/Tesseract-OCR/tesseract.exe',
+            'C:/Tesseract-OCR/tesseract.exe',
+        ]);
 
-        try {
-            return $this->runProcess([
-                $binary,
-                $imagePath,
-                'stdout',
-                '-l', $languages,
-                '--psm', '6',
-            ]);
-        } catch (\Throwable $exception) {
-            if (Str::contains($languages, '+')) {
-                try {
-                    return $this->runProcess([
-                        $binary,
-                        $imagePath,
-                        'stdout',
-                        '-l', 'eng',
-                        '--psm', '6',
-                    ]);
-                } catch (\Throwable $fallbackException) {
-                    throw new RuntimeException("Tesseract n'a pas pu lire le document : ".$fallbackException->getMessage());
+        $lastError = null;
+
+        foreach ($binaries as $binary) {
+            try {
+                return $this->runProcess([
+                    $binary,
+                    $imagePath,
+                    'stdout',
+                    '-l', $languages,
+                    '--psm', '6',
+                ]);
+            } catch (\Throwable $exception) {
+                $lastError = $exception;
+
+                if (Str::contains($languages, '+')) {
+                    try {
+                        return $this->runProcess([
+                            $binary,
+                            $imagePath,
+                            'stdout',
+                            '-l', 'eng',
+                            '--psm', '6',
+                        ]);
+                    } catch (\Throwable $fallbackException) {
+                        $lastError = $fallbackException;
+                    }
                 }
             }
-
-            throw new RuntimeException("Tesseract n'a pas pu lire le document : ".$exception->getMessage());
         }
+
+        throw new RuntimeException("Tesseract n'a pas pu lire le document : ".($lastError?->getMessage() ?: 'binaire introuvable.'));
     }
 
-    protected function parseVersementData(string $rawText, Collection $availableGares, ?int $preferredGareId, string $originalName): array
-    {
-        $normalized = $this->normalizeForSearch($rawText);
-        $originalLines = preg_split('/\r\n|\r|\n/', $rawText) ?: [];
-        $normalizedLines = collect($originalLines)
-            ->map(fn ($line) => $this->normalizeForSearch($line))
-            ->filter()
-            ->values();
+    protected function parseVersementData(
+    string $rawText,
+    Collection $originalLines,
+    Collection $normalizedLines,
+    Collection $availableGares,
+    ?int $preferredGareId,
+    string $originalName
+): array {
+    $normalized = $this->normalizeForSearch($rawText);
+    $template = $this->detectBankTemplate($normalized, $normalizedLines, $originalName);
 
-        $template = $this->detectBankTemplate($normalized, $normalizedLines, $originalName);
+    $parsed = match ($template) {
+        'coris_bank' => $this->parseCorisBankData($normalized, $normalizedLines, $availableGares, $preferredGareId, $originalName),
+        'ecobank' => $this->parseEcobankData($normalized, $normalizedLines, $availableGares, $preferredGareId, $originalName),
+        default => $this->parseGenericVersementData($normalized, $normalizedLines, $availableGares, $preferredGareId, $originalName),
+    };
 
-        return match ($template) {
-            'coris_bank' => $this->parseCorisBankData($normalized, $normalizedLines, $availableGares, $preferredGareId, $originalName),
-            'ecobank' => $this->parseEcobankData($normalized, $normalizedLines, $availableGares, $preferredGareId, $originalName),
-            default => $this->parseGenericVersementData($normalized, $normalizedLines, $availableGares, $preferredGareId, $originalName),
-        };
-    }
+    $parsed['field_snippets'] = $this->buildFieldSnippets($template, $originalLines, $normalizedLines);
+
+    return $parsed;
+}
 
     protected function detectBankTemplate(string $normalized, Collection $lines, string $originalName): string
     {
@@ -363,11 +447,12 @@ class DocumentAnalysisService
         $amount = $this->extractAmountByLabels($lines, ['MONTANT NET', 'MONTANT'])
             ?? $this->extractAmount($lines, $normalized);
 
-        $reference = $this->extractReferenceByLabels($lines, ['BORDEREAU DE VERSEMENT ESPECES N', 'BORDEREAU', 'REFERENCE', 'N'])
+        $reference = $this->extractAgencyName($lines)
+            ?? $this->extractReferenceByLabels($lines, ['AGENCE'])
             ?? pathinfo($originalName, PATHINFO_FILENAME);
 
         $gare = $this->extractGare(
-            implode(' ', $this->extractContextLines($lines, ['ADRESSE', 'MOTIF', 'AGENCE']).all()).' '.$normalized,
+            implode(' ', $this->extractContextLines($lines, ['ADRESSE', 'MOTIF', 'AGENCE'])->all()).' '.$normalized,
             $availableGares,
             $preferredGareId
         );
@@ -403,11 +488,12 @@ class DocumentAnalysisService
         $amount = $this->extractAmountByLabels($lines, ['MONTANT VERSE', 'MONTANT CREDITE', 'MONTANT'])
             ?? $this->extractAmount($lines, $normalized);
 
-        $reference = $this->extractReferenceByLabels($lines, ['REFERENCE', 'REF'])
+        $reference = $this->extractAgencyName($lines)
+            ?? $this->extractReferenceByLabels($lines, ['AGENCE'])
             ?? pathinfo($originalName, PATHINFO_FILENAME);
 
         $gare = $this->extractGare(
-            implode(' ', $this->extractContextLines($lines, ['AGENCE', 'MOTIF', 'REMARQUES']).all()).' '.$normalized,
+            implode(' ', $this->extractContextLines($lines, ['AGENCE', 'MOTIF', 'REMARQUES'])->all()).' '.$normalized,
             $availableGares,
             $preferredGareId
         );
@@ -442,7 +528,7 @@ class DocumentAnalysisService
 
         $amount = $this->extractAmount($lines, $normalized);
         $bank = $this->extractBank($lines);
-        $reference = $this->extractReference($lines) ?: pathinfo($originalName, PATHINFO_FILENAME);
+        $reference = $this->extractAgencyName($lines) ?: ($this->extractReference($lines) ?: pathinfo($originalName, PATHINFO_FILENAME));
         $matchedGare = $this->extractGare($normalized, $availableGares, $preferredGareId);
 
         return [
@@ -465,6 +551,127 @@ class DocumentAnalysisService
             ],
         ];
     }
+
+    protected function buildFieldSnippets(string $template, Collection $originalLines, Collection $normalizedLines): array
+{
+    $mapping = [
+        'coris_bank' => [
+            'operation_date' => ['LE', 'DATE'],
+            'amount' => ['MONTANT', 'MONTANT NET', 'MONTANT RECU'],
+            'bank_name' => ['BANK', 'BORDEREAU DE VERSEMENT ESPECES'],
+            'reference' => ['AGENCE'],
+            'gare_id' => ['ADRESSE', 'MOTIF', 'AGENCE'],
+        ],
+        'ecobank' => [
+            'operation_date' => ['DATE'],
+            'amount' => ['MONTANT VERSE', 'MONTANT CREDITE', 'MONTANT'],
+            'bank_name' => ['ECOBANK', 'BANQUE'],
+            'reference' => ['AGENCE'],
+            'gare_id' => ['AGENCE', 'MOTIF', 'REMARQUES'],
+        ],
+        'generic' => [
+            'operation_date' => ['DATE'],
+            'amount' => ['MONTANT', 'TOTAL', 'VERSEMENT'],
+            'bank_name' => ['BANQUE', 'BANK'],
+            'reference' => ['AGENCE', 'REFERENCE', 'REF'],
+            'gare_id' => ['AGENCE', 'MOTIF', 'REMARQUES', 'ADRESSE'],
+        ],
+    ];
+
+    $labels = $mapping[$template] ?? $mapping['generic'];
+    $snippets = [];
+
+    foreach ($labels as $field => $needles) {
+        $snippets[$field] = $this->findOriginalSnippet($originalLines, $normalizedLines, $needles)
+            ?? ($field === 'reference' ? $this->extractAgencyName($normalizedLines) : null);
+    }
+
+    return array_filter($snippets, fn ($value) => filled($value));
+}
+
+    protected function findOriginalSnippet(Collection $originalLines, Collection $normalizedLines, array $needles): ?string
+{
+    foreach ($normalizedLines as $index => $line) {
+        foreach ($needles as $needle) {
+            if (! Str::contains($line, $needle)) {
+                continue;
+            }
+
+            $slice = $originalLines->slice(max(0, $index), 2)->values()->all();
+            $snippet = trim(implode(PHP_EOL, array_filter($slice)));
+
+            if ($snippet !== '') {
+                return $snippet;
+            }
+        }
+    }
+
+    return null;
+}
+
+    protected function extractAgencyName(Collection $lines): ?string
+{
+    foreach ($lines as $index => $line) {
+        if (! Str::contains($line, 'AGENCE')) {
+            continue;
+        }
+
+        if ($inline = $this->extractInlineLabelValue($line, ['AGENCE'])) {
+            return $inline;
+        }
+
+        foreach ([$index + 1, $index + 2] as $nextIndex) {
+            $nextLine = trim((string) $lines->get($nextIndex, ''));
+
+            if ($this->looksLikeAgencyName($nextLine)) {
+                return $this->cleanupExtractedText($nextLine);
+            }
+        }
+    }
+
+    return null;
+}
+
+    protected function extractInlineLabelValue(string $line, array $labels): ?string
+{
+    foreach ($labels as $label) {
+        if (! Str::contains($line, $label)) {
+            continue;
+        }
+
+        $cleaned = preg_replace('/^.*?'.$label.'[^A-Z0-9]*?/u', '', $line);
+        $cleaned = $this->cleanupExtractedText((string) $cleaned);
+
+        if ($this->looksLikeAgencyName($cleaned)) {
+            return $cleaned;
+        }
+    }
+
+    return null;
+}
+
+    protected function looksLikeAgencyName(?string $value): bool
+{
+    if (! $value) {
+        return false;
+    }
+
+    $value = $this->cleanupExtractedText($value);
+
+    if ($value === '' || Str::contains($value, ['DATE', 'MONTANT', 'REFERENCE', 'REF', 'BANK'])) {
+        return false;
+    }
+
+    return (bool) preg_match('/[A-Z]{3,}/u', $value);
+}
+
+    protected function cleanupExtractedText(string $value): string
+{
+    $value = preg_replace('/[_:;]+/u', ' ', $value);
+    $value = preg_replace('/\s+/u', ' ', (string) $value);
+
+    return trim((string) $value);
+}
 
     protected function extractDateByLabels(Collection $lines, array $labels): ?string
     {
@@ -544,7 +751,7 @@ class DocumentAnalysisService
                     continue;
                 }
 
-                if (preg_match('/((?:\d{1,3}(?:[ .,\u00A0]\d{3})+|\d+)(?:[,.]\d{2})?)/u', $line, $matches)) {
+                if (preg_match('/((?:\d{1,3}(?:[ .,\x{00A0}]\d{3})+|\d+)(?:[,.]\d{2})?)/u', $line, $matches)) {
                     $normalized = $this->normalizeAmount($matches[1]);
 
                     if ($this->isPlausibleAmount($normalized)) {
@@ -560,8 +767,8 @@ class DocumentAnalysisService
     protected function extractAmount(Collection $lines, string $normalized): ?string
     {
         $keywordPatterns = [
-            '/(?:MONTANT NET|MONTANT VERSE|MONTANT CREDITE|MONTANT|SOMME|TOTAL|VERSEMENT)[^\d]{0,25}((?:\d{1,3}(?:[ .,\u00A0]\d{3})+|\d+)(?:[,.]\d{2})?)/u',
-            '/((?:\d{1,3}(?:[ .,\u00A0]\d{3})+|\d+)(?:[,.]\d{2})?)\s*(?:FCFA|XOF)/u',
+            '/(?:MONTANT NET|MONTANT VERSE|MONTANT CREDITE|MONTANT|SOMME|TOTAL|VERSEMENT)[^\d]{0,25}((?:\d{1,3}(?:[ .,\x{00A0}]\d{3})+|\d+)(?:[,.]\d{2})?)/u',
+            '/((?:\d{1,3}(?:[ .,\x{00A0}]\d{3})+|\d+)(?:[,.]\d{2})?)\s*(?:FCFA|XOF)/u',
         ];
 
         foreach ($lines as $line) {
@@ -576,7 +783,7 @@ class DocumentAnalysisService
             }
         }
 
-        preg_match_all('/((?:\d{1,3}(?:[ .,\u00A0]\d{3})+|\d{4,})(?:[,.]\d{2})?)/u', $normalized, $matches);
+        preg_match_all('/((?:\d{1,3}(?:[ .,\x{00A0}]\d{3})+|\d{4,})(?:[,.]\d{2})?)/u', $normalized, $matches);
 
         $candidates = collect($matches[1] ?? [])
             ->map(fn ($value) => $this->normalizeAmount($value))
@@ -778,6 +985,38 @@ class DocumentAnalysisService
             ->take(12)
             ->values()
             ->all();
+    }
+
+    protected function resolveBinaryCandidates(array $configuredCandidates, array $commonWindowsPatterns = []): array
+    {
+        $candidates = [];
+
+        foreach ($configuredCandidates as $candidate) {
+            $candidate = trim((string) $candidate);
+
+            if ($candidate !== '') {
+                $candidates[] = $candidate;
+            }
+        }
+
+        foreach ($commonWindowsPatterns as $pattern) {
+            foreach ($this->expandBinaryPattern($pattern) as $match) {
+                $candidates[] = $match;
+            }
+        }
+
+        return array_values(array_unique($candidates));
+    }
+
+    protected function expandBinaryPattern(string $pattern): array
+    {
+        if (str_contains($pattern, '*')) {
+            $matches = glob($pattern) ?: [];
+
+            return array_values(array_filter($matches, fn ($path) => is_file($path)));
+        }
+
+        return is_file($pattern) ? [$pattern] : [];
     }
 
     protected function makeWorkingDirectory(): string

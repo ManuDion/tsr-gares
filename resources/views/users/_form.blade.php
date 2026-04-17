@@ -28,24 +28,42 @@
                 <option value="{{ $gare->id }}" @selected((string) old('gare_id', $user->gare_id ?? '') === (string) $gare->id)>{{ $gare->name }} — {{ $gare->city }}</option>
             @endforeach
         </select>
+        <small>La gare principale n'apparaît que pour le rôle Chef de gare.</small>
     </div>
 
     <div data-caissiere-section class="col-span-2">
-        <div class="inline-checks">
-            <label class="checkbox-line">
-                <input type="checkbox" name="all_gares" value="1" data-all-gares @checked(old('all_gares', isset($user) && $user->gares->count() === $gares->count()))>
-                <span>Toutes les gares actives</span>
-            </label>
-        </div>
+        <div class="assignment-card">
+            <div class="assignment-head">
+                <div>
+                    <strong>Affectation des gares</strong>
+                    <small>La caissière peut être rattachée à plusieurs gares ou à toutes les gares actives.</small>
+                </div>
+                <label class="checkbox-line">
+                    <input type="checkbox" name="all_gares" value="1" data-all-gares @checked(old('all_gares', isset($user) && $user->gares->count() === $gares->count()))>
+                    <span>Toutes les gares actives</span>
+                </label>
+            </div>
 
-        <label>Gares affectées (caissière)</label>
-        <select name="zone_gares[]" multiple size="7" data-zone-gares>
             @php($selectedZoneGares = old('zone_gares', isset($user) ? $user->gares->pluck('id')->map(fn($id)=>(string)$id)->all() : []))
-            @foreach($gares as $gare)
-                <option value="{{ $gare->id }}" @selected(in_array((string) $gare->id, $selectedZoneGares, true))>{{ $gare->name }} — {{ $gare->city }}</option>
-            @endforeach
-        </select>
-        <small>Quand le rôle est Caissière, vous pouvez cocher plusieurs gares ou toutes les gares.</small>
+
+            <label>Gares affectées</label>
+            <div class="checkbox-grid" data-zone-gares-group>
+                @foreach($gares as $gare)
+                    <label class="checkbox-card">
+                        <input type="checkbox" name="zone_gares[]" value="{{ $gare->id }}" data-zone-gares @checked(in_array((string) $gare->id, $selectedZoneGares, true))>
+                        <span>
+                            <strong>{{ $gare->name }}</strong>
+                            <small>{{ $gare->city }}</small>
+                        </span>
+                    </label>
+                @endforeach
+            </div>
+
+            <div class="helper-list">
+                <small>Cochez une ou plusieurs gares pour affecter la caissière.</small>
+                <small>Si « Toutes les gares actives » est coché, la liste des gares est désactivée automatiquement.</small>
+            </div>
+        </div>
     </div>
 
     <div>

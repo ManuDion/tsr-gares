@@ -10,6 +10,7 @@ use App\Models\PieceJustificative;
 use App\Models\VersementBancaire;
 use App\Models\VersementBancaireHistory;
 use App\Services\AccessScopeService;
+use App\Services\ActivityLogService;
 use App\Services\DocumentAnalysisService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -21,7 +22,8 @@ class VersementBancaireController extends Controller
 {
     public function __construct(
         protected AccessScopeService $access,
-        protected DocumentAnalysisService $analysis
+        protected DocumentAnalysisService $analysis,
+        protected ActivityLogService $activity
     ) {}
 
     public function index(Request $request): View
@@ -91,9 +93,25 @@ class VersementBancaireController extends Controller
             );
 
             $status = 'Bordereau analysé. Vérifiez les champs préremplis avant validation.';
+            $this->activity->log($user, 'versement_analysis_success', 'Versement OCR', 'Analyse OCR du bordereau réussie.', [
+                'gare_id' => $user->isChefDeGare() ? $user->gare_id : null,
+                'after' => data_get($draft, 'analysis.extracted_data', []),
+                'extra' => [
+                    'file' => $file->getClientOriginalName(),
+                    'mime_type' => $file->getMimeType(),
+                ],
+            ]);
         } catch (\Throwable $exception) {
             $draft['analysis_error'] = "Lecture automatique impossible : {$exception->getMessage()}";
             $status = "Le bordereau a bien été conservé, mais la lecture automatique n'a pas abouti. Vous pouvez poursuivre en saisie manuelle.";
+
+            $this->activity->log($user, 'versement_analysis_failed', 'Versement OCR', 'Analyse OCR du bordereau en échec.', [
+                'gare_id' => $user->isChefDeGare() ? $user->gare_id : null,
+                'extra' => [
+                    'file' => $file->getClientOriginalName(),
+                    'message' => $exception->getMessage(),
+                ],
+            ]);
         }
 
         $token = Str::uuid()->toString();
@@ -133,6 +151,11 @@ class VersementBancaireController extends Controller
             $this->analysis->analyze($piece);
         }
 
+        $this->activity->log($user, 'versement_created', $versement, 'Création d\'un versement bancaire.', [
+            'gare_id' => $versement->gare_id,
+            'after' => $versement->only(['gare_id', 'operation_date', 'receipt_date', 'amount', 'reference', 'bank_name', 'description']),
+        ]);
+
         return redirect()->route('versements.index')->with('status', 'Versement bancaire enregistré.');
     }
 
@@ -169,28 +192,45 @@ class VersementBancaireController extends Controller
 
         $versement->update($data);
 
-        VersementBancaireHistory::create([
-            'versement_bancaire_id' => $versement->id,
-            'modified_by' => $request->user()->id,
-            'before' => $before,
-            'after' => $versement->fresh()->only([
-                'operation_date',
-                'receipt_date',
-                'amount',
-                'reference',
-                'bank_name',
-                'description',
-                'gare_id',
-            ]),
-            'comment' => $request->string('history_comment')->toString() ?: 'Modification de versement',
+        $after = $versement->fresh()->only([
+            'operation_date',
+            'receipt_date',
+            'amount',
+            'reference',
+            'bank_name',
+            'description',
+            'gare_id',
         ]);
 
-        return redirect()->route('versements.index')->with('status', 'Versement modifié.');
+        $hasFieldChanges = $this->hasMeaningfulChanges($before, $after);
+
+        if ($hasFieldChanges) {
+            VersementBancaireHistory::create([
+                'versement_bancaire_id' => $versement->id,
+                'modified_by' => $request->user()->id,
+                'before' => $before,
+                'after' => $after,
+                'comment' => $request->string('history_comment')->toString() ?: 'Modification de versement',
+            ]);
+
+            $this->activity->log($request->user(), 'versement_updated', $versement, 'Modification d\'un versement bancaire.', [
+                'gare_id' => $versement->gare_id,
+                'before' => $before,
+                'after' => $after,
+                'notes' => $request->string('history_comment')->toString() ?: null,
+            ]);
+        }
+
+        $status = $hasFieldChanges ? 'Versement modifié.' : 'Aucune modification détectée sur le versement.';
+
+        return redirect()->route('versements.index')->with('status', $status);
     }
 
     public function unlock(UnlockVersementBancaireRequest $request, VersementBancaire $versement): RedirectResponse
     {
         abort_unless($request->user()->isAdmin() || $request->user()->isResponsable(), 403);
+
+        $before = $versement->only(['force_unlocked_until', 'unlock_reason', 'unlocked_by']);
 
         $versement->update([
             'force_unlocked_until' => now()->addHours(24),
@@ -198,7 +238,35 @@ class VersementBancaireController extends Controller
             'unlocked_by' => $request->user()->id,
         ]);
 
+        $this->activity->log($request->user(), 'versement_unlocked', $versement, 'Déverrouillage superviseur d\'un versement.', [
+            'gare_id' => $versement->gare_id,
+            'before' => $before,
+            'after' => $versement->fresh()->only(['force_unlocked_until', 'unlock_reason', 'unlocked_by']),
+        ]);
+
         return back()->with('status', 'Versement déverrouillé pour 24h.');
+    }
+
+    protected function hasMeaningfulChanges(array $before, array $after): bool
+    {
+        return collect($before)->keys()->contains(function ($key) use ($before, $after) {
+            return $this->normalizeHistoryValue($before[$key] ?? null) !== $this->normalizeHistoryValue($after[$key] ?? null);
+        });
+    }
+
+    protected function normalizeHistoryValue(mixed $value): string
+    {
+        if (is_array($value)) {
+            ksort($value);
+
+            return json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        }
+
+        if ($value instanceof \DateTimeInterface) {
+            return $value->format('Y-m-d H:i:s');
+        }
+
+        return trim((string) $value);
     }
 
     protected function attachDraftPiece(VersementBancaire $versement, array $draft, int $userId): PieceJustificative
