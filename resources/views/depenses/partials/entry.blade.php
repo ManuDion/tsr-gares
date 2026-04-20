@@ -48,7 +48,12 @@
             <label>Description</label>
             <textarea name="entries[{{ $index }}][description]" rows="3">{{ old($oldPrefix.'.description', data_get($entry, 'description')) }}</textarea>
         </div>
-        <div class="col-span-2">
+        <div>
+            <label>Nom du justificatif</label>
+            <input type="text" name="entries[{{ $index }}][justificatif_name]" value="{{ old($oldPrefix.'.justificatif_name', data_get($entry, 'justificatif_name')) }}" placeholder="Ex. Dépense billetage {{ is_numeric($index) ? ((int) $index + 1) : '' }}">
+            <small>Optionnel. Le nom saisi sera utilisé pour le fichier téléchargé.</small>
+        </div>
+        <div>
             <label>Justificatif (max {{ $maxSizeKb }} Ko)</label>
             <input type="file" name="entries[{{ $index }}][justificatif]" accept=".pdf,.jpg,.jpeg,.png">
         </div>

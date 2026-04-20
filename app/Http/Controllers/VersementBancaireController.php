@@ -12,8 +12,10 @@ use App\Models\VersementBancaireHistory;
 use App\Services\AccessScopeService;
 use App\Services\ActivityLogService;
 use App\Services\DocumentAnalysisService;
+use App\Support\UploadedFileName;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
@@ -139,7 +141,7 @@ class VersementBancaireController extends Controller
         $draft = $this->getDraft($draftToken);
 
         if ($draft) {
-            $piece = $this->attachDraftPiece($versement, $draft, $user->id);
+            $piece = $this->attachDraftPiece($versement, $draft, $user->id, $request->string('bordereau_name')->toString());
 
             if (! empty($draft['analysis'])) {
                 $this->analysis->persistAnalysis($piece, $draft['analysis']);
@@ -147,7 +149,7 @@ class VersementBancaireController extends Controller
 
             $request->session()->forget($this->draftSessionKey($draftToken));
         } elseif ($request->hasFile('bordereau')) {
-            $piece = $this->attachUploadedPiece($versement, $request->file('bordereau'), $user->id);
+            $piece = $this->attachUploadedPiece($versement, $request->file('bordereau'), $user->id, $request->string('bordereau_name')->toString());
             $this->analysis->analyze($piece);
         }
 
@@ -190,6 +192,8 @@ class VersementBancaireController extends Controller
             $data['gare_id'] = $request->integer('gare_id', $versement->gare_id);
         }
 
+        unset($data['bordereau'], $data['bordereau_name']);
+
         $versement->update($data);
 
         $after = $versement->fresh()->only([
@@ -212,7 +216,23 @@ class VersementBancaireController extends Controller
                 'after' => $after,
                 'comment' => $request->string('history_comment')->toString() ?: 'Modification de versement',
             ]);
+        }
 
+        if ($request->hasFile('bordereau')) {
+            $piece = $this->attachUploadedPiece($versement, $request->file('bordereau'), $request->user()->id, $request->string('bordereau_name')->toString());
+            $this->analysis->analyze($piece);
+
+            $this->activity->log($request->user(), 'versement_attachment_added', $versement, 'Ajout d\'un bordereau sur un versement bancaire.', [
+                'gare_id' => $versement->gare_id,
+                'after' => [
+                    'piece' => $piece->original_name,
+                    'mime_type' => $piece->mime_type,
+                    'size' => $piece->size,
+                ],
+            ]);
+        }
+
+        if ($hasFieldChanges) {
             $this->activity->log($request->user(), 'versement_updated', $versement, 'Modification d\'un versement bancaire.', [
                 'gare_id' => $versement->gare_id,
                 'before' => $before,
@@ -221,7 +241,9 @@ class VersementBancaireController extends Controller
             ]);
         }
 
-        $status = $hasFieldChanges ? 'Versement modifié.' : 'Aucune modification détectée sur le versement.';
+        $status = $hasFieldChanges || $request->hasFile('bordereau')
+            ? 'Versement modifié.'
+            : 'Aucune modification détectée sur le versement.';
 
         return redirect()->route('versements.index')->with('status', $status);
     }
@@ -269,7 +291,7 @@ class VersementBancaireController extends Controller
         return trim((string) $value);
     }
 
-    protected function attachDraftPiece(VersementBancaire $versement, array $draft, int $userId): PieceJustificative
+    protected function attachDraftPiece(VersementBancaire $versement, array $draft, int $userId, ?string $desiredName = null): PieceJustificative
     {
         $disk = $draft['disk'] ?? env('JUSTIFICATIF_PRIVATE_DISK', 'private');
         $tempPath = $draft['temp_path'];
@@ -279,7 +301,7 @@ class VersementBancaireController extends Controller
 
         return $versement->justificatives()->create([
             'document_type' => 'versement_bancaire',
-            'original_name' => $draft['original_name'],
+            'original_name' => UploadedFileName::buildFromStoredName($desiredName, $draft['original_name'], $draft['mime_type'] ?? null),
             'file_name' => basename($finalPath),
             'mime_type' => $draft['mime_type'] ?: 'application/pdf',
             'size' => $draft['size'] ?? 0,
@@ -290,14 +312,14 @@ class VersementBancaireController extends Controller
         ]);
     }
 
-    protected function attachUploadedPiece(VersementBancaire $versement, $file, int $userId): PieceJustificative
+    protected function attachUploadedPiece(VersementBancaire $versement, UploadedFile $file, int $userId, ?string $desiredName = null): PieceJustificative
     {
         $disk = env('JUSTIFICATIF_PRIVATE_DISK', 'private');
         $path = $file->store('justificatifs/versements/'.now()->format('Y/m'), $disk);
 
         return $versement->justificatives()->create([
             'document_type' => 'versement_bancaire',
-            'original_name' => $file->getClientOriginalName(),
+            'original_name' => UploadedFileName::build($desiredName, $file),
             'file_name' => basename($path),
             'mime_type' => $file->getMimeType() ?: 'application/pdf',
             'size' => $file->getSize(),

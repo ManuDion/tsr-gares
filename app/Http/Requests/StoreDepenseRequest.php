@@ -35,6 +35,7 @@ class StoreDepenseRequest extends FormRequest
             'entries.*.motif' => ['required', 'string', 'max:150'],
             'entries.*.reference' => ['nullable', 'string', 'max:100'],
             'entries.*.description' => ['nullable', 'string', 'max:500'],
+            'entries.*.justificatif_name' => ['nullable', 'string', 'max:120'],
             'entries.*.justificatif' => [
                 'nullable',
                 'file',

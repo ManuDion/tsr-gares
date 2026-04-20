@@ -22,6 +22,7 @@ class UpdateRecetteRequest extends FormRequest
             'bagage_national_amount' => ['required', 'numeric', 'min:0'],
             'amount' => ['nullable', 'numeric', 'min:0'],
             'description' => ['nullable', 'string', 'max:500'],
+            'justificatif_name' => ['nullable', 'string', 'max:120'],
             'history_comment' => ['nullable', 'string', 'max:255'],
             'justificatif' => [
                 'nullable',

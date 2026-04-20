@@ -17,7 +17,7 @@
 @section('content')
     <div class="grid-2">
         <div class="panel">
-            <form method="POST" action="{{ route('versements.update', $versement) }}" class="stack-md">
+            <form method="POST" action="{{ route('versements.update', $versement) }}" enctype="multipart/form-data" class="stack-md">
                 @csrf
                 @method('PUT')
                 @include('versements._form', ['draft' => null, 'draftToken' => null, 'defaultGareLabel' => null])
@@ -52,7 +52,6 @@
             @endphp
             <div class="timeline">
                 @forelse($filteredHistories as $history)
-versement->histories as $history)
                     <div class="timeline-item timeline-item-detailed">
                         <strong>{{ $history->modifier->name ?? 'Système' }}</strong>
                         <small>{{ $history->created_at?->format('d/m/Y H:i') }}</small>

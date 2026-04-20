@@ -23,6 +23,7 @@ class StoreVersementBancaireRequest extends FormRequest
             'reference' => ['nullable', 'string', 'max:100'],
             'bank_name' => ['nullable', 'string', 'max:150'],
             'description' => ['nullable', 'string', 'max:500'],
+            'bordereau_name' => ['nullable', 'string', 'max:120'],
             'analysis_token' => ['nullable', 'string', 'max:100', 'required_without:bordereau'],
             'bordereau' => [
                 'nullable',

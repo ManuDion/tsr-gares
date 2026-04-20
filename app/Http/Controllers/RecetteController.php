@@ -11,8 +11,10 @@ use App\Models\RecetteHistory;
 use App\Services\AccessScopeService;
 use App\Services\ActivityLogService;
 use App\Services\DocumentAnalysisService;
+use App\Support\UploadedFileName;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\View\View;
 
 class RecetteController extends Controller
@@ -76,7 +78,7 @@ class RecetteController extends Controller
         $recette = Recette::create($data);
 
         if ($request->hasFile('justificatif')) {
-            $piece = $this->attachUploadedPiece($recette, $request->file('justificatif'), $user->id);
+            $piece = $this->attachUploadedPiece($recette, $request->file('justificatif'), $user->id, $request->string('justificatif_name')->toString());
             $this->analysis->analyze($piece);
         }
 
@@ -157,7 +159,7 @@ class RecetteController extends Controller
         }
 
         if ($request->hasFile('justificatif')) {
-            $piece = $this->attachUploadedPiece($recette, $request->file('justificatif'), $request->user()->id);
+            $piece = $this->attachUploadedPiece($recette, $request->file('justificatif'), $request->user()->id, $request->string('justificatif_name')->toString());
             $this->analysis->analyze($piece);
         }
 
@@ -232,14 +234,15 @@ class RecetteController extends Controller
         return trim((string) $value);
     }
 
-    protected function attachUploadedPiece(Recette $recette, $file, int $userId): PieceJustificative
+    protected function attachUploadedPiece(Recette $recette, UploadedFile $file, int $userId, ?string $desiredName = null): PieceJustificative
     {
         $disk = env('JUSTIFICATIF_PRIVATE_DISK', 'private');
         $path = $file->store('justificatifs/recettes/'.now()->format('Y/m'), $disk);
+        $originalName = UploadedFileName::build($desiredName, $file);
 
         $piece = $recette->justificatives()->create([
             'document_type' => 'recette',
-            'original_name' => $file->getClientOriginalName(),
+            'original_name' => $originalName,
             'file_name' => basename($path),
             'mime_type' => $file->getMimeType() ?: 'application/pdf',
             'size' => $file->getSize(),

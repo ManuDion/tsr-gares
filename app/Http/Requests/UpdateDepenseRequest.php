@@ -20,6 +20,7 @@ class UpdateDepenseRequest extends FormRequest
             'motif' => ['required', 'string', 'max:150'],
             'reference' => ['nullable', 'string', 'max:100'],
             'description' => ['nullable', 'string', 'max:500'],
+            'justificatif_name' => ['nullable', 'string', 'max:120'],
             'history_comment' => ['nullable', 'string', 'max:255'],
             'justificatif' => [
                 'nullable',

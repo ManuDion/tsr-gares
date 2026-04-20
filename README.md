@@ -425,3 +425,7 @@ Leur montant historique est automatiquement reporté dans :
 - **Ventes tickets inter**
 et les 3 autres montants sont initialisés à `0`.
 
+
+## Mise à jour complémentaire
+
+- Les justificatifs de recettes, dépenses et versements peuvent être renommés au moment du téléversement ; l’extension du fichier est conservée automatiquement.

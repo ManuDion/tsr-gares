@@ -5,6 +5,7 @@
 @php($fieldSnippets = data_get($analysis, 'raw_payload.field_snippets', []))
 @php($selectedGare = collect($gares)->firstWhere('id', (int) old('gare_id', $ocrData['gare_id'] ?? $versement?->gare_id ?? 0)))
 @php($selectedGareLabel = $selectedGare ? ($selectedGare->name.' — '.$selectedGare->city) : ($defaultGareLabel ?? null))
+@php($defaultBordereauName = old('bordereau_name', isset($draft['original_name']) ? pathinfo($draft['original_name'], PATHINFO_FILENAME) : ''))
 
 @if(isset($draftToken) && $draftToken)
     <input type="hidden" name="analysis_token" value="{{ $draftToken }}">
@@ -264,11 +265,23 @@
             <textarea name="description" rows="4">{{ old('description', $versement?->description ?? '') }}</textarea>
         </div>
 
+        <div>
+            <label>Nom du bordereau</label>
+            <input type="text" name="bordereau_name" value="{{ $defaultBordereauName }}" placeholder="Ex. Versement Coris gare Yamoussoukro 15-07-2025">
+            <small>Optionnel. Le nom saisi sera utilisé pour le fichier téléchargé.</small>
+        </div>
+
         @unless(isset($draftToken) && $draftToken)
-            <div class="col-span-2">
-                <label>Bordereau justificatif obligatoire</label>
-                <input type="file" name="bordereau" accept=".pdf,.jpg,.jpeg,.png,image/*,application/pdf" capture="environment" required>
-                <small>Même en saisie manuelle, le bordereau doit être joint.</small>
+            <div>
+                <label>Bordereau justificatif {{ isset($versement) ? 'optionnel' : 'obligatoire' }}</label>
+                <input type="file" name="bordereau" accept=".pdf,.jpg,.jpeg,.png,image/*,application/pdf" capture="environment" @if(! isset($versement)) required @endif>
+                <small>{{ isset($versement) ? 'Ajoutez un nouveau bordereau si vous souhaitez remplacer ou compléter le justificatif existant.' : 'Même en saisie manuelle, le bordereau doit être joint.' }}</small>
+            </div>
+        @else
+            <div>
+                <label>Document analysé</label>
+                <input type="text" value="{{ $draft['original_name'] ?? 'Bordereau analysé' }}" disabled>
+                <small>Vous pouvez le renommer via le champ précédent.</small>
             </div>
         @endunless
     </div>

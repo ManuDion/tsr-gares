@@ -10,8 +10,10 @@ use App\Models\DepenseHistory;
 use App\Services\AccessScopeService;
 use App\Services\ActivityLogService;
 use App\Services\DocumentAnalysisService;
+use App\Support\UploadedFileName;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
@@ -59,6 +61,7 @@ class DepenseController extends Controller
                 'reference' => null,
                 'description' => null,
                 'gare_id' => null,
+                'justificatif_name' => null,
             ]]),
         ]);
     }
@@ -86,20 +89,7 @@ class DepenseController extends Controller
 
                 if ($request->hasFile("entries.$index.justificatif")) {
                     $file = $request->file("entries.$index.justificatif");
-                    $path = $file->store('justificatifs/depenses', env('JUSTIFICATIF_PRIVATE_DISK', 'private'));
-
-                    $piece = $depense->justificatives()->create([
-                        'document_type' => 'depense',
-                        'original_name' => $file->getClientOriginalName(),
-                        'file_name' => basename($path),
-                        'mime_type' => $file->getMimeType() ?: 'application/pdf',
-                        'size' => $file->getSize(),
-                        'disk' => env('JUSTIFICATIF_PRIVATE_DISK', 'private'),
-                        'path' => $path,
-                        'uploaded_by' => $user->id,
-                        'uploaded_at' => now(),
-                    ]);
-
+                    $piece = $this->attachUploadedPiece($depense, $file, $user->id, data_get($entry, 'justificatif_name'));
                     $this->analysis->analyze($piece);
                 }
 
@@ -144,6 +134,8 @@ class DepenseController extends Controller
             $data['gare_id'] = $request->integer('gare_id', $depense->gare_id);
         }
 
+        unset($data['justificatif'], $data['justificatif_name']);
+
         $depense->update($data);
 
         $after = $depense->fresh()->only(['operation_date', 'amount', 'motif', 'reference', 'description', 'gare_id']);
@@ -161,19 +153,7 @@ class DepenseController extends Controller
 
         if ($request->hasFile('justificatif')) {
             $file = $request->file('justificatif');
-            $path = $file->store('justificatifs/depenses', env('JUSTIFICATIF_PRIVATE_DISK', 'private'));
-
-            $piece = $depense->justificatives()->create([
-                'document_type' => 'depense',
-                'original_name' => $file->getClientOriginalName(),
-                'file_name' => basename($path),
-                'mime_type' => $file->getMimeType() ?: 'application/pdf',
-                'size' => $file->getSize(),
-                'disk' => env('JUSTIFICATIF_PRIVATE_DISK', 'private'),
-                'path' => $path,
-                'uploaded_by' => $request->user()->id,
-                'uploaded_at' => now(),
-            ]);
+            $piece = $this->attachUploadedPiece($depense, $file, $request->user()->id, $request->string('justificatif_name')->toString());
 
             $this->analysis->analyze($piece);
 
@@ -196,7 +176,7 @@ class DepenseController extends Controller
             ]);
         }
 
-        $status = $hasFieldChanges ? 'Dépense modifiée.' : 'Aucune modification détectée sur la dépense.';
+        $status = $hasFieldChanges || $request->hasFile('justificatif') ? 'Dépense modifiée.' : 'Aucune modification détectée sur la dépense.';
 
         return redirect()->route('depenses.index')->with('status', $status);
     }
@@ -220,6 +200,25 @@ class DepenseController extends Controller
         ]);
 
         return back()->with('status', 'Dépense déverrouillée pour 24h.');
+    }
+
+    protected function attachUploadedPiece(Depense $depense, UploadedFile $file, int $userId, ?string $desiredName = null)
+    {
+        $disk = env('JUSTIFICATIF_PRIVATE_DISK', 'private');
+        $path = $file->store('justificatifs/depenses', $disk);
+        $originalName = UploadedFileName::build($desiredName, $file);
+
+        return $depense->justificatives()->create([
+            'document_type' => 'depense',
+            'original_name' => $originalName,
+            'file_name' => basename($path),
+            'mime_type' => $file->getMimeType() ?: 'application/pdf',
+            'size' => $file->getSize(),
+            'disk' => $disk,
+            'path' => $path,
+            'uploaded_by' => $userId,
+            'uploaded_at' => now(),
+        ]);
     }
 
     protected function hasMeaningfulChanges(array $before, array $after): bool

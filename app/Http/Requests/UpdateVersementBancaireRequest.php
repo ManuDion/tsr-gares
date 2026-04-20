@@ -21,6 +21,13 @@ class UpdateVersementBancaireRequest extends FormRequest
             'reference' => ['nullable', 'string', 'max:100'],
             'bank_name' => ['nullable', 'string', 'max:150'],
             'description' => ['nullable', 'string', 'max:500'],
+            'bordereau_name' => ['nullable', 'string', 'max:120'],
+            'bordereau' => [
+                'nullable',
+                'file',
+                'mimes:pdf,jpg,jpeg,png',
+                'max:'.(int) env('JUSTIFICATIF_MAX_SIZE_KB', 5120),
+            ],
             'history_comment' => ['nullable', 'string', 'max:255'],
         ];
     }

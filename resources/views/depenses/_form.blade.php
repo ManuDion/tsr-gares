@@ -28,7 +28,12 @@
         <label>Description</label>
         <textarea name="description" rows="4">{{ old('description', $depense->description ?? '') }}</textarea>
     </div>
-    <div class="col-span-2">
+    <div>
+        <label>Nom du justificatif</label>
+        <input type="text" name="justificatif_name" value="{{ old('justificatif_name') }}" placeholder="Ex. Dépense carburant 15-07-2025">
+        <small>Optionnel. Le nom saisi sera utilisé pour le fichier téléchargé.</small>
+    </div>
+    <div>
         <label>Justificatif (max {{ $maxSizeKb }} Ko)</label>
         <input type="file" name="justificatif" accept=".pdf,.jpg,.jpeg,.png">
     </div>

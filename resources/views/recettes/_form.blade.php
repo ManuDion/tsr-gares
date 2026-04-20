@@ -54,7 +54,12 @@
         <label>Description</label>
         <textarea name="description" rows="4">{{ old('description', $recette->description ?? '') }}</textarea>
     </div>
-    <div class="col-span-2">
+    <div>
+        <label>Nom du fichier justificatif</label>
+        <input type="text" name="justificatif_name" value="{{ old('justificatif_name') }}" placeholder="Ex. Recette gare Abidjan 15-07-2025">
+        <small>Optionnel. Si renseigné, ce nom sera utilisé lors du téléchargement.</small>
+    </div>
+    <div>
         <label>Fichier justificatif</label>
         <input type="file" name="justificatif" accept=".pdf,.jpg,.jpeg,.png,image/*,application/pdf">
         <small>Vous pouvez joindre un justificatif de recette pour lecture ou téléchargement ultérieur.</small>
