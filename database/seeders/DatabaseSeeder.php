@@ -55,6 +55,14 @@ class DatabaseSeeder extends Seeder
             'is_active' => true,
         ]);
 
+        User::create([
+            'name' => 'Contrôleur TSR',
+            'email' => 'controleur@tsr.test',
+            'password' => 'password',
+            'role' => UserRole::Controleur,
+            'is_active' => true,
+        ]);
+
         $caissiere->gares()->sync([$gares[1]->id, $gares[2]->id, $gares[3]->id]);
 
         foreach (range(0, 6) as $index) {

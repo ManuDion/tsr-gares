@@ -11,7 +11,7 @@ class UpdateUserRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->isAdmin() ?? false;
+        return ($this->user()?->isAdmin() || $this->user()?->isResponsable()) ?? false;
     }
 
     public function rules(): array

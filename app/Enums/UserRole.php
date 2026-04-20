@@ -9,6 +9,7 @@ enum UserRole: string
     case ChefDeGare = 'chef_de_gare';
     case Caissiere = 'caissiere';
     case ChefDeZone = 'chef_de_zone'; // Legacy support
+    case Controleur = 'controleur';
 
     public function label(): string
     {
@@ -17,6 +18,7 @@ enum UserRole: string
             self::Responsable => 'Responsable',
             self::ChefDeGare => 'Chef de gare',
             self::Caissiere, self::ChefDeZone => 'Caissière',
+            self::Controleur => 'Contrôleur',
         };
     }
 
@@ -27,6 +29,7 @@ enum UserRole: string
             ['value' => self::Responsable->value, 'label' => self::Responsable->label()],
             ['value' => self::ChefDeGare->value, 'label' => self::ChefDeGare->label()],
             ['value' => self::Caissiere->value, 'label' => self::Caissiere->label()],
+            ['value' => self::Controleur->value, 'label' => self::Controleur->label()],
         ];
     }
 }

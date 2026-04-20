@@ -46,11 +46,16 @@ class ActivityLogController extends Controller
             'recette_attachment_added' => 'Justificatif de recette ajouté',
             'depense_updated' => 'Dépense modifiée',
             'depense_attachment_added' => 'Justificatif de dépense ajouté',
+            'depense_unlocked' => 'Dépense déverrouillée',
             'versement_updated' => 'Versement modifié',
             'versement_unlocked' => 'Versement déverrouillé',
             'versement_attachment_added' => 'Bordereau ajouté',
             'versement_analysis_success' => 'Lecture OCR réussie',
             'versement_analysis_failed' => 'Échec de lecture OCR',
+            'verification_confirmed' => 'Écart confirmé',
+            'verification_adjustment_opened' => 'Ajustement ouvert',
+            'administrative_document_created' => 'Document administratif créé',
+            'administrative_document_updated' => 'Document administratif mis à jour',
         ];
 
         return view('activity-logs.index', [
@@ -76,11 +81,16 @@ class ActivityLogController extends Controller
             'recette_attachment_added' => 'Justificatif de recette ajouté',
             'depense_updated' => 'Dépense modifiée',
             'depense_attachment_added' => 'Justificatif de dépense ajouté',
+            'depense_unlocked' => 'Dépense déverrouillée',
             'versement_updated' => 'Versement modifié',
             'versement_unlocked' => 'Versement déverrouillé',
             'versement_attachment_added' => 'Bordereau ajouté',
             'versement_analysis_success' => 'Lecture OCR réussie',
             'versement_analysis_failed' => 'Échec de lecture OCR',
+            'verification_confirmed' => 'Écart confirmé',
+            'verification_adjustment_opened' => 'Ajustement ouvert',
+            'administrative_document_created' => 'Document administratif créé',
+            'administrative_document_updated' => 'Document administratif mis à jour',
         ];
 
         return view('activity-logs.show', [

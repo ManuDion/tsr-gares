@@ -2,7 +2,7 @@
 
 @section('title', 'Versements bancaires')
 @section('heading', 'Gestion des versements bancaires')
-@section('subheading', 'Suivi des dépôts bancaires, bordereaux et lecture OCR')
+@section('subheading', auth()->user()->canViewAllGares() ? 'Suivi des dépôts bancaires, bordereaux et lecture OCR' : 'Liste des versements de votre périmètre')
 
 @section('actions')
     @can('create', App\Models\VersementBancaire::class)
@@ -11,31 +11,33 @@
 @endsection
 
 @section('content')
-    <div class="panel">
-        <form method="GET" class="filters-grid">
-            <div>
-                <label>Gare</label>
-                <select name="gare_id">
-                    <option value="">Toutes</option>
-                    @foreach($gares as $gare)
-                        <option value="{{ $gare->id }}" @selected((string) request('gare_id') === (string) $gare->id)>{{ $gare->name }}</option>
-                    @endforeach
-                </select>
-            </div>
-            <div>
-                <label>Date début</label>
-                <input type="date" name="start_date" value="{{ request('start_date') }}">
-            </div>
-            <div>
-                <label>Date fin</label>
-                <input type="date" name="end_date" value="{{ request('end_date') }}">
-            </div>
-            <div class="align-end gap-sm">
-                <button class="btn btn-outline" type="submit"><span class="icon">{!! app_icon('filter') !!}</span> Filtrer</button>
-                <a class="btn btn-outline" href="{{ route('exports.controls', request()->query()) }}">Exporter contrôles</a>
-            </div>
-        </form>
-    </div>
+    @if(auth()->user()->canViewAllGares())
+        <div class="panel">
+            <form method="GET" class="filters-grid">
+                <div>
+                    <label>Gare</label>
+                    <select name="gare_id">
+                        <option value="">Toutes</option>
+                        @foreach($gares as $gare)
+                            <option value="{{ $gare->id }}" @selected((string) request('gare_id') === (string) $gare->id)>{{ $gare->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label>Date début</label>
+                    <input type="date" name="start_date" value="{{ request('start_date') }}">
+                </div>
+                <div>
+                    <label>Date fin</label>
+                    <input type="date" name="end_date" value="{{ request('end_date') }}">
+                </div>
+                <div class="align-end gap-sm">
+                    <button class="btn btn-outline" type="submit"><span class="icon">{!! app_icon('filter') !!}</span> Filtrer</button>
+                    <a class="btn btn-outline" href="{{ route('exports.controls', request()->query()) }}">Exporter contrôles</a>
+                </div>
+            </form>
+        </div>
+    @endif
 
     <div class="table-wrapper">
         <table>
@@ -45,7 +47,7 @@
                     <th>Date recette</th>
                     <th>Gare</th>
                     <th>Banque</th>
-                    <th>Montant</th>
+                    <th><span class="th-stack">Montant<small>en FCFA</small></span></th>
                     <th>Référence</th>
                     <th>Bordereau</th>
                     <th>Action</th>
@@ -58,7 +60,7 @@
                         <td>{{ $versement->receipt_date?->format('d/m/Y') ?: '—' }}</td>
                         <td>{{ $versement->gare->name }}</td>
                         <td>{{ $versement->bank_name ?: '—' }}</td>
-                        <td>{{ number_format($versement->amount, 0, ',', ' ') }} FCFA</td>
+                        <td class="amount-cell">{{ number_format($versement->amount, 0, ',', ' ') }}</td>
                         <td>{{ $versement->reference ?: '—' }}</td>
                         <td>
                             @forelse($versement->justificatives as $piece)
@@ -74,9 +76,12 @@
                                 —
                             @endforelse
                         </td>
-                        <td>
+                        <td class="actions-cell">
                             @can('update', $versement)
-                                <a class="btn btn-sm btn-outline" href="{{ route('versements.edit', $versement) }}">Modifier</a>
+                                <a class="btn btn-sm btn-outline" href="{{ route('versements.edit', $versement) }}">
+                                    <span class="icon">{!! app_icon('edit') !!}</span>
+                                    <span class="sr-only">Modifier</span>
+                                </a>
                             @else
                                 —
                             @endcan

@@ -1,251 +1,225 @@
-# TSR Gares Finance — Version N
+# TSR Gares Finance — Version V3.1
 
 Application web Laravel 12 de gestion financière multi-gares pour **TSR Côte d’Ivoire**.
 
-Ce `README.md` est le **document unique de référence** du projet. Les anciens fichiers `FIX-*.md` ont été retirés de la livraison finale afin d’éviter plusieurs documents à consulter.
+Ce `README.md` est le **document unique de référence** du projet.
 
 ---
 
 ## 1. Fonctionnalités livrées
 
-### Modules principaux
+### Modules financiers
 - authentification sécurisée
-- tableau de bord dynamique
+- dashboard adapté au rôle, avec détail des types de recettes par gare et par période
 - gestion des utilisateurs
 - gestion des gares
-- gestion des recettes
-- gestion des dépenses
+- gestion des recettes avec 4 types de recette et montant total calculé
+- gestion des dépenses avec saisie multiple jusqu’à 5 enregistrements en une seule validation
 - gestion des versements bancaires
 - justificatifs lisibles et téléchargeables
-- notifications ciblées selon le rôle et les gares autorisées
-- historique des modifications
-- historique système détaillé
+- historique détaillé des modifications
+- historique système
 - exports Excel
 - base PWA
-- interface responsive mobile / tablette / desktop
 
-### Ergonomie
-- menu adaptatif selon le rôle
-- interface harmonisée avec les couleurs et le style de la page de connexion
-- titres et boutons modernisés
-- marges et espacements uniformisés dans toute l’application
-- formulaires et tableaux utilisables sur mobile
+### OCR versements
+- téléversement obligatoire du bordereau
+- lecture automatique image / PDF selon la configuration serveur
+- préremplissage des champs
+- validation manuelle avant enregistrement
+- support métier **Ecobank** et **Coris Bank**
+
+### Ergonomie et responsive
+- interface responsive sur mobile, tablette et desktop
+- tableaux adaptatifs avec affichage empilé sur petit écran
+- navigation mobile avec menu repliable
+- formulaires et sélections adaptés aux écrans tactiles
+
+### Nouveaux modules
+- **Module Vérification** : contrôle par gare et par date de la règle  
+  `Versements = Recettes - Dépenses`
+- **Module Chat** : conversations privées ou multi-participants entre utilisateurs, sans module séparé de création de groupe
+- **Module Documents administratifs** : suivi des permis, vignettes, visites techniques et autres documents réglementaires avec notifications automatiques d’échéance
+- **Rôle Contrôleur** : accès dédié au module documents administratifs, avec accès également pour l’administrateur et le responsable
 
 ---
 
 ## 2. Rôles utilisateurs
 
 ### Administrateur
-Droits :
-- consulter toutes les gares
-- consulter toutes les recettes, dépenses et versements bancaires
-- gérer les utilisateurs
-- gérer les gares
-- consulter le dashboard global
-- consulter les notifications
-- consulter l’historique des notifications
-- consulter l’historique système
-- exporter les données
-
-Restriction :
-- n’est pas un profil de saisie terrain
+- accès global à toutes les gares
+- accès complet aux modules financiers
+- gestion des utilisateurs
+- gestion des gares
+- accès au dashboard global
+- accès aux notifications
+- accès à l’historique système
+- accès au module Vérification
+- accès au module Chat
+- accès au module Documents administratifs
 
 ### Responsable
-Droits :
-- consulter toutes les gares
-- consulter les recettes, dépenses et versements bancaires
-- consulter le dashboard financier
-- consulter les notifications
-- consulter les rapports financiers
-- consulter l’historique des notifications
-- consulter l’historique système
-- exporter les données
+- interface de supervision équivalente à l’administrateur
+- accès aux modules financiers
+- accès aux notifications
+- accès à l’historique système
+- accès au module Vérification
+- accès au module Chat
+- accès au module Documents administratifs
+- gestion des gares
+- consultation / modification des utilisateurs existants
 
-Restrictions :
-- ne peut pas créer de recette
-- ne peut pas créer de dépense
-- ne peut pas créer de versement bancaire
+Restriction :
+- ne peut pas créer un nouvel utilisateur
 
 ### Chef de gare
-Droits :
-- consulter les données liées à sa gare
-- enregistrer les recettes de sa gare
-- enregistrer les dépenses de sa gare
-- enregistrer les versements bancaires de sa gare
-- modifier certaines recettes et certains versements selon la règle métier
-- consulter ses notifications métier
-
-Particularités :
-- la gare est imposée automatiquement
-- aucun choix de gare n’est affiché à la saisie
-- le menu **Gares** n’apparaît pas
-- des alertes sont visibles sur le dashboard en cas d’oubli de saisie
+- accès à sa gare uniquement
+- saisie des recettes
+- saisie des dépenses
+- saisie des versements
+- réception de ses notifications métier
+- accès au module Chat
 
 ### Caissière
-Droits :
-- consulter les données des gares qui lui sont attribuées
-- enregistrer les recettes
-- enregistrer les dépenses
-- enregistrer les versements bancaires
+- accès aux gares qui lui sont affectées
+- saisie des recettes
+- saisie des dépenses
+- saisie des versements
+- affectation multi-gares par cases à cocher
+- accès au module Gare inchangé
+- accès au module Chat
 
-Particularités :
-- la gare est choisie au moment de la saisie
-- seules les gares autorisées sont proposées
-- l’affectation des gares se fait par **cases à cocher**
-- l’option **Toutes les gares actives** est disponible
+### Contrôleur
+- accès au module Documents administratifs
+- accès aux notifications liées aux documents administratifs
+- accès au module Chat
 
 ---
 
-## 3. Parcours métier des versements bancaires
+## 3. Module Vérification
 
-Le versement suit désormais ce flux :
+Le module **Vérification** permet de calculer, pour chaque gare et pour une date donnée :
 
-1. téléversement obligatoire du bordereau
-2. lecture automatique du document
-3. préremplissage des champs
-4. affichage des extraits OCR à côté des champs
-5. vérification / correction par l’utilisateur
-6. validation
-7. enregistrement en base
-8. lecture / téléchargement du bordereau
+- total recettes
+- total dépenses
+- total versements
+- versement attendu = recettes - dépenses
+- différence constatée
+
+### Résultat
+- si la différence est nulle : statut **Conforme**
+- si la différence est différente de zéro : statut **Écart détecté**
+
+### Actions superviseur
+Pour un écart détecté, l’administrateur ou le responsable peut :
+- **confirmer la différence**
+- **activer les modifications**
+
+### Effet de l’activation des modifications
+L’activation ouvre une fenêtre d’ajustement sur les enregistrements de la gare et de la date concernées afin de permettre la régularisation par les acteurs terrain.
+
+### Notifications
+En cas d’écart :
+- une notification est envoyée à l’**administrateur**
+- une notification est envoyée au **responsable**
+- le montant de la différence est indiqué
+
+---
+
+## 4. Module Chat
+
+Le module **Chat** permet :
+- les conversations **personne à personne**
+- les conversations **multi-participants**
+- l’envoi de messages internes entre utilisateurs
+
+### Fonctionnement
+- chaque utilisateur authentifié a accès au chat
+- une conversation privée peut être créée entre deux utilisateurs
+- l’utilisateur peut choisir un ou plusieurs participants lors du démarrage d’une conversation
+- l’historique des messages reste consultable dans la conversation
+
+---
+
+## 5. Module Documents administratifs
+
+Le module permet de gérer les documents réglementaires tels que :
+- permis de conduire
+- vignettes
+- visites techniques
+- autres documents administratifs
+
+### Informations stockées
+Pour chaque document :
+- type de document
+- intitulé / référence
+- nom du fichier
+- fichier PDF
+- date d’expiration
+- notes éventuelles
+
+### Notifications automatiques
+Quand un document approche de sa date d’expiration :
+- à partir d’environ **30 jours avant l’échéance**, un rappel est généré **chaque semaine**
+- durant la **dernière semaine**, un rappel est généré **chaque jour**
+- après expiration, une notification d’expiration reste visible tant que le document n’a pas été mis à jour
+
+### Destinataires
+Les notifications sont envoyées aux profils :
+- **Administrateur**
+- **Responsable**
+- **Contrôleur**
+
+---
+
+## 6. OCR des versements bancaires
+
+### Parcours
+1. téléversement du bordereau
+2. lecture automatique
+3. préremplissage
+4. affichage des extraits OCR
+5. validation / correction par l’utilisateur
+6. enregistrement
 
 ### Champs de versement
-- **Gare affectée** : issue de la connexion pour le chef de gare, choisie parmi les gares autorisées pour la caissière
-- **Date opération** : préremplie
-- **Date de la recette** : saisie manuelle
-- **Montant** : prérempli
-- **Banque** : préremplie
-- **Référence** : correspond au **nom de l’agence**
-- **Description** : libre si besoin
+- gare affectée
+- date opération
+- date de la recette
+- montant
+- banque
+- référence = **nom de l’agence**
+- description
 
-### OCR pris en charge
-- **Ecobank** : modèle international
-- **Coris Bank** : modèle national
+### Configuration Windows OCR / PDF
+Dans `.env` :
 
-### Règles OCR
-- si l’analyse aboutit, les champs sont préremplis
-- si l’analyse échoue, le bordereau reste conservé et l’utilisateur peut continuer en saisie manuelle
-- les PDF nécessitent la présence de Poppler sur Windows
+```env
+OCR_DRIVER=local_tesseract
+OCR_ENABLED=true
+TESSERACT_PATH="C:/Program Files/Tesseract-OCR/tesseract.exe"
 
----
+PDF_TEXT_BINARY="C:/poppler/Library/bin/pdftotext.exe"
+PDF_TO_IMAGE_BINARY="C:/poppler/Library/bin/pdftoppm.exe"
+PDF_TO_IMAGE_CAIRO_BINARY="C:/poppler/Library/bin/pdftocairo.exe"
 
-## 4. Justificatifs
+OCR_LANGUAGES=fra+eng
+```
 
-### Recettes
-- ajout possible d’un justificatif
-- lecture dans l’interface
-- téléchargement
+### Configuration production Linux / cPanel
+Dans `.env`, utilisez les chemins Linux réels renvoyés par `which` :
 
-### Dépenses
-- justificatif pris en charge
-- lecture dans l’interface
-- téléchargement
-
-### Versements
-- bordereau obligatoire
-- lecture dans l’interface
-- téléchargement
-
-Tous les justificatifs sont stockés sur un disque privé.
+```env
+PDF_TEXT_BINARY="/usr/bin/pdftotext"
+PDF_TO_IMAGE_BINARY="/usr/bin/pdftoppm"
+PDF_TO_IMAGE_CAIRO_BINARY="/usr/bin/pdftocairo"
+IMAGEMAGICK_BINARY="/usr/bin/magick"
+GHOSTSCRIPT_BINARY="/usr/bin/gs"
+```
 
 ---
 
-## 5. Historique et audit
-
-### Historique détaillé des modifications
-Les modifications importantes sont historisées avec :
-- l’utilisateur ayant fait la modification
-- la date et l’heure
-- l’objet concerné
-- la gare associée
-- la description
-- le détail des **valeurs avant modification** et **après modification**
-
-### Règle appliquée
-Une saisie sans changement réel ne doit pas créer d’historique de modification.
-
-### Historique système
-Accessible uniquement à :
-- l’administrateur
-- le responsable
-
-Tableau disponible avec les colonnes :
-- **Objet**
-- **Utilisateur**
-- **Date et Heure**
-- **Événement**
-- **Gare**
-- **Description**
-- **Détail**
-
----
-
-## 6. Notifications
-
-### Contrôle journalier
-Le système exécute un contrôle journalier à **10h00 GMT** sur les données du jour précédent.
-
-### Règles de diffusion
-- **Admin** et **Responsable** reçoivent uniquement les notifications de supervision globale
-- **Chef de gare** reçoit uniquement les notifications de sa gare
-- **Caissière** reçoit uniquement les notifications des gares qui lui sont affectées
-
-### Affichage
-Le tableau des notifications affiche :
-- **Date génération**
-- **Objet**
-- **Gares**
-- **Opérations**
-- **Statut**
-
-Le statut `generated` est affiché en français : **Générée**.
-
----
-
-## 7. Dashboard et rapports
-
-### Dashboard
-Le dashboard est adapté au rôle utilisateur :
-- le chef de gare voit uniquement les indicateurs utiles à sa gare
-- les superviseurs voient une vue globale consolidée
-- les alertes de non-saisie sont visibles dès la connexion
-
-### Rapports de supervision
-Page **Top 5 et rapports de supervision** :
-- Top 5 en saisie
-- Top 5 recettes
-- Top 5 dépenses
-
-Les trois blocs sont affichés sur la même ligne sur grand écran.
-
----
-
-## 8. Pré-requis techniques
-
-- PHP **8.2+**
-- MySQL **8+**
-- Composer
-- Node.js facultatif si vous souhaitez enrichir le front plus tard
-- extensions PHP usuelles Laravel :
-  - `pdo_mysql`
-  - `mbstring`
-  - `openssl`
-  - `fileinfo`
-  - `tokenizer`
-  - `xml`
-  - `ctype`
-  - `json`
-
-### OCR recommandé
-- **Tesseract OCR**
-- **Poppler for Windows**
-  - `pdftotext.exe`
-  - `pdftoppm.exe`
-  - `pdftocairo.exe`
-
----
-
-## 9. Installation
+## 7. Installation locale
 
 ```bash
 composer install
@@ -253,89 +227,66 @@ copy .env.example .env
 php artisan key:generate
 php artisan storage:link
 php artisan migrate --seed
+php artisan optimize:clear
 php artisan serve
 ```
 
----
-
-## 10. Configuration MySQL
-
-Dans le fichier `.env` :
-
-```env
-APP_NAME="TSR Gares Finance"
-APP_ENV=local
-APP_DEBUG=true
-APP_URL=http://127.0.0.1:8000
-
-DB_CONNECTION=mysql
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_DATABASE=tsr_gares
-DB_USERNAME=root
-DB_PASSWORD=
-```
-
----
-
-## 11. Configuration OCR Windows
-
-### Tesseract
-Exemple :
-
-```env
-TESSERACT_PATH="C:/Program Files/Tesseract-OCR/tesseract.exe"
-```
-
-### Poppler
-Exemple :
-
-```env
-PDF_TEXT_BINARY="C:/poppler/Library/bin/pdftotext.exe"
-PDF_TO_IMAGE_BINARY="C:/poppler/Library/bin/pdftoppm.exe"
-PDF_TO_IMAGE_CAIRO_BINARY="C:/poppler/Library/bin/pdftocairo.exe"
-```
-
-### Bloc conseillé
-
-```env
-OCR_DRIVER=local_tesseract
-OCR_ENABLED=true
-TESSERACT_PATH="C:/Program Files/Tesseract-OCR/tesseract.exe"
-PDF_TEXT_BINARY="C:/poppler/Library/bin/pdftotext.exe"
-PDF_TO_IMAGE_BINARY="C:/poppler/Library/bin/pdftoppm.exe"
-PDF_TO_IMAGE_CAIRO_BINARY="C:/poppler/Library/bin/pdftocairo.exe"
-OCR_LANGUAGES=fra+eng
-OCR_BANK_KEYWORDS="ECOBANK,CORIS BANK,CORIS"
-```
-
----
-
-## 12. Comptes de démonstration
-
-Après `php artisan migrate --seed` :
-
+### Comptes de démonstration
 - `admin@tsr.test`
 - `responsable@tsr.test`
 - `chef.gare@tsr.test`
 - `caissiere@tsr.test`
+- `controleur@tsr.test`
 
 Mot de passe :
-
 ```text
 password
 ```
 
 ---
 
-## 13. Commandes utiles
+## 8. Déploiement production
 
-### Lancer l’application
+### Préparation
+- configurer `.env`
+- mettre `APP_ENV=production`
+- mettre `APP_DEBUG=false`
+- configurer la base MySQL
+- vérifier le stockage privé
+- vérifier les chemins OCR / PDF si utilisés
+
+### Commandes
 ```bash
-php artisan serve
+composer install --no-dev --optimize-autoloader
+php artisan key:generate
+php artisan storage:link
+php artisan migrate --force
+php artisan optimize
 ```
 
-### Nettoyer les caches
+### cPanel
+Le sous-domaine doit pointer vers le dossier `public/` de Laravel, ou bien le contenu du dossier `public/` doit être exposé comme document root avec un `index.php` adapté.
+
+---
+
+## 9. Planificateur Laravel
+
+Les tâches prévues :
+- contrôle journalier financier
+- vérification des écarts versement / recette / dépense
+- contrôle des documents administratifs expirants
+
+Configurer la crontab serveur pour exécuter le scheduler Laravel.
+
+Exemple :
+```bash
+* * * * * php /chemin/vers/le-projet/artisan schedule:run >> /dev/null 2>&1
+```
+
+---
+
+## 10. Commandes utiles
+
 ```bash
 php artisan optimize:clear
 php artisan view:clear
@@ -343,73 +294,134 @@ php artisan route:clear
 php artisan config:clear
 ```
 
-### Réinitialiser la base
+---
+
+## 11. Notes importantes
+
+- les notifications affichées sont ciblées selon le destinataire
+- le rôle **Contrôleur** ne crée pas d’utilisateurs et ne saisit pas d’opérations financières
+- les justificatifs et documents administratifs sont stockés en mode privé
+- si l’OCR PDF ne fonctionne pas en production, vérifier **Poppler**, **Ghostscript**, **ImageMagick** et les permissions serveur
+
+---
+
+## 12. Version
+
+Cette livraison correspond à la **Version N2** avec :
+- module Vérification
+- module Chat
+- module Documents administratifs
+- rôle Contrôleur
+- README unique mis à jour
+
+
+## Mise à jour Version N3
+
+Cette version ajoute et ajuste :
+- Chat : badge de messages non lus dans le menu, bouton **Nouvelle conversation**, cases à cocher pour les participants, purge automatique des conversations inactives après 2 semaines.
+- Dépenses : modification autorisée sur le même principe que les recettes (48h ou déverrouillage superviseur), historique des modifications et page d’édition dédiée.
+- Vérification : une notification par vérification et par superviseur, ouverture d’ajustement également sur les dépenses, tableau simplifié sans colonne statut, suppression des vérifications sur une période pour l’administrateur.
+- Notifications : l’administrateur peut supprimer l’historique sur une période. Le contrôleur ne voit que les notifications documentaires.
+- Documents administratifs : types par défaut **Permis de conduire**, **Vignettes**, **Visites techniques**, avec possibilité de saisir d’autres types. Seul le **contrôleur** peut créer ou mettre à jour les documents.
+- Dashboard contrôleur : total documents, documents actifs, documents en zone critique, répartition par type et notifications documentaires récentes.
+
+### Commandes après mise à jour
 ```bash
-php artisan migrate:fresh --seed
+composer dump-autoload
+php artisan migrate
+php artisan optimize:clear
+php artisan view:clear
+php artisan serve
 ```
 
-### Lancer le scheduler en local
+
+---
+
+## Ajustements version N4
+
+### Chat
+- affichage par défaut de la liste des conversations
+- bouton **Nouvelle conversation**
+- bouton **Nouveau groupe** pour l’administrateur
+- création de groupes avec affectation des utilisateurs par cases à cocher
+- badge de messages non lus dans le menu
+- suppression automatique des conversations inactives après 2 semaines
+
+### Vérification
+- tableau de consultation compacté pour rester entièrement visible
+- actions de confirmation et d’ouverture des modifications conservées
+- meilleure lisibilité des montants et de l’écart
+
+### Dashboard
+- les notifications récentes affichent uniquement celles du compte connecté
+- déduplication des notifications d’écart sur le dashboard
+
+
+---
+
+## 10. Mise à jour Version N5
+
+Cette version ajoute les ajustements suivants :
+
+- suppression du bouton dédié **Nouveau groupe**
+- une **Nouvelle conversation** permet désormais de sélectionner un ou plusieurs participants
+- amélioration de l’affichage des noms de conversations multi-participants
+- responsive renforcé sur l’ensemble de l’application
+- tableaux adaptatifs sur mobile avec lecture ligne par ligne
+- tableau du module Vérification compacté
+- déduplication renforcée des notifications d’écart sur le dashboard
+
+Aucune migration supplémentaire n’est nécessaire pour cette version.
+
+Commandes conseillées après mise à jour :
+
 ```bash
-php artisan schedule:work
+composer dump-autoload
+php artisan optimize:clear
+php artisan view:clear
+php artisan serve
 ```
 
+## Ajustement UI N6
+
+- Dans les tableaux financiers, l'unité FCFA est désormais portée par les en-têtes de colonnes.
+- Dans le module Vérification, les actions utilisent des icônes compactes pour garder la colonne Écart sur une seule ligne.
+
+
 ---
 
-## 14. Dépannage rapide
+## 11. Évolutions Version V3
 
-### Erreur `.env` sur les chemins Windows
-Utilisez des **slashes `/`** et gardez les chemins entre guillemets :
+### Recettes
+Les recettes sont désormais ventilées en **4 types obligatoires** :
+- ventes de tickets inter
+- ventes de tickets national
+- transport de bagages inter
+- transport de bagages national
 
-```env
-TESSERACT_PATH="C:/Program Files/Tesseract-OCR/tesseract.exe"
+Le champ **Référence** n’est plus utilisé dans la saisie des recettes.  
+Le champ **Montant** est maintenant **calculé automatiquement** et enregistré comme la somme des 4 montants saisis.
+
+### Dépenses
+La création de dépense permet maintenant une **saisie multiple** :
+- ajout d’un nouveau formulaire avec le bouton **Ajouter une dépense**
+- maximum **5 enregistrements** sur le même écran
+- au clic sur **Enregistrer les dépenses**, toutes les saisies valides sont sauvegardées immédiatement en base de données
+
+### Migration nécessaire
+Après mise à jour vers cette version :
+
+```bash
+composer dump-autoload
+php artisan migrate
+php artisan optimize:clear
+php artisan view:clear
+php artisan serve
 ```
 
-### OCR PDF ne fonctionne pas
-Vérifiez :
-- que Poppler est bien installé
-- que `pdftotext.exe`, `pdftoppm.exe` et `pdftocairo.exe` existent
-- que les chemins sont corrects dans `.env`
-
-### L’image OCR fonctionne mais pas le PDF
-Dans la plupart des cas, il manque Poppler ou les chemins `.env` sont erronés.
-
-### Un changement ne doit pas créer d’historique
-La version finale ignore désormais les mises à jour sans différence réelle entre les valeurs avant/après.
-
----
-
-## 15. Arborescence utile
-
-- `app/Http/Controllers` : contrôleurs métier
-- `app/Services/DocumentAnalysisService.php` : OCR / lecture documentaire
-- `app/Services/DailyControlService.php` : contrôle journalier / notifications
-- `app/Services/ActivityLogService.php` : historique système
-- `resources/views` : vues Blade
-- `public/assets/app.css` : thème principal
-- `storage/app/private` : stockage privé des justificatifs
-
----
-
-## 16. Évolutions possibles pour une version encore plus professionnelle
-
-- workflow de validation à 2 niveaux avec approbation superviseur
-- notifications email / SMS / WhatsApp
-- recherche globale plein texte sur opérations et justificatifs
-- export PDF des journaux d’audit
-- OCR enrichi avec modèles bancaires supplémentaires
-- file d’attente Laravel pour l’OCR et les exports lourds
-- tableau de bord décisionnel par gare, zone, période et opérateur
-- mode hors ligne PWA avec synchronisation différée
-- journal de connexion et suivi de sécurité renforcé
-
----
-
-## 17. Livraison finale
-
-Cette version est livrée comme **version finale consolidée** avec :
-- une interface harmonisée
-- un OCR versements opérationnel
-- un historique système exploitable
-- des notifications filtrées par destinataire
-- un README unique
+### Compatibilité des anciennes recettes
+Lors de la migration, les anciennes recettes existantes sont conservées.  
+Leur montant historique est automatiquement reporté dans :
+- **Ventes tickets inter**
+et les 3 autres montants sont initialisés à `0`.
 

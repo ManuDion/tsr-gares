@@ -9,7 +9,7 @@ class DepensePolicy
 {
     public function viewAny(User $user): bool
     {
-        return true;
+        return ! $user->isControleur();
     }
 
     public function view(User $user, Depense $depense): bool
@@ -20,5 +20,10 @@ class DepensePolicy
     public function create(User $user): bool
     {
         return $user->canCreateFinancialEntry();
+    }
+
+    public function update(User $user, Depense $depense): bool
+    {
+        return $depense->isEditableBy($user);
     }
 }

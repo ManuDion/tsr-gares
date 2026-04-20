@@ -8,7 +8,7 @@ class UserPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->isAdmin();
+        return $user->isAdmin() || $user->isResponsable();
     }
 
     public function create(User $user): bool
@@ -18,11 +18,11 @@ class UserPolicy
 
     public function update(User $user, User $model): bool
     {
-        return $user->isAdmin();
+        return $user->isAdmin() || $user->isResponsable();
     }
 
     public function delete(User $user, User $model): bool
     {
-        return $user->isAdmin();
+        return $user->isAdmin() || $user->isResponsable();
     }
 }

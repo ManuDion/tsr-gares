@@ -12,8 +12,28 @@
     @livewireStyles
 </head>
 <body class="app-body">
-    @php($user = auth()->user())
-    @php($notificationCount = $user ? \App\Models\NotificationHistory::query()->where('user_id', $user->id)->whereNull('read_at')->count() : 0)
+    @php
+    $user = auth()->user();
+    $notificationCount = $user
+        ? \App\Models\NotificationHistory::query()
+            ->where('user_id', $user->id)
+            ->when($user->isControleur(), fn ($q) => $q->whereIn('type', ['document_expired', 'document_expiry_daily', 'document_expiry_weekly']))
+            ->whereNull('read_at')
+            ->count()
+        : 0;
+
+    $chatUnreadCount = $user
+        ? \Illuminate\Support\Facades\DB::table('conversation_user as cu')
+            ->join('chat_messages as m', 'm.conversation_id', '=', 'cu.conversation_id')
+            ->where('cu.user_id', $user->id)
+            ->where('m.user_id', '!=', $user->id)
+            ->where(function ($query) {
+                $query->whereNull('cu.last_read_at')
+                    ->orWhereColumn('m.created_at', '>', 'cu.last_read_at');
+            })
+            ->count()
+        : 0;
+@endphp
 
     <div class="mobile-topbar">
         <button class="menu-toggle" type="button" data-menu-toggle>
@@ -40,23 +60,45 @@
                     <span class="icon">{!! app_icon('dashboard') !!}</span><span>Dashboard</span>
                 </a>
 
-                <a href="{{ route('recettes.index') }}" class="{{ request()->routeIs('recettes.*') ? 'active' : '' }}">
-                    <span class="icon">{!! app_icon('wallet') !!}</span><span>Recettes</span>
-                </a>
+                @unless($user->isControleur())
+                    <a href="{{ route('recettes.index') }}" class="{{ request()->routeIs('recettes.*') ? 'active' : '' }}">
+                        <span class="icon">{!! app_icon('wallet') !!}</span><span>Recettes</span>
+                    </a>
 
-                <a href="{{ route('depenses.index') }}" class="{{ request()->routeIs('depenses.*') ? 'active' : '' }}">
-                    <span class="icon">{!! app_icon('receipt') !!}</span><span>Dépenses</span>
-                </a>
+                    <a href="{{ route('depenses.index') }}" class="{{ request()->routeIs('depenses.*') ? 'active' : '' }}">
+                        <span class="icon">{!! app_icon('receipt') !!}</span><span>Dépenses</span>
+                    </a>
 
-                <a href="{{ route('versements.index') }}" class="{{ request()->routeIs('versements.*') ? 'active' : '' }}">
-                    <span class="icon">{!! app_icon('bank') !!}</span><span>Versements</span>
-                </a>
+                    <a href="{{ route('versements.index') }}" class="{{ request()->routeIs('versements.*') ? 'active' : '' }}">
+                        <span class="icon">{!! app_icon('bank') !!}</span><span>Versements</span>
+                    </a>
+                @endunless
 
-                @unless($user->isChefDeGare())
+                @unless($user->isChefDeGare() || $user->isControleur())
                     <a href="{{ route('gares.index') }}" class="{{ request()->routeIs('gares.*') ? 'active' : '' }}">
                         <span class="icon">{!! app_icon('train') !!}</span><span>Gares</span>
                     </a>
                 @endunless
+
+
+                @if($user->isAdmin() || $user->isResponsable())
+                    <a href="{{ route('verifications.index') }}" class="{{ request()->routeIs('verifications.*') ? 'active' : '' }}">
+                        <span class="icon">{!! app_icon('checklist') !!}</span><span>Vérification</span>
+                    </a>
+                @endif
+
+                @if($user->isAdmin() || $user->isResponsable() || $user->isControleur())
+                    <a href="{{ route('administrative-documents.index') }}" class="{{ request()->routeIs('administrative-documents.*') ? 'active' : '' }}">
+                        <span class="icon">{!! app_icon('shield') !!}</span><span>Documents administratifs</span>
+                    </a>
+                @endif
+
+                <a href="{{ route('chat.index') }}" class="{{ request()->routeIs('chat.*') ? 'active' : '' }}">
+                    <span class="icon">{!! app_icon('chat') !!}</span><span>Chat</span>
+                    @if($chatUnreadCount > 0)
+                        <span class="nav-badge">{{ $chatUnreadCount }}</span>
+                    @endif
+                </a>
 
                 <a href="{{ route('notifications.index') }}" class="{{ request()->routeIs('notifications.*') ? 'active' : '' }}">
                     <span class="icon">{!! app_icon('bell') !!}</span>
@@ -66,7 +108,7 @@
                     @endif
                 </a>
 
-                @if($user->isAdmin())
+                @if($user->isAdmin() || $user->isResponsable())
                     <a href="{{ route('users.index') }}" class="{{ request()->routeIs('users.*') ? 'active' : '' }}">
                         <span class="icon">{!! app_icon('users') !!}</span><span>Utilisateurs</span>
                     </a>
@@ -92,6 +134,8 @@
                         <span class="user-chip">{{ $user->primaryGare?->name }}</span>
                     @elseif($user->isCaissiere())
                         <span class="user-chip">{{ $user->gares()->count() }} gare(s) affectée(s)</span>
+                    @elseif($user->isControleur())
+                        <span class="user-chip">Contrôle de conformité</span>
                     @endif
                 </div>
                 <form action="{{ route('logout') }}" method="POST">
@@ -191,6 +235,21 @@
             syncAllGaresState();
         }
 
+        document.querySelectorAll('.table-wrapper table').forEach(function(table) {
+            const headers = Array.from(table.querySelectorAll('thead th')).map(function(header) {
+                return header.textContent.trim();
+            });
+
+            table.querySelectorAll('tbody tr').forEach(function(row) {
+                Array.from(row.children).forEach(function(cell, index) {
+                    if (! cell.matches('td')) return;
+                    if (cell.hasAttribute('colspan')) return;
+                    const label = headers[index] || '';
+                    cell.setAttribute('data-label', label);
+                });
+            });
+        });
+
         document.querySelectorAll('[data-copy-text]').forEach(function(button) {
             button.addEventListener('click', async function() {
                 const target = button.getAttribute('data-copy-text');
@@ -209,6 +268,7 @@
             });
         });
     </script>
+    @stack('scripts')
     @livewireScripts
 </body>
 </html>

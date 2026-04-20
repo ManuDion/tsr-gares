@@ -38,9 +38,9 @@ class VersementBancaireController extends Controller
 
         $this->access->scopeForUser($query, $user);
 
-        $query->when($request->filled('gare_id'), fn ($q) => $q->where('gare_id', $request->integer('gare_id')))
-            ->when($request->filled('start_date'), fn ($q) => $q->whereDate('operation_date', '>=', $request->date('start_date')))
-            ->when($request->filled('end_date'), fn ($q) => $q->whereDate('operation_date', '<=', $request->date('end_date')));
+        $query->when($user->canViewAllGares() && $request->filled('gare_id'), fn ($q) => $q->where('gare_id', $request->integer('gare_id')))
+            ->when($user->canViewAllGares() && $request->filled('start_date'), fn ($q) => $q->whereDate('operation_date', '>=', $request->date('start_date')))
+            ->when($user->canViewAllGares() && $request->filled('end_date'), fn ($q) => $q->whereDate('operation_date', '<=', $request->date('end_date')));
 
         return view('versements.index', [
             'versements' => $query->paginate(15)->withQueryString(),

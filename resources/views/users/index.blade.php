@@ -5,7 +5,9 @@
 @section('subheading', 'Administration des comptes et affectations')
 
 @section('actions')
-    <a class="btn btn-primary" href="{{ route('users.create') }}"><span class="icon">{!! app_icon('plus') !!}</span> Nouvel utilisateur</a>
+    @can('create', App\Models\User::class)
+        <a class="btn btn-primary" href="{{ route('users.create') }}"><span class="icon">{!! app_icon('plus') !!}</span> Nouvel utilisateur</a>
+    @endcan
 @endsection
 
 @section('content')

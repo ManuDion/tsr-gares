@@ -9,7 +9,7 @@ class GarePolicy
 {
     public function viewAny(User $user): bool
     {
-        return true;
+        return ! $user->isControleur();
     }
 
     public function view(User $user, Gare $gare): bool
@@ -19,16 +19,16 @@ class GarePolicy
 
     public function create(User $user): bool
     {
-        return $user->isAdmin();
+        return $user->isAdmin() || $user->isResponsable();
     }
 
     public function update(User $user, Gare $gare): bool
     {
-        return $user->isAdmin();
+        return $user->isAdmin() || $user->isResponsable();
     }
 
     public function delete(User $user, Gare $gare): bool
     {
-        return $user->isAdmin();
+        return $user->isAdmin() || $user->isResponsable();
     }
 }

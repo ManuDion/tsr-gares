@@ -78,6 +78,12 @@ class User extends Authenticatable
         return in_array($this->role, [UserRole::Caissiere, UserRole::ChefDeZone], true);
     }
 
+
+    public function isControleur(): bool
+    {
+        return $this->role === UserRole::Controleur;
+    }
+
     public function isChefDeZone(): bool
     {
         return $this->isCaissiere();

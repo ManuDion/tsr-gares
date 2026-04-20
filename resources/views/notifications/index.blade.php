@@ -19,15 +19,25 @@
         ];
     @endphp
 
-    <div class="panel">
-        <div class="hero-inline">
-            <div>
-                <h2>Notifications actives</h2>
-                <p class="text-muted">Chaque utilisateur voit uniquement les notifications qui le concernent selon son rôle et ses gares autorisées.</p>
-            </div>
-            <span class="badge badge-success">Synchronisé</span>
+    @if(auth()->user()->isAdmin())
+        <div class="panel">
+            <form method="POST" action="{{ route('notifications.purge-period') }}" class="filters-grid" onsubmit="return confirm('Supprimer les historiques de notifications sur cette période ?');">
+                @csrf
+                @method('DELETE')
+                <div>
+                    <label>Date début</label>
+                    <input type="date" name="start_date" required>
+                </div>
+                <div>
+                    <label>Date fin</label>
+                    <input type="date" name="end_date" required>
+                </div>
+                <div class="align-end">
+                    <button class="btn btn-outline" type="submit">Supprimer sur la période</button>
+                </div>
+            </form>
         </div>
-    </div>
+    @endif
 
     <div class="table-wrapper">
         <table>

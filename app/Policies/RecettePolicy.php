@@ -9,7 +9,7 @@ class RecettePolicy
 {
     public function viewAny(User $user): bool
     {
-        return true;
+        return ! $user->isControleur();
     }
 
     public function view(User $user, Recette $recette): bool

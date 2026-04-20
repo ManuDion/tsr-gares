@@ -2,10 +2,12 @@
 
 namespace App\Models;
 
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Depense extends Model
 {
@@ -20,6 +22,9 @@ class Depense extends Model
         'description',
         'created_by',
         'updated_by',
+        'force_unlocked_until',
+        'unlock_reason',
+        'unlocked_by',
     ];
 
     protected function casts(): array
@@ -27,6 +32,7 @@ class Depense extends Model
         return [
             'operation_date' => 'date',
             'amount' => 'decimal:2',
+            'force_unlocked_until' => 'datetime',
         ];
     }
 
@@ -40,8 +46,37 @@ class Depense extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    public function updater(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'updated_by');
+    }
+
+    public function unlockedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'unlocked_by');
+    }
+
     public function justificatives(): MorphMany
     {
         return $this->morphMany(PieceJustificative::class, 'attachable');
+    }
+
+    public function histories(): HasMany
+    {
+        return $this->hasMany(DepenseHistory::class);
+    }
+
+    public function isEditableBy(User $user): bool
+    {
+        if ($user->isAdmin() || $user->isResponsable()) {
+            return true;
+        }
+
+        if (! $user->hasAccessToGare($this->gare_id)) {
+            return false;
+        }
+
+        return $this->created_at?->greaterThanOrEqualTo(now()->subHours(48))
+            || ($this->force_unlocked_until instanceof CarbonInterface && $this->force_unlocked_until->isFuture());
     }
 }

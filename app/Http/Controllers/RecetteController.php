@@ -35,9 +35,16 @@ class RecetteController extends Controller
 
         $this->access->scopeForUser($query, $user);
 
-        $query->when($request->filled('gare_id'), fn ($q) => $q->where('gare_id', (int) $request->integer('gare_id')))
-            ->when($request->filled('start_date'), fn ($q) => $q->whereDate('operation_date', '>=', $request->date('start_date')))
-            ->when($request->filled('end_date'), fn ($q) => $q->whereDate('operation_date', '<=', $request->date('end_date')));
+        if (! $user->canViewAllGares()) {
+            $query->where(function ($inner) {
+                $inner->where('created_at', '>=', now()->subHours(48))
+                    ->orWhere('force_unlocked_until', '>', now());
+            });
+        }
+
+        $query->when($user->canViewAllGares() && $request->filled('gare_id'), fn ($q) => $q->where('gare_id', (int) $request->integer('gare_id')))
+            ->when($user->canViewAllGares() && $request->filled('start_date'), fn ($q) => $q->whereDate('operation_date', '>=', $request->date('start_date')))
+            ->when($user->canViewAllGares() && $request->filled('end_date'), fn ($q) => $q->whereDate('operation_date', '<=', $request->date('end_date')));
 
         return view('recettes.index', [
             'recettes' => $query->paginate(15)->withQueryString(),

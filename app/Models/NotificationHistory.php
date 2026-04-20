@@ -13,6 +13,7 @@ class NotificationHistory extends Model
     protected $fillable = [
         'user_id',
         'type',
+        'source_key',
         'subject',
         'content',
         'status',
