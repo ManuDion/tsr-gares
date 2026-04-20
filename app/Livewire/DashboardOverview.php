@@ -180,6 +180,32 @@ class DashboardOverview extends Component
                 ->values();
         }
 
+        $recetteBreakdownTotals = $recettes->clone()
+            ->selectRaw('
+                COALESCE(SUM(ticket_inter_amount), 0) as ticket_inter_total,
+                COALESCE(SUM(ticket_national_amount), 0) as ticket_national_total,
+                COALESCE(SUM(bagage_inter_amount), 0) as bagage_inter_total,
+                COALESCE(SUM(bagage_national_amount), 0) as bagage_national_total,
+                COALESCE(SUM(amount), 0) as total_amount
+            ')
+            ->first();
+
+        $recetteBreakdownByGare = Recette::query()
+            ->selectRaw('
+                gare_id,
+                COALESCE(SUM(ticket_inter_amount), 0) as ticket_inter_total,
+                COALESCE(SUM(ticket_national_amount), 0) as ticket_national_total,
+                COALESCE(SUM(bagage_inter_amount), 0) as bagage_inter_total,
+                COALESCE(SUM(bagage_national_amount), 0) as bagage_national_total,
+                COALESCE(SUM(amount), 0) as total_amount
+            ')
+            ->whereBetween('operation_date', [$startDate, $endDate])
+            ->whereIn('gare_id', $gareIds)
+            ->groupBy('gare_id')
+            ->with('gare')
+            ->orderByDesc('total_amount')
+            ->get();
+
         $recentNotifications = NotificationHistory::query()
             ->where('user_id', $user->id)
             ->latest('created_at')
@@ -217,6 +243,8 @@ class DashboardOverview extends Component
             'top_recettes' => $topRecettes,
             'top_depenses' => $topDepenses,
             'top_saisie' => $topSaisie,
+            'recette_breakdown_totals' => $recetteBreakdownTotals,
+            'recette_breakdown_by_gare' => $recetteBreakdownByGare,
             'recent_notifications' => $recentNotifications,
         ];
     }

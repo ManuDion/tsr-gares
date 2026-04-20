@@ -69,11 +69,20 @@ class DatabaseSeeder extends Seeder
             $date = now()->subDays($index)->toDateString();
 
             foreach ($gares as $gare) {
+                $ticketInter = 45000 + ($gare->id * 3000) + ($index * 1000);
+                $ticketNational = 30000 + ($gare->id * 1800) + ($index * 800);
+                $bagageInter = 12000 + ($gare->id * 600) + ($index * 250);
+                $bagageNational = 8000 + ($gare->id * 400) + ($index * 150);
+
                 Recette::create([
                     'gare_id' => $gare->id,
                     'operation_date' => $date,
-                    'amount' => 95000 + ($gare->id * 6000) + ($index * 2200),
-                    'reference' => 'REC-'.$gare->code.'-'.$index,
+                    'ticket_inter_amount' => $ticketInter,
+                    'ticket_national_amount' => $ticketNational,
+                    'bagage_inter_amount' => $bagageInter,
+                    'bagage_national_amount' => $bagageNational,
+                    'amount' => $ticketInter + $ticketNational + $bagageInter + $bagageNational,
+                    'reference' => null,
                     'description' => 'Recette journalière',
                     'created_by' => $admin->id,
                     'updated_by' => $admin->id,

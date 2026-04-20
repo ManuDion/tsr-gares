@@ -118,6 +118,77 @@
             <x-stat-card title="Total versements" :value="number_format($metrics['versements_total'], 0, ',', ' ') . ' FCFA'" :meta="$metrics['user_can_view_all'] ? $metrics['versements_count'] . ' enregistrements' : $metrics['period_label']" icon="bank" />
         </div>
 
+        @php
+            $recetteBreakdownTotals = $metrics['recette_breakdown_totals'];
+            $recetteBreakdownByGare = $metrics['recette_breakdown_by_gare'];
+        @endphp
+
+        <div class="panel">
+            <div class="panel-header">
+                <div>
+                    <h2>Détail des types de recettes</h2>
+                    <p class="text-muted">
+                        Répartition par gare sur {{ strtolower($metrics['period_label']) }}.
+                    </p>
+                </div>
+            </div>
+
+            <div class="breakdown-kpis">
+                <article class="breakdown-kpi-card">
+                    <span>Tickets inter</span>
+                    <strong>{{ number_format((float) ($recetteBreakdownTotals->ticket_inter_total ?? 0), 0, ',', ' ') }} FCFA</strong>
+                </article>
+                <article class="breakdown-kpi-card">
+                    <span>Tickets national</span>
+                    <strong>{{ number_format((float) ($recetteBreakdownTotals->ticket_national_total ?? 0), 0, ',', ' ') }} FCFA</strong>
+                </article>
+                <article class="breakdown-kpi-card">
+                    <span>Bagages inter</span>
+                    <strong>{{ number_format((float) ($recetteBreakdownTotals->bagage_inter_total ?? 0), 0, ',', ' ') }} FCFA</strong>
+                </article>
+                <article class="breakdown-kpi-card">
+                    <span>Bagages national</span>
+                    <strong>{{ number_format((float) ($recetteBreakdownTotals->bagage_national_total ?? 0), 0, ',', ' ') }} FCFA</strong>
+                </article>
+            </div>
+
+            <div class="table-wrapper table-plain">
+                <table class="compact-table">
+                    <thead>
+                        <tr>
+                            <th>Gare</th>
+                            <th>Tickets inter<br><span class="th-sub">FCFA</span></th>
+                            <th>Tickets national<br><span class="th-sub">FCFA</span></th>
+                            <th>Bagages inter<br><span class="th-sub">FCFA</span></th>
+                            <th>Bagages national<br><span class="th-sub">FCFA</span></th>
+                            <th>Total recettes<br><span class="th-sub">FCFA</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse ($recetteBreakdownByGare as $row)
+                            <tr>
+                                <td>
+                                    <strong>{{ $row->gare?->name ?? 'Gare' }}</strong>
+                                    @if($row->gare?->city)
+                                        <div class="table-helper">{{ $row->gare->city }}</div>
+                                    @endif
+                                </td>
+                                <td>{{ number_format((float) $row->ticket_inter_total, 0, ',', ' ') }}</td>
+                                <td>{{ number_format((float) $row->ticket_national_total, 0, ',', ' ') }}</td>
+                                <td>{{ number_format((float) $row->bagage_inter_total, 0, ',', ' ') }}</td>
+                                <td>{{ number_format((float) $row->bagage_national_total, 0, ',', ' ') }}</td>
+                                <td><strong>{{ number_format((float) $row->total_amount, 0, ',', ' ') }}</strong></td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="6">Aucune recette disponible sur cette période.</td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
         @if ($metrics['missing_yesterday']->isNotEmpty())
             <div class="alert alert-error alert-rich">
                 <div class="alert-icon">{!! app_icon('bell') !!}</div>

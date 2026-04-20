@@ -66,11 +66,12 @@ class RecetteController extends Controller
     {
         $this->authorize('create', Recette::class);
         $user = $request->user();
-        $data = $request->validated();
+        $data = $this->normalizeRecetteData($request->validated());
 
         $data['gare_id'] = $this->access->resolveGareIdForCreation($user, $request->integer('gare_id'));
         $data['created_by'] = $user->id;
         $data['updated_by'] = $user->id;
+        $data['reference'] = null;
 
         $recette = Recette::create($data);
 
@@ -81,7 +82,16 @@ class RecetteController extends Controller
 
         $this->activity->log($user, 'recette_created', $recette, 'Création d\'une recette.', [
             'before' => null,
-            'after' => $recette->only(['gare_id', 'operation_date', 'amount', 'reference', 'description']),
+            'after' => $recette->only([
+                'gare_id',
+                'operation_date',
+                'ticket_inter_amount',
+                'ticket_national_amount',
+                'bagage_inter_amount',
+                'bagage_national_amount',
+                'amount',
+                'description',
+            ]),
             'gare_id' => $recette->gare_id,
         ]);
 
@@ -103,9 +113,20 @@ class RecetteController extends Controller
     {
         $this->authorize('update', $recette);
 
-        $before = $recette->only(['operation_date', 'amount', 'reference', 'description', 'gare_id']);
-        $data = $request->validated();
+        $before = $recette->only([
+            'operation_date',
+            'ticket_inter_amount',
+            'ticket_national_amount',
+            'bagage_inter_amount',
+            'bagage_national_amount',
+            'amount',
+            'description',
+            'gare_id',
+        ]);
+
+        $data = $this->normalizeRecetteData($request->validated());
         $data['updated_by'] = $request->user()->id;
+        $data['reference'] = null;
 
         if (! $request->user()->isChefDeGare()) {
             $data['gare_id'] = $request->integer('gare_id', $recette->gare_id);
@@ -113,7 +134,16 @@ class RecetteController extends Controller
 
         $recette->update($data);
 
-        $after = $recette->fresh()->only(['operation_date', 'amount', 'reference', 'description', 'gare_id']);
+        $after = $recette->fresh()->only([
+            'operation_date',
+            'ticket_inter_amount',
+            'ticket_national_amount',
+            'bagage_inter_amount',
+            'bagage_national_amount',
+            'amount',
+            'description',
+            'gare_id',
+        ]);
         $hasFieldChanges = $this->hasMeaningfulChanges($before, $after);
 
         if ($hasFieldChanges) {
@@ -164,6 +194,20 @@ class RecetteController extends Controller
         ]);
 
         return back()->with('status', 'Recette déverrouillée pour 24h.');
+    }
+
+    protected function normalizeRecetteData(array $data): array
+    {
+        $data['ticket_inter_amount'] = (float) ($data['ticket_inter_amount'] ?? 0);
+        $data['ticket_national_amount'] = (float) ($data['ticket_national_amount'] ?? 0);
+        $data['bagage_inter_amount'] = (float) ($data['bagage_inter_amount'] ?? 0);
+        $data['bagage_national_amount'] = (float) ($data['bagage_national_amount'] ?? 0);
+        $data['amount'] = $data['ticket_inter_amount']
+            + $data['ticket_national_amount']
+            + $data['bagage_inter_amount']
+            + $data['bagage_national_amount'];
+
+        return $data;
     }
 
     protected function hasMeaningfulChanges(array $before, array $after): bool

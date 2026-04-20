@@ -46,7 +46,7 @@
                     <th>Date</th>
                     <th>Gare</th>
                     <th><span class="th-stack">Montant<small>en FCFA</small></span></th>
-                    <th>Référence</th>
+                    <th>Composition</th>
                     <th>Justificatif</th>
                     <th>Saisi par</th>
                     <th></th>
@@ -58,7 +58,14 @@
                         <td>{{ $recette->operation_date?->format('d/m/Y') }}</td>
                         <td>{{ $recette->gare->name }}</td>
                         <td class="amount-cell">{{ number_format($recette->amount, 0, ',', ' ') }}</td>
-                        <td>{{ $recette->reference ?: '—' }}</td>
+                        <td>
+                            <div class="breakdown-summary">
+                                <span>TI : {{ number_format($recette->ticket_inter_amount, 0, ',', ' ') }}</span>
+                                <span>TN : {{ number_format($recette->ticket_national_amount, 0, ',', ' ') }}</span>
+                                <span>BI : {{ number_format($recette->bagage_inter_amount, 0, ',', ' ') }}</span>
+                                <span>BN : {{ number_format($recette->bagage_national_amount, 0, ',', ' ') }}</span>
+                            </div>
+                        </td>
                         <td>
                             @forelse($recette->justificatives as $piece)
                                 <div class="doc-links">

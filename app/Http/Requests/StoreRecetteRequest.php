@@ -16,8 +16,11 @@ class StoreRecetteRequest extends FormRequest
         return [
             'gare_id' => ['nullable', 'integer', 'exists:gares,id'],
             'operation_date' => ['required', 'date'],
-            'amount' => ['required', 'numeric', 'min:0'],
-            'reference' => ['nullable', 'string', 'max:100'],
+            'ticket_inter_amount' => ['required', 'numeric', 'min:0'],
+            'ticket_national_amount' => ['required', 'numeric', 'min:0'],
+            'bagage_inter_amount' => ['required', 'numeric', 'min:0'],
+            'bagage_national_amount' => ['required', 'numeric', 'min:0'],
+            'amount' => ['nullable', 'numeric', 'min:0'],
             'description' => ['nullable', 'string', 'max:500'],
             'justificatif' => [
                 'nullable',

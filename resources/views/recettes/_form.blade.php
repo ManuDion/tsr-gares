@@ -1,6 +1,16 @@
-<div class="form-grid">
+@php
+    $selectedGare = collect($gares)->firstWhere('id', (int) old('gare_id', $recette->gare_id ?? 0));
+    $selectedGareLabel = $selectedGare ? ($selectedGare->name.' — '.$selectedGare->city) : null;
+@endphp
+
+<div class="form-grid recette-breakdown-form" data-recette-calculator>
     @unless(auth()->user()->isChefDeGare())
-        <x-gare-picker :gares="$gares" datalistId="recette-gares" :selectedGareLabel="collect($gares)->firstWhere('id', (int) old('gare_id', $recette->gare_id ?? 0))?->name . ' — ' . collect($gares)->firstWhere('id', (int) old('gare_id', $recette->gare_id ?? 0))?->city" :selectedGareId="old('gare_id', $recette->gare_id ?? '')" />
+        <x-gare-picker
+            :gares="$gares"
+            datalistId="recette-gares"
+            :selectedGareLabel="$selectedGareLabel"
+            :selectedGareId="old('gare_id', $recette->gare_id ?? '')"
+        />
     @else
         <div>
             <label>Gare affectée</label>
@@ -12,14 +22,34 @@
         <label>Date opération</label>
         <input type="date" name="operation_date" value="{{ old('operation_date', optional($recette->operation_date ?? null)->format('Y-m-d') ?? now()->toDateString()) }}" required>
     </div>
-    <div>
-        <label>Montant</label>
-        <input type="number" step="0.01" min="0" name="amount" value="{{ old('amount', $recette->amount ?? '') }}" required>
+
+    <div class="col-span-2">
+        <div class="breakdown-grid">
+            <div>
+                <label>Ventes tickets inter</label>
+                <input type="number" step="0.01" min="0" name="ticket_inter_amount" value="{{ old('ticket_inter_amount', $recette->ticket_inter_amount ?? 0) }}" data-recette-part required>
+            </div>
+            <div>
+                <label>Ventes tickets national</label>
+                <input type="number" step="0.01" min="0" name="ticket_national_amount" value="{{ old('ticket_national_amount', $recette->ticket_national_amount ?? 0) }}" data-recette-part required>
+            </div>
+            <div>
+                <label>Transport bagages inter</label>
+                <input type="number" step="0.01" min="0" name="bagage_inter_amount" value="{{ old('bagage_inter_amount', $recette->bagage_inter_amount ?? 0) }}" data-recette-part required>
+            </div>
+            <div>
+                <label>Transport bagages national</label>
+                <input type="number" step="0.01" min="0" name="bagage_national_amount" value="{{ old('bagage_national_amount', $recette->bagage_national_amount ?? 0) }}" data-recette-part required>
+            </div>
+        </div>
     </div>
+
     <div>
-        <label>Référence</label>
-        <input type="text" name="reference" value="{{ old('reference', $recette->reference ?? '') }}">
+        <label>Montant total calculé</label>
+        <input type="number" step="0.01" min="0" name="amount" value="{{ old('amount', $recette->amount ?? 0) }}" data-recette-total readonly required>
+        <small>Ce montant est calculé automatiquement à partir des 4 types de recette.</small>
     </div>
+
     <div class="col-span-2">
         <label>Description</label>
         <textarea name="description" rows="4">{{ old('description', $recette->description ?? '') }}</textarea>
@@ -36,3 +66,25 @@
         </div>
     @endisset
 </div>
+
+@once
+    @push('scripts')
+        <script>
+            document.querySelectorAll('[data-recette-calculator]').forEach(function (wrapper) {
+                const parts = Array.from(wrapper.querySelectorAll('[data-recette-part]'));
+                const total = wrapper.querySelector('[data-recette-total]');
+
+                function updateTotal() {
+                    const sum = parts.reduce((carry, input) => carry + (parseFloat(input.value || '0') || 0), 0);
+                    total.value = sum.toFixed(2);
+                }
+
+                parts.forEach(function (input) {
+                    input.addEventListener('input', updateTotal);
+                });
+
+                updateTotal();
+            });
+        </script>
+    @endpush
+@endonce

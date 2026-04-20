@@ -17,6 +17,10 @@ class Recette extends Model
         'gare_id',
         'operation_date',
         'amount',
+        'ticket_inter_amount',
+        'ticket_national_amount',
+        'bagage_inter_amount',
+        'bagage_national_amount',
         'reference',
         'description',
         'created_by',
@@ -31,6 +35,10 @@ class Recette extends Model
         return [
             'operation_date' => 'date',
             'amount' => 'decimal:2',
+            'ticket_inter_amount' => 'decimal:2',
+            'ticket_national_amount' => 'decimal:2',
+            'bagage_inter_amount' => 'decimal:2',
+            'bagage_national_amount' => 'decimal:2',
             'force_unlocked_until' => 'datetime',
         ];
     }
@@ -77,5 +85,15 @@ class Recette extends Model
 
         return $this->created_at?->greaterThanOrEqualTo(now()->subHours(48))
             || ($this->force_unlocked_until instanceof CarbonInterface && $this->force_unlocked_until->isFuture());
+    }
+
+    public function recetteBreakdown(): array
+    {
+        return [
+            'ticket_inter_amount' => (float) $this->ticket_inter_amount,
+            'ticket_national_amount' => (float) $this->ticket_national_amount,
+            'bagage_inter_amount' => (float) $this->bagage_inter_amount,
+            'bagage_national_amount' => (float) $this->bagage_national_amount,
+        ];
     }
 }
