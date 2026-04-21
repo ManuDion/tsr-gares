@@ -5,11 +5,11 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreDepenseRequest;
 use App\Http\Requests\UnlockDepenseRequest;
 use App\Http\Requests\UpdateDepenseRequest;
+use App\Support\ModuleContext;
 use App\Models\Depense;
 use App\Models\DepenseHistory;
 use App\Services\AccessScopeService;
 use App\Services\ActivityLogService;
-use App\Services\DocumentAnalysisService;
 use App\Support\UploadedFileName;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -21,7 +21,6 @@ class DepenseController extends Controller
 {
     public function __construct(
         protected AccessScopeService $access,
-        protected DocumentAnalysisService $analysis,
         protected ActivityLogService $activity
     ) {}
 
@@ -35,7 +34,11 @@ class DepenseController extends Controller
             ->orderByDesc('operation_date')
             ->orderByDesc('id');
 
-        $this->access->scopeForUser($query, $user);
+        $module = ModuleContext::fromRequest($request, $user);
+        abort_unless($module->supportsFinancialFlows() && $user->canAccessModule($module), 403);
+        $serviceScope = ModuleContext::financialScope($module);
+
+        $this->access->scopeForUser($query, $user, 'gare_id', $serviceScope);
 
         $query->when($user->canViewAllGares() && $request->filled('gare_id'), fn ($q) => $q->where('gare_id', $request->integer('gare_id')))
             ->when($user->canViewAllGares() && $request->filled('start_date'), fn ($q) => $q->whereDate('operation_date', '>=', $request->date('start_date')))
@@ -43,7 +46,8 @@ class DepenseController extends Controller
 
         return view('depenses.index', [
             'depenses' => $query->paginate(15)->withQueryString(),
-            'gares' => $this->access->availableGares($user),
+            'gares' => $this->access->availableGares($user, $serviceScope),
+            'module' => $module,
         ]);
     }
 
@@ -51,8 +55,13 @@ class DepenseController extends Controller
     {
         $this->authorize('create', Depense::class);
 
+                $module = ModuleContext::fromRequest($request);
+        abort_unless($module->supportsFinancialFlows() && $request->user()->canAccessModule($module), 403);
+        $serviceScope = ModuleContext::financialScope($module);
+
         return view('depenses.create', [
-            'gares' => $this->access->availableGares($request->user()),
+            'gares' => $this->access->availableGares($request->user(), $serviceScope),
+            'module' => $module,
             'maxSizeKb' => (int) env('JUSTIFICATIF_MAX_SIZE_KB', 5120),
             'initialEntries' => old('entries', [[
                 'operation_date' => now()->toDateString(),
@@ -71,13 +80,16 @@ class DepenseController extends Controller
         $this->authorize('create', Depense::class);
         $user = $request->user();
         $entries = $request->validated('entries');
+        $module = ModuleContext::fromRequest($request, $user);
+        $serviceScope = ModuleContext::financialScope($module);
 
-        $createdCount = DB::transaction(function () use ($entries, $request, $user) {
+        $createdCount = DB::transaction(function () use ($entries, $request, $user, $serviceScope) {
             $count = 0;
 
             foreach ($entries as $index => $entry) {
                 $depense = Depense::create([
-                    'gare_id' => $this->access->resolveGareIdForCreation($user, data_get($entry, 'gare_id')),
+                    'gare_id' => $this->access->resolveGareIdForCreation($user, data_get($entry, 'gare_id'), $serviceScope),
+                    'service_scope' => $serviceScope,
                     'operation_date' => data_get($entry, 'operation_date'),
                     'amount' => data_get($entry, 'amount'),
                     'motif' => data_get($entry, 'motif'),
@@ -90,8 +102,7 @@ class DepenseController extends Controller
                 if ($request->hasFile("entries.$index.justificatif")) {
                     $file = $request->file("entries.$index.justificatif");
                     $piece = $this->attachUploadedPiece($depense, $file, $user->id, data_get($entry, 'justificatif_name'));
-                    $this->analysis->analyze($piece);
-                }
+                        }
 
                 $this->activity->log($user, 'depense_created', $depense, 'Création d’une dépense.', [
                     'gare_id' => $depense->gare_id,
@@ -108,16 +119,19 @@ class DepenseController extends Controller
             ? $createdCount.' dépenses enregistrées.'
             : 'Dépense enregistrée.';
 
-        return redirect()->route('depenses.index')->with('status', $message);
+        return redirect()->route('depenses.index', ['module' => $module->value])->with('status', $message);
     }
 
     public function edit(Depense $depense): View
     {
         $this->authorize('update', $depense);
 
+                $module = ($depense->service_scope ?? 'gares') === 'courrier' ? \App\Enums\ServiceModule::Courrier : \App\Enums\ServiceModule::Gares;
+
         return view('depenses.edit', [
-            'depense' => $depense->load(['gare', 'histories.modifier', 'justificatives.latestAnalysis']),
-            'gares' => $this->access->availableGares(auth()->user()),
+            'depense' => $depense->load(['gare', 'histories.modifier', 'justificatives']),
+            'gares' => $this->access->availableGares(auth()->user(), $depense->service_scope ?? 'gares'),
+            'module' => $module,
             'maxSizeKb' => (int) env('JUSTIFICATIF_MAX_SIZE_KB', 5120),
         ]);
     }
@@ -130,7 +144,9 @@ class DepenseController extends Controller
         $data = $request->validated();
         $data['updated_by'] = $request->user()->id;
 
-        if (! $request->user()->isChefDeGare()) {
+                $module = ($depense->service_scope ?? 'gares') === 'courrier' ? \App\Enums\ServiceModule::Courrier : \App\Enums\ServiceModule::Gares;
+
+        if (! $request->user()->isChefDeGare() && ! $request->user()->isAgentCourrierGare()) {
             $data['gare_id'] = $request->integer('gare_id', $depense->gare_id);
         }
 
@@ -155,7 +171,6 @@ class DepenseController extends Controller
             $file = $request->file('justificatif');
             $piece = $this->attachUploadedPiece($depense, $file, $request->user()->id, $request->string('justificatif_name')->toString());
 
-            $this->analysis->analyze($piece);
 
             $this->activity->log($request->user(), 'depense_attachment_added', $depense, 'Ajout d’un justificatif sur une dépense.', [
                 'gare_id' => $depense->gare_id,
@@ -178,7 +193,7 @@ class DepenseController extends Controller
 
         $status = $hasFieldChanges || $request->hasFile('justificatif') ? 'Dépense modifiée.' : 'Aucune modification détectée sur la dépense.';
 
-        return redirect()->route('depenses.index')->with('status', $status);
+        return redirect()->route('depenses.index', ['module' => $module->value])->with('status', $status);
     }
 
     public function unlock(UnlockDepenseRequest $request, Depense $depense): RedirectResponse
@@ -206,7 +221,12 @@ class DepenseController extends Controller
     {
         $disk = env('JUSTIFICATIF_PRIVATE_DISK', 'private');
         $path = $file->store('justificatifs/depenses', $disk);
-        $originalName = UploadedFileName::build($desiredName, $file);
+        $label = UploadedFileName::defaultLabel(
+            $depense->service_scope === 'courrier' ? 'DepenseCourrier' : 'Depense',
+            $depense->gare?->name,
+            optional($depense->operation_date)->format('Y-m-d')
+        );
+        $originalName = UploadedFileName::build($desiredName ?: $label, $file);
 
         return $depense->justificatives()->create([
             'document_type' => 'depense',

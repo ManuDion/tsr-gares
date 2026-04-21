@@ -2,29 +2,25 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\AnalyzeVersementBordereauRequest;
 use App\Http\Requests\StoreVersementBancaireRequest;
 use App\Http\Requests\UnlockVersementBancaireRequest;
 use App\Http\Requests\UpdateVersementBancaireRequest;
+use App\Support\ModuleContext;
 use App\Models\PieceJustificative;
 use App\Models\VersementBancaire;
 use App\Models\VersementBancaireHistory;
 use App\Services\AccessScopeService;
 use App\Services\ActivityLogService;
-use App\Services\DocumentAnalysisService;
 use App\Support\UploadedFileName;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class VersementBancaireController extends Controller
 {
     public function __construct(
         protected AccessScopeService $access,
-        protected DocumentAnalysisService $analysis,
         protected ActivityLogService $activity
     ) {}
 
@@ -34,11 +30,15 @@ class VersementBancaireController extends Controller
         $user = $request->user();
 
         $query = VersementBancaire::query()
-            ->with(['gare', 'creator', 'justificatives.latestAnalysis'])
+            ->with(['gare', 'creator', 'justificatives'])
             ->orderByDesc('operation_date')
             ->orderByDesc('id');
 
-        $this->access->scopeForUser($query, $user);
+        $module = ModuleContext::fromRequest($request, $user);
+        abort_unless($module->supportsFinancialFlows() && $user->canAccessModule($module), 403);
+        $serviceScope = ModuleContext::financialScope($module);
+
+        $this->access->scopeForUser($query, $user, 'gare_id', $serviceScope);
 
         $query->when($user->canViewAllGares() && $request->filled('gare_id'), fn ($q) => $q->where('gare_id', $request->integer('gare_id')))
             ->when($user->canViewAllGares() && $request->filled('start_date'), fn ($q) => $q->whereDate('operation_date', '>=', $request->date('start_date')))
@@ -46,7 +46,8 @@ class VersementBancaireController extends Controller
 
         return view('versements.index', [
             'versements' => $query->paginate(15)->withQueryString(),
-            'gares' => $this->access->availableGares($user),
+            'gares' => $this->access->availableGares($user, $serviceScope),
+            'module' => $module,
         ]);
     }
 
@@ -54,74 +55,15 @@ class VersementBancaireController extends Controller
     {
         $this->authorize('create', VersementBancaire::class);
 
-        $draft = $this->getDraft($request->string('draft')->toString());
+                $module = ModuleContext::fromRequest($request);
+        abort_unless($module->supportsFinancialFlows() && $request->user()->canAccessModule($module), 403);
+        $serviceScope = ModuleContext::financialScope($module);
 
         return view('versements.create', [
-            'gares' => $this->access->availableGares($request->user()),
+            'gares' => $this->access->availableGares($request->user(), $serviceScope),
+            'module' => $module,
             'maxSizeKb' => (int) env('JUSTIFICATIF_MAX_SIZE_KB', 5120),
-            'draft' => $draft,
-            'draftToken' => $request->string('draft')->toString() ?: null,
-            'defaultGareLabel' => $this->selectedGareLabelFromDraft($draft),
-            'manualMode' => $request->boolean('manual'),
         ]);
-    }
-
-    public function analyze(AnalyzeVersementBordereauRequest $request): RedirectResponse
-    {
-        $this->authorize('create', VersementBancaire::class);
-
-        $user = $request->user();
-        $file = $request->file('bordereau');
-        $disk = env('JUSTIFICATIF_PRIVATE_DISK', 'private');
-        $tempPath = $file->store('tmp/versements-ocr', $disk);
-        $gares = $this->access->availableGares($user);
-
-        $draft = [
-            'temp_path' => $tempPath,
-            'disk' => $disk,
-            'original_name' => $file->getClientOriginalName(),
-            'mime_type' => $file->getMimeType(),
-            'size' => $file->getSize(),
-            'created_at' => now()->toIso8601String(),
-        ];
-
-        try {
-            $draft['analysis'] = $this->analysis->analyzeFile(
-                Storage::disk($disk)->path($tempPath),
-                $file->getClientOriginalName(),
-                $file->getMimeType(),
-                $gares,
-                $user->isChefDeGare() ? $user->gare_id : null,
-            );
-
-            $status = 'Bordereau analysé. Vérifiez les champs préremplis avant validation.';
-            $this->activity->log($user, 'versement_analysis_success', 'Versement OCR', 'Analyse OCR du bordereau réussie.', [
-                'gare_id' => $user->isChefDeGare() ? $user->gare_id : null,
-                'after' => data_get($draft, 'analysis.extracted_data', []),
-                'extra' => [
-                    'file' => $file->getClientOriginalName(),
-                    'mime_type' => $file->getMimeType(),
-                ],
-            ]);
-        } catch (\Throwable $exception) {
-            $draft['analysis_error'] = "Lecture automatique impossible : {$exception->getMessage()}";
-            $status = "Le bordereau a bien été conservé, mais la lecture automatique n'a pas abouti. Vous pouvez poursuivre en saisie manuelle.";
-
-            $this->activity->log($user, 'versement_analysis_failed', 'Versement OCR', 'Analyse OCR du bordereau en échec.', [
-                'gare_id' => $user->isChefDeGare() ? $user->gare_id : null,
-                'extra' => [
-                    'file' => $file->getClientOriginalName(),
-                    'message' => $exception->getMessage(),
-                ],
-            ]);
-        }
-
-        $token = Str::uuid()->toString();
-        $request->session()->put($this->draftSessionKey($token), $draft);
-
-        return redirect()
-            ->route('versements.create', ['draft' => $token])
-            ->with('status', $status);
     }
 
     public function store(StoreVersementBancaireRequest $request): RedirectResponse
@@ -131,26 +73,25 @@ class VersementBancaireController extends Controller
         $user = $request->user();
         $data = $request->validated();
 
-        $data['gare_id'] = $this->access->resolveGareIdForCreation($user, $request->integer('gare_id'));
+                $module = ModuleContext::fromRequest($request, $user);
+        $serviceScope = ModuleContext::financialScope($module);
+
+        $data['gare_id'] = $this->access->resolveGareIdForCreation($user, $request->integer('gare_id'), $serviceScope);
+        $data['service_scope'] = $serviceScope;
         $data['created_by'] = $user->id;
         $data['updated_by'] = $user->id;
 
+        unset($data['bordereau'], $data['bordereau_name']);
+
         $versement = VersementBancaire::create($data);
 
-        $draftToken = $request->string('analysis_token')->toString();
-        $draft = $this->getDraft($draftToken);
-
-        if ($draft) {
-            $piece = $this->attachDraftPiece($versement, $draft, $user->id, $request->string('bordereau_name')->toString());
-
-            if (! empty($draft['analysis'])) {
-                $this->analysis->persistAnalysis($piece, $draft['analysis']);
-            }
-
-            $request->session()->forget($this->draftSessionKey($draftToken));
-        } elseif ($request->hasFile('bordereau')) {
-            $piece = $this->attachUploadedPiece($versement, $request->file('bordereau'), $user->id, $request->string('bordereau_name')->toString());
-            $this->analysis->analyze($piece);
+        if ($request->hasFile('bordereau')) {
+            $this->attachUploadedPiece(
+                $versement,
+                $request->file('bordereau'),
+                $user->id,
+                $request->string('bordereau_name')->toString()
+            );
         }
 
         $this->activity->log($user, 'versement_created', $versement, 'Création d\'un versement bancaire.', [
@@ -158,16 +99,20 @@ class VersementBancaireController extends Controller
             'after' => $versement->only(['gare_id', 'operation_date', 'receipt_date', 'amount', 'reference', 'bank_name', 'description']),
         ]);
 
-        return redirect()->route('versements.index')->with('status', 'Versement bancaire enregistré.');
+        return redirect()->route('versements.index', ['module' => $module->value])->with('status', 'Versement bancaire enregistré.');
     }
 
     public function edit(VersementBancaire $versement): View
     {
         $this->authorize('update', $versement);
 
+                $module = ($versement->service_scope ?? 'gares') === 'courrier' ? \App\Enums\ServiceModule::Courrier : \App\Enums\ServiceModule::Gares;
+
         return view('versements.edit', [
-            'versement' => $versement->load(['gare', 'histories.modifier', 'justificatives.latestAnalysis']),
-            'gares' => $this->access->availableGares(auth()->user()),
+            'versement' => $versement->load(['gare', 'histories.modifier', 'justificatives']),
+            'gares' => $this->access->availableGares(auth()->user(), $versement->service_scope ?? 'gares'),
+            'module' => $module,
+            'maxSizeKb' => (int) env('JUSTIFICATIF_MAX_SIZE_KB', 5120),
         ]);
     }
 
@@ -188,7 +133,9 @@ class VersementBancaireController extends Controller
         $data = $request->validated();
         $data['updated_by'] = $request->user()->id;
 
-        if (! $request->user()->isChefDeGare()) {
+                $module = ($versement->service_scope ?? 'gares') === 'courrier' ? \App\Enums\ServiceModule::Courrier : \App\Enums\ServiceModule::Gares;
+
+        if (! $request->user()->isChefDeGare() && ! $request->user()->isAgentCourrierGare()) {
             $data['gare_id'] = $request->integer('gare_id', $versement->gare_id);
         }
 
@@ -219,8 +166,12 @@ class VersementBancaireController extends Controller
         }
 
         if ($request->hasFile('bordereau')) {
-            $piece = $this->attachUploadedPiece($versement, $request->file('bordereau'), $request->user()->id, $request->string('bordereau_name')->toString());
-            $this->analysis->analyze($piece);
+            $piece = $this->attachUploadedPiece(
+                $versement,
+                $request->file('bordereau'),
+                $request->user()->id,
+                $request->string('bordereau_name')->toString()
+            );
 
             $this->activity->log($request->user(), 'versement_attachment_added', $versement, 'Ajout d\'un bordereau sur un versement bancaire.', [
                 'gare_id' => $versement->gare_id,
@@ -245,7 +196,7 @@ class VersementBancaireController extends Controller
             ? 'Versement modifié.'
             : 'Aucune modification détectée sur le versement.';
 
-        return redirect()->route('versements.index')->with('status', $status);
+        return redirect()->route('versements.index', ['module' => $module->value])->with('status', $status);
     }
 
     public function unlock(UnlockVersementBancaireRequest $request, VersementBancaire $versement): RedirectResponse
@@ -291,35 +242,20 @@ class VersementBancaireController extends Controller
         return trim((string) $value);
     }
 
-    protected function attachDraftPiece(VersementBancaire $versement, array $draft, int $userId, ?string $desiredName = null): PieceJustificative
-    {
-        $disk = $draft['disk'] ?? env('JUSTIFICATIF_PRIVATE_DISK', 'private');
-        $tempPath = $draft['temp_path'];
-        $finalPath = 'justificatifs/versements/'.now()->format('Y/m').'/'.basename($tempPath);
-
-        Storage::disk($disk)->move($tempPath, $finalPath);
-
-        return $versement->justificatives()->create([
-            'document_type' => 'versement_bancaire',
-            'original_name' => UploadedFileName::buildFromStoredName($desiredName, $draft['original_name'], $draft['mime_type'] ?? null),
-            'file_name' => basename($finalPath),
-            'mime_type' => $draft['mime_type'] ?: 'application/pdf',
-            'size' => $draft['size'] ?? 0,
-            'disk' => $disk,
-            'path' => $finalPath,
-            'uploaded_by' => $userId,
-            'uploaded_at' => now(),
-        ]);
-    }
-
     protected function attachUploadedPiece(VersementBancaire $versement, UploadedFile $file, int $userId, ?string $desiredName = null): PieceJustificative
     {
         $disk = env('JUSTIFICATIF_PRIVATE_DISK', 'private');
         $path = $file->store('justificatifs/versements/'.now()->format('Y/m'), $disk);
 
+        $label = UploadedFileName::defaultLabel(
+            $versement->service_scope === 'courrier' ? 'VersementCourrier' : 'Versement',
+            $versement->gare?->name,
+            optional($versement->operation_date)->format('Y-m-d')
+        );
+
         return $versement->justificatives()->create([
             'document_type' => 'versement_bancaire',
-            'original_name' => UploadedFileName::build($desiredName, $file),
+            'original_name' => UploadedFileName::build($desiredName ?: $label, $file),
             'file_name' => basename($path),
             'mime_type' => $file->getMimeType() ?: 'application/pdf',
             'size' => $file->getSize(),
@@ -328,26 +264,5 @@ class VersementBancaireController extends Controller
             'uploaded_by' => $userId,
             'uploaded_at' => now(),
         ]);
-    }
-
-    protected function getDraft(?string $token): ?array
-    {
-        if (! $token) {
-            return null;
-        }
-
-        return session($this->draftSessionKey($token));
-    }
-
-    protected function draftSessionKey(string $token): string
-    {
-        return 'versement_ocr_drafts.'.$token;
-    }
-
-    protected function selectedGareLabelFromDraft(?array $draft): ?string
-    {
-        $label = data_get($draft, 'analysis.extracted_data.gare_label');
-
-        return $label ?: null;
     }
 }

@@ -75,6 +75,15 @@
                                     <span class="icon">{!! app_icon('edit') !!}</span> Mettre à jour
                                 </a>
                             @endcan
+                            @can('delete', $document)
+                                <form method="POST" action="{{ route('administrative-documents.destroy', $document) }}" onsubmit="return confirm('Supprimer ce document administratif ?');">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button class="btn btn-sm btn-danger" type="submit">
+                                        <span class="icon">{!! app_icon('trash') !!}</span> Supprimer
+                                    </button>
+                                </form>
+                            @endcan
                         </td>
                     </tr>
                 @empty

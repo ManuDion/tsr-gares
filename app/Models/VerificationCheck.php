@@ -11,6 +11,7 @@ class VerificationCheck extends Model
     use HasFactory;
 
     protected $fillable = [
+        'service_scope',
         'gare_id',
         'operation_date',
         'recettes_total',

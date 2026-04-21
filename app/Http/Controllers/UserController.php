@@ -2,14 +2,18 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\ServiceModule;
 use App\Enums\UserRole;
 use App\Http\Requests\StoreUserRequest;
 use App\Http\Requests\UpdateUserRequest;
+use App\Models\Department;
+use App\Models\Employee;
 use App\Models\Gare;
 use App\Models\User;
 use App\Services\ActivityLogService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class UserController extends Controller
@@ -21,11 +25,14 @@ class UserController extends Controller
         $this->authorize('viewAny', User::class);
 
         $users = User::query()
-            ->with(['primaryGare', 'gares'])
+            ->with(['primaryGare', 'gares', 'department'])
             ->when($request->filled('search'), function ($query) use ($request) {
-                $query->where(function ($inner) use ($request) {
-                    $inner->where('name', 'like', '%'.$request->string('search').'%')
-                        ->orWhere('email', 'like', '%'.$request->string('search').'%');
+                $search = $request->string('search')->toString();
+
+                $query->where(function ($inner) use ($search) {
+                    $inner->where('name', 'like', "%{$search}%")
+                        ->orWhere('phone', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%");
                 });
             })
             ->orderBy('name')
@@ -42,7 +49,8 @@ class UserController extends Controller
         $this->authorize('create', User::class);
 
         return view('users.create', [
-            'roles' => UserRole::options(),
+            'moduleOptions' => ServiceModule::options(),
+            'roleOptionsByModule' => UserRole::options(),
             'gares' => Gare::query()->where('is_active', true)->orderBy('name')->get(),
         ]);
     }
@@ -52,24 +60,47 @@ class UserController extends Controller
         $this->authorize('create', User::class);
 
         $data = $request->validated();
-        $zoneGares = $this->resolveZoneGares($request, $data);
-        $data = $this->normalizePayload($request, $data);
+        $module = ServiceModule::from($data['module']);
+        $role = UserRole::fromLegacyAware($data['role']);
+        $zoneGares = $this->resolveZoneGares($request, $role);
+        $payload = $this->normalizePayload($request, $data, $module, $role);
 
-        $user = User::create($data);
+        $user = User::create($payload);
         $user->gares()->sync($zoneGares);
+
+        if ($module === ServiceModule::Rh && in_array($role, [UserRole::ResponsableRh, UserRole::PersonnelTsr], true)) {
+            Employee::query()->firstOrCreate(
+                ['user_id' => $user->id],
+                [
+                    'employee_code' => 'EMP-'.str_pad((string) $user->id, 5, '0', STR_PAD_LEFT),
+                    'first_name' => $this->extractFirstName($user->name),
+                    'last_name' => $this->extractLastName($user->name),
+                    'full_name' => $user->name,
+                    'phone' => $user->phone,
+                    'email' => $user->email,
+                    'department_id' => $user->department_id,
+                    'gare_id' => $user->gare_id,
+                    'hire_date' => now()->toDateString(),
+                    'employment_status' => 'draft',
+                ]
+            );
+        }
 
         $this->activity->log($request->user(), 'user_created', $user, 'Création d\'un utilisateur.', [
             'after' => [
                 'name' => $user->name,
+                'phone' => $user->phone,
                 'email' => $user->email,
                 'role' => $user->role?->value,
+                'module' => $module->value,
                 'gare_id' => $user->gare_id,
                 'gares' => $zoneGares,
                 'is_active' => $user->is_active,
+                'must_change_password' => $user->must_change_password,
             ],
         ]);
 
-        return redirect()->route('users.index')->with('status', 'Utilisateur créé.');
+        return redirect()->route('users.index')->with('status', 'Utilisateur créé. Le mot de passe devra être personnalisé à la première connexion.');
     }
 
     public function edit(User $user): View
@@ -77,8 +108,9 @@ class UserController extends Controller
         $this->authorize('update', $user);
 
         return view('users.edit', [
-            'user' => $user->load('gares'),
-            'roles' => UserRole::options(),
+            'user' => $user->load(['gares', 'department']),
+            'moduleOptions' => ServiceModule::options(),
+            'roleOptionsByModule' => UserRole::options(),
             'gares' => Gare::query()->where('is_active', true)->orderBy('name')->get(),
         ]);
     }
@@ -89,33 +121,41 @@ class UserController extends Controller
 
         $before = [
             'name' => $user->name,
+            'phone' => $user->phone,
             'email' => $user->email,
             'role' => $user->role?->value,
+            'module' => $user->assignedModule()?->value,
             'gare_id' => $user->gare_id,
             'gares' => $user->gares()->pluck('gares.id')->all(),
             'is_active' => $user->is_active,
+            'must_change_password' => $user->must_change_password,
         ];
 
         $data = $request->validated();
-        $zoneGares = $this->resolveZoneGares($request, $data);
-        $data = $this->normalizePayload($request, $data, $user);
+        $module = ServiceModule::from($data['module']);
+        $role = UserRole::fromLegacyAware($data['role']);
+        $zoneGares = $this->resolveZoneGares($request, $role);
+        $payload = $this->normalizePayload($request, $data, $module, $role, $user);
 
-        if (blank($data['password'] ?? null)) {
-            unset($data['password']);
+        if (blank($payload['password'] ?? null)) {
+            unset($payload['password']);
         }
 
-        $user->update($data);
+        $user->update($payload);
         $user->gares()->sync($zoneGares);
 
         $this->activity->log($request->user(), 'user_updated', $user, 'Mise à jour d\'un utilisateur.', [
             'before' => $before,
             'after' => [
                 'name' => $user->name,
+                'phone' => $user->phone,
                 'email' => $user->email,
                 'role' => $user->role?->value,
+                'module' => $module->value,
                 'gare_id' => $user->gare_id,
                 'gares' => $zoneGares,
                 'is_active' => $user->is_active,
+                'must_change_password' => $user->must_change_password,
             ],
         ]);
 
@@ -130,23 +170,58 @@ class UserController extends Controller
             return back()->with('error', 'Vous ne pouvez pas supprimer votre propre compte.');
         }
 
+        $actor = auth()->user();
         $snapshot = [
             'name' => $user->name,
+            'phone' => $user->phone,
             'email' => $user->email,
             'role' => $user->role?->value,
+            'module' => $user->assignedModule()?->value,
             'gare_id' => $user->gare_id,
+            'department_id' => $user->department_id,
             'gares' => $user->gares()->pluck('gares.id')->all(),
             'is_active' => $user->is_active,
         ];
 
         $userId = $user->id;
-        $subject = $user->email;
-        $user->delete();
 
-        $this->activity->log(auth()->user(), 'user_deleted', 'User', 'Suppression d\'un utilisateur.', [
+        DB::transaction(function () use ($user, $actor) {
+                        DB::table('notifications')->where('notifiable_id', $user->id)->where('notifiable_type', User::class)->delete();
+            DB::table('notification_histories')->where('user_id', $user->id)->delete();
+            DB::table('activity_logs')->where('user_id', $user->id)->update(['user_id' => $actor->id]);
+            DB::table('recettes')->where('created_by', $user->id)->update(['created_by' => $actor->id]);
+            DB::table('depenses')->where('created_by', $user->id)->update(['created_by' => $actor->id]);
+            DB::table('versement_bancaires')->where('created_by', $user->id)->update(['created_by' => $actor->id]);
+            DB::table('recette_histories')->where('modified_by', $user->id)->update(['modified_by' => $actor->id]);
+
+            if (DB::getSchemaBuilder()->hasTable('depense_histories')) {
+                DB::table('depense_histories')->where('modified_by', $user->id)->update(['modified_by' => $actor->id]);
+            }
+
+            if (DB::getSchemaBuilder()->hasTable('versement_bancaire_histories')) {
+                DB::table('versement_bancaire_histories')->where('modified_by', $user->id)->update(['modified_by' => $actor->id]);
+            }
+
+            if (DB::getSchemaBuilder()->hasTable('employee_documents')) {
+                DB::table('employee_documents')->where('uploaded_by', $user->id)->update(['uploaded_by' => $actor->id]);
+            }
+
+            DB::table('piece_justificatives')->where('uploaded_by', $user->id)->update(['uploaded_by' => $actor->id]);
+            DB::table('chat_messages')->where('user_id', $user->id)->update(['user_id' => $actor->id]);
+            DB::table('administrative_documents')->where('uploaded_by', $user->id)->update(['uploaded_by' => $actor->id]);
+
+            if (DB::getSchemaBuilder()->hasTable('employees')) {
+                DB::table('employees')->where('user_id', $user->id)->update(['user_id' => null]);
+            }
+
+            $user->gares()->detach();
+            $user->delete();
+        });
+
+        $this->activity->log($actor, 'user_deleted', 'User', 'Suppression d\'un utilisateur.', [
             'entity_type' => 'User',
-            'entity_id' => $userId,
-            'subject' => $subject,
+            'entity_id' => $userId ?? null,
+            'subject' => $snapshot['email'],
             'before' => $snapshot,
         ]);
 
@@ -162,9 +237,7 @@ class UserController extends Controller
         }
 
         $before = ['is_active' => $user->is_active];
-        $user->update([
-            'is_active' => ! $user->is_active,
-        ]);
+        $user->update(['is_active' => ! $user->is_active]);
 
         $this->activity->log(auth()->user(), 'user_toggled', $user, $user->is_active ? 'Activation d\'un utilisateur.' : 'Désactivation d\'un utilisateur.', [
             'before' => $before,
@@ -174,28 +247,26 @@ class UserController extends Controller
         return back()->with('status', $user->is_active ? 'Utilisateur activé.' : 'Utilisateur désactivé.');
     }
 
-    protected function normalizePayload(Request $request, array $data, ?User $user = null): array
+    protected function normalizePayload(Request $request, array $data, ServiceModule $module, UserRole $role, ?User $user = null): array
     {
-        $role = $data['role'] instanceof UserRole ? $data['role'] : UserRole::from($data['role']);
-
+        $data['role'] = $role;
         $data['is_active'] = $request->boolean('is_active');
+        $data['must_change_password'] = $user
+            ? $request->boolean('must_change_password', $user->must_change_password)
+            : true;
+        $data['department_id'] = Department::forModule($module)?->id ?? $user?->department_id;
+        unset($data['module'], $data['zone_gares'], $data['all_gares']);
 
-        if ($role !== UserRole::ChefDeGare) {
+        if (! $role->requiresPrimaryGare()) {
             $data['gare_id'] = null;
-        }
-
-        if ($role !== UserRole::Caissiere && $role !== UserRole::ChefDeZone) {
-            unset($data['zone_gares']);
         }
 
         return $data;
     }
 
-    protected function resolveZoneGares(Request $request, array $data): array
+    protected function resolveZoneGares(Request $request, UserRole $role): array
     {
-        $role = $data['role'] instanceof UserRole ? $data['role'] : UserRole::from($data['role']);
-
-        if ($role !== UserRole::Caissiere && $role !== UserRole::ChefDeZone) {
+        if (! $role->supportsMultipleGares()) {
             return [];
         }
 
@@ -203,6 +274,24 @@ class UserController extends Controller
             return Gare::query()->where('is_active', true)->pluck('id')->all();
         }
 
-        return array_map('intval', $data['zone_gares'] ?? []);
+        return array_map('intval', $request->input('zone_gares', []));
+    }
+
+    protected function extractFirstName(string $fullName): string
+    {
+        return trim(explode(' ', trim($fullName))[0] ?? $fullName);
+    }
+
+    protected function extractLastName(string $fullName): string
+    {
+        $parts = preg_split('/\s+/', trim($fullName)) ?: [];
+
+        if (count($parts) <= 1) {
+            return '';
+        }
+
+        array_shift($parts);
+
+        return trim(implode(' ', $parts));
     }
 }

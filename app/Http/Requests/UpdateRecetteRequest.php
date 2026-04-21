@@ -13,14 +13,17 @@ class UpdateRecetteRequest extends FormRequest
 
     public function rules(): array
     {
+        $serviceScope = $this->route('recette')?->service_scope ?? 'gares';
+        $isCourrier = $serviceScope === 'courrier';
+
         return [
             'gare_id' => ['nullable', 'integer', 'exists:gares,id'],
             'operation_date' => ['required', 'date'],
-            'ticket_inter_amount' => ['required', 'numeric', 'min:0'],
-            'ticket_national_amount' => ['required', 'numeric', 'min:0'],
-            'bagage_inter_amount' => ['required', 'numeric', 'min:0'],
-            'bagage_national_amount' => ['required', 'numeric', 'min:0'],
-            'amount' => ['nullable', 'numeric', 'min:0'],
+            'ticket_inter_amount' => [$isCourrier ? 'nullable' : 'required', 'numeric', 'min:0'],
+            'ticket_national_amount' => [$isCourrier ? 'nullable' : 'required', 'numeric', 'min:0'],
+            'bagage_inter_amount' => [$isCourrier ? 'nullable' : 'required', 'numeric', 'min:0'],
+            'bagage_national_amount' => [$isCourrier ? 'nullable' : 'required', 'numeric', 'min:0'],
+            'amount' => ['required', 'numeric', 'min:0'],
             'description' => ['nullable', 'string', 'max:500'],
             'justificatif_name' => ['nullable', 'string', 'max:120'],
             'history_comment' => ['nullable', 'string', 'max:255'],

@@ -43,6 +43,22 @@ class UploadedFileName
         return $extension !== '' ? $stem.'.'.$extension : $stem;
     }
 
+    public static function defaultLabel(string $moduleLabel, ?string $gareLabel, ?string $operationDate, ?string $custom = null): string
+    {
+        $candidate = trim((string) $custom);
+        if ($candidate !== '') {
+            return $candidate;
+        }
+
+        $parts = [
+            self::sanitizeStem($moduleLabel),
+            self::sanitizeStem($gareLabel ?: 'Sans gare'),
+            self::sanitizeStem($operationDate ?: now()->format('Y-m-d')),
+        ];
+
+        return implode('_', array_filter($parts)) ?: 'document';
+    }
+
     protected static function sanitizeStem(?string $value): string
     {
         $value = trim((string) $value);
@@ -51,9 +67,11 @@ class UploadedFileName
         }
 
         $value = pathinfo($value, PATHINFO_FILENAME);
-        $value = preg_replace('/[\\\/\:\*\?\"\<\>\|]+/u', ' ', $value) ?? '';
+        $value = preg_replace('~[\\/:*?"<>|]+~u', ' ', $value) ?? '';
         $value = preg_replace('/\s+/u', ' ', $value) ?? '';
         $value = trim($value, " .\t\n\r\0\x0B");
+        $value = Str::ascii($value);
+        $value = preg_replace('/\s+/u', '_', $value) ?? '';
 
         return Str::limit($value, 120, '');
     }

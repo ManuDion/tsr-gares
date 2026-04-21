@@ -1,12 +1,12 @@
 @extends('layouts.app')
 
 @section('title', 'Versements bancaires')
-@section('heading', 'Gestion des versements bancaires')
-@section('subheading', auth()->user()->canViewAllGares() ? 'Suivi des dépôts bancaires, bordereaux et lecture OCR' : 'Liste des versements de votre périmètre')
+@section('heading', ($module?->value ?? 'gares') === 'courrier' ? 'Versements courrier' : 'Gestion des versements bancaires')
+@section('subheading', auth()->user()->canViewAllGares() ? 'Suivi des dépôts bancaires et des bordereaux justificatifs' : 'Liste des versements de votre périmètre')
 
 @section('actions')
     @can('create', App\Models\VersementBancaire::class)
-        <a class="btn btn-primary" href="{{ route('versements.create') }}"><span class="icon">{!! app_icon('plus') !!}</span> Nouveau versement</a>
+        <a class="btn btn-primary" href="{{ route('versements.create', ['module' => $module->value]) }}"><span class="icon">{!! app_icon('plus') !!}</span> Nouveau versement</a>
     @endcan
 @endsection
 
@@ -14,6 +14,7 @@
     @if(auth()->user()->canViewAllGares())
         <div class="panel">
             <form method="GET" class="filters-grid">
+                <input type="hidden" name="module" value="{{ $module->value }}">
                 <div>
                     <label>Gare</label>
                     <select name="gare_id">

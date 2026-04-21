@@ -1,13 +1,14 @@
 @extends('layouts.app')
 
 @section('title', 'Nouvelles dépenses')
-@section('heading', 'Saisir jusqu’à 5 dépenses')
+@section('heading', ($module?->value ?? 'gares') === 'courrier' ? 'Saisir jusqu’à 5 dépenses courrier' : 'Saisir jusqu’à 5 dépenses')
 @section('subheading', 'Ajoutez plusieurs dépenses à la suite puis enregistrez-les en une seule opération.')
 
 @section('content')
     <div class="panel panel-narrow">
-        <form method="POST" action="{{ route('depenses.store') }}" enctype="multipart/form-data" class="stack-md" data-depense-repeater data-max-items="5" data-next-index="{{ collect($initialEntries)->keys()->max() !== null ? (collect($initialEntries)->keys()->max() + 1) : count($initialEntries) }}">
+        <form method="POST" action="{{ route('depenses.store', ['module' => $module->value]) }}" enctype="multipart/form-data" class="stack-md" data-depense-repeater data-max-items="5" data-next-index="{{ collect($initialEntries)->keys()->max() !== null ? (collect($initialEntries)->keys()->max() + 1) : count($initialEntries) }}">
             @csrf
+            <input type="hidden" name="module" value="{{ $module->value }}">
 
             <div id="depense-entries" class="stack-md">
                 @foreach($initialEntries as $index => $entry)
@@ -27,7 +28,7 @@
             </template>
 
             <div class="form-actions">
-                <a class="btn btn-outline" href="{{ route('depenses.index') }}">Annuler</a>
+                <a class="btn btn-outline" href="{{ route('depenses.index', ['module' => $module->value]) }}">Annuler</a>
                 <button class="btn btn-primary" type="submit"><span class="icon">{!! app_icon('plus') !!}</span> Enregistrer les dépenses</button>
             </div>
         </form>

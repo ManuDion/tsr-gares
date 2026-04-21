@@ -11,6 +11,7 @@ class DailyControl extends Model
     use HasFactory;
 
     protected $fillable = [
+        'service_scope',
         'gare_id',
         'control_date',
         'concerned_date',

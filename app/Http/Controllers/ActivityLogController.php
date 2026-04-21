@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\ActivityLog;
 use App\Models\User;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -56,6 +57,7 @@ class ActivityLogController extends Controller
             'verification_adjustment_opened' => 'Ajustement ouvert',
             'administrative_document_created' => 'Document administratif créé',
             'administrative_document_updated' => 'Document administratif mis à jour',
+            'administrative_document_deleted' => 'Document administratif supprimé',
         ];
 
         return view('activity-logs.index', [
@@ -65,6 +67,15 @@ class ActivityLogController extends Controller
             'entityTypes' => ActivityLog::query()->select('entity_type')->whereNotNull('entity_type')->distinct()->orderBy('entity_type')->pluck('entity_type'),
             'eventLabels' => $eventLabels,
         ]);
+    }
+
+    public function destroy(Request $request, ActivityLog $activityLog): RedirectResponse
+    {
+        abort_unless($request->user()->isAdmin(), 403);
+
+        $activityLog->delete();
+
+        return redirect()->route('activity-logs.index', $request->except('page'))->with('status', 'Historique supprimé.');
     }
 
     public function show(Request $request, ActivityLog $activityLog): View
@@ -91,6 +102,7 @@ class ActivityLogController extends Controller
             'verification_adjustment_opened' => 'Ajustement ouvert',
             'administrative_document_created' => 'Document administratif créé',
             'administrative_document_updated' => 'Document administratif mis à jour',
+            'administrative_document_deleted' => 'Document administratif supprimé',
         ];
 
         return view('activity-logs.show', [

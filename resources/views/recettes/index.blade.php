@@ -1,19 +1,21 @@
 @extends('layouts.app')
 
 @section('title', 'Recettes')
-@section('heading', 'Gestion des recettes')
-@section('subheading', auth()->user()->canViewAllGares() ? 'Saisie, consultation, modification et export' : 'Recettes visibles et modifiables dans votre périmètre')
+@section('heading', ($module?->value ?? 'gares') === 'courrier' ? 'Recettes courrier' : 'Gestion des recettes')
+@section('subheading', ($module?->value ?? 'gares') === 'courrier' ? 'Recettes du service courrier par gare et par période' : (auth()->user()->canViewAllGares() ? 'Saisie, consultation, modification et export' : 'Recettes visibles et modifiables dans votre périmètre'))
 
 @section('actions')
     @can('create', App\Models\Recette::class)
-        <a class="btn btn-primary" href="{{ route('recettes.create') }}">Nouvelle recette</a>
+        <a class="btn btn-primary" href="{{ route('recettes.create', ['module' => $module->value]) }}">Nouvelle recette</a>
     @endcan
 @endsection
 
 @section('content')
+    @php($isCourrier = ($module?->value ?? 'gares') === 'courrier')
     @if(auth()->user()->canViewAllGares())
         <div class="panel">
             <form method="GET" class="filters-grid">
+                <input type="hidden" name="module" value="{{ $module->value }}">
                 <div>
                     <label>Gare</label>
                     <select name="gare_id">
@@ -33,7 +35,7 @@
                 </div>
                 <div class="align-end gap-sm">
                     <button class="btn btn-outline" type="submit">Filtrer</button>
-                    <a class="btn btn-outline" href="{{ route('exports.recettes', request()->query()) }}">Exporter Excel</a>
+                    <a class="btn btn-outline" href="{{ route('exports.recettes', array_merge(request()->query(), ['module' => $module->value])) }}">Exporter Excel</a>
                 </div>
             </form>
         </div>
@@ -46,7 +48,7 @@
                     <th>Date</th>
                     <th>Gare</th>
                     <th><span class="th-stack">Montant<small>en FCFA</small></span></th>
-                    <th>Composition</th>
+                    <th>{{ $isCourrier ? 'Type' : 'Composition' }}</th>
                     <th>Justificatif</th>
                     <th>Saisi par</th>
                     <th></th>
@@ -59,12 +61,16 @@
                         <td>{{ $recette->gare->name }}</td>
                         <td class="amount-cell">{{ number_format($recette->amount, 0, ',', ' ') }}</td>
                         <td>
-                            <div class="breakdown-summary">
-                                <span>TI : {{ number_format($recette->ticket_inter_amount, 0, ',', ' ') }}</span>
-                                <span>TN : {{ number_format($recette->ticket_national_amount, 0, ',', ' ') }}</span>
-                                <span>BI : {{ number_format($recette->bagage_inter_amount, 0, ',', ' ') }}</span>
-                                <span>BN : {{ number_format($recette->bagage_national_amount, 0, ',', ' ') }}</span>
-                            </div>
+                            @if($isCourrier)
+                                <span class="badge">Recette unique</span>
+                            @else
+                                <div class="breakdown-summary">
+                                    <span>TI : {{ number_format($recette->ticket_inter_amount, 0, ',', ' ') }}</span>
+                                    <span>TN : {{ number_format($recette->ticket_national_amount, 0, ',', ' ') }}</span>
+                                    <span>BI : {{ number_format($recette->bagage_inter_amount, 0, ',', ' ') }}</span>
+                                    <span>BN : {{ number_format($recette->bagage_national_amount, 0, ',', ' ') }}</span>
+                                </div>
+                            @endif
                         </td>
                         <td>
                             @forelse($recette->justificatives as $piece)

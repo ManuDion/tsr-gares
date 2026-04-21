@@ -1,12 +1,12 @@
 @extends('layouts.app')
 
 @section('title', 'Dépenses')
-@section('heading', 'Gestion des dépenses')
+@section('heading', ($module?->value ?? 'gares') === 'courrier' ? 'Dépenses courrier' : 'Gestion des dépenses')
 @section('subheading', auth()->user()->canViewAllGares() ? 'Saisie des dépenses, justificatifs et export' : 'Liste des dépenses de votre périmètre')
 
 @section('actions')
     @can('create', App\Models\Depense::class)
-        <a class="btn btn-primary" href="{{ route('depenses.create') }}"><span class="icon">{!! app_icon('plus') !!}</span> Nouvelle dépense</a>
+        <a class="btn btn-primary" href="{{ route('depenses.create', ['module' => $module->value]) }}"><span class="icon">{!! app_icon('plus') !!}</span> Nouvelle dépense</a>
     @endcan
 @endsection
 
@@ -14,6 +14,7 @@
     @if(auth()->user()->canViewAllGares())
         <div class="panel">
             <form method="GET" class="filters-grid">
+                <input type="hidden" name="module" value="{{ $module->value }}">
                 <div>
                     <label>Gare</label>
                     <select name="gare_id">
@@ -33,7 +34,7 @@
                 </div>
                 <div class="align-end gap-sm">
                     <button class="btn btn-outline" type="submit"><span class="icon">{!! app_icon('filter') !!}</span> Filtrer</button>
-                    <a class="btn btn-outline" href="{{ route('exports.depenses', request()->query()) }}">Exporter Excel</a>
+                    <a class="btn btn-outline" href="{{ route('exports.depenses', array_merge(request()->query(), ['module' => $module->value])) }}">Exporter Excel</a>
                 </div>
             </form>
         </div>

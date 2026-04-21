@@ -22,9 +22,6 @@ class NotificationHistoryController extends Controller
     public function index(Request $request): View
     {
         $this->authorize('viewAny', NotificationHistory::class);
-        $this->dailyControlService->ensureFreshControl();
-        $this->verificationService->ensureFreshForDate();
-        $this->documentExpiryService->ensureFreshAlerts();
 
         $user = $request->user();
 

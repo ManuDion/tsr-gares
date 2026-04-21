@@ -65,6 +65,9 @@
                     <th>Gare</th>
                     <th>Description</th>
                     <th>Détail</th>
+                    @if(auth()->user()->isAdmin())
+                        <th>Suppression</th>
+                    @endif
                 </tr>
             </thead>
             <tbody>
@@ -81,9 +84,20 @@
                                 <span class="icon">{!! app_icon('eye') !!}</span> Voir
                             </a>
                         </td>
+                        @if(auth()->user()->isAdmin())
+                            <td>
+                                <form method="POST" action="{{ route('activity-logs.destroy', $log) }}" onsubmit="return confirm('Supprimer cet historique ?');">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button class="btn btn-sm btn-danger" type="submit">
+                                        <span class="icon">{!! app_icon('trash') !!}</span> Supprimer
+                                    </button>
+                                </form>
+                            </td>
+                        @endif
                     </tr>
                 @empty
-                    <tr><td colspan="7">Aucune modification historisée.</td></tr>
+                    <tr><td colspan="{{ auth()->user()->isAdmin() ? 8 : 7 }}">Aucune modification historisée.</td></tr>
                 @endforelse
             </tbody>
         </table>

@@ -1,12 +1,12 @@
 @extends('layouts.app')
 
 @section('title', 'Modifier recette')
-@section('heading', 'Modifier une recette')
+@section('heading', ($module?->value ?? 'gares') === 'courrier' ? 'Modifier une recette courrier' : 'Modifier une recette')
 @section('subheading', 'Historique et contrôle de la règle 48 heures')
 
 @section('actions')
     @if(auth()->user()->isAdmin() || auth()->user()->isResponsable())
-        <form method="POST" action="{{ route('recettes.unlock', $recette) }}">
+        <form method="POST" action="{{ route('recettes.unlock', ['recette' => $recette, 'module' => $module->value]) }}">
             @csrf
             <input type="hidden" name="unlock_reason" value="Déverrouillage manuel par superviseur">
             <button class="btn btn-outline" type="submit">Déverrouiller 24h</button>
@@ -17,12 +17,13 @@
 @section('content')
     <div class="grid-2">
         <div class="panel">
-            <form method="POST" action="{{ route('recettes.update', $recette) }}" enctype="multipart/form-data" class="stack-md">
+            <form method="POST" action="{{ route('recettes.update', ['recette' => $recette, 'module' => $module->value]) }}" enctype="multipart/form-data" class="stack-md">
                 @csrf
                 @method('PUT')
+                <input type="hidden" name="module" value="{{ $module->value }}">
                 @include('recettes._form', ['recette' => $recette])
                 <div class="form-actions">
-                    <a class="btn btn-outline" href="{{ route('recettes.index') }}">Retour</a>
+                    <a class="btn btn-outline" href="{{ route('recettes.index', ['module' => $module->value]) }}">Retour</a>
                     <button class="btn btn-primary" type="submit">Mettre à jour</button>
                 </div>
             </form>

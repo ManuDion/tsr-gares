@@ -26,4 +26,9 @@ class AdministrativeDocumentPolicy
     {
         return $user->isControleur();
     }
+
+    public function delete(User $user, AdministrativeDocument $document): bool
+    {
+        return $user->isAdmin() || $user->isControleur();
+    }
 }

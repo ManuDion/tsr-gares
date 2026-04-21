@@ -10,7 +10,7 @@ use App\Models\Recette;
 use App\Models\RecetteHistory;
 use App\Services\AccessScopeService;
 use App\Services\ActivityLogService;
-use App\Services\DocumentAnalysisService;
+use App\Support\ModuleContext;
 use App\Support\UploadedFileName;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -21,8 +21,7 @@ class RecetteController extends Controller
 {
     public function __construct(
         protected AccessScopeService $access,
-        protected ActivityLogService $activity,
-        protected DocumentAnalysisService $analysis
+        protected ActivityLogService $activity
     ) {}
 
     public function index(Request $request): View
@@ -35,7 +34,11 @@ class RecetteController extends Controller
             ->orderByDesc('operation_date')
             ->orderByDesc('id');
 
-        $this->access->scopeForUser($query, $user);
+        $module = ModuleContext::fromRequest($request, $user);
+        abort_unless($module->supportsFinancialFlows() && $user->canAccessModule($module), 403);
+        $serviceScope = ModuleContext::financialScope($module);
+
+        $this->access->scopeForUser($query, $user, 'gare_id', $serviceScope);
 
         if (! $user->canViewAllGares()) {
             $query->where(function ($inner) {
@@ -50,7 +53,8 @@ class RecetteController extends Controller
 
         return view('recettes.index', [
             'recettes' => $query->paginate(15)->withQueryString(),
-            'gares' => $this->access->availableGares($user),
+            'gares' => $this->access->availableGares($user, $serviceScope),
+            'module' => $module,
         ]);
     }
 
@@ -58,8 +62,13 @@ class RecetteController extends Controller
     {
         $this->authorize('create', Recette::class);
 
+        $module = ModuleContext::fromRequest($request, $request->user());
+        abort_unless($module->supportsFinancialFlows() && $request->user()->canAccessModule($module), 403);
+        $serviceScope = ModuleContext::financialScope($module);
+
         return view('recettes.create', [
-            'gares' => $this->access->availableGares($request->user()),
+            'gares' => $this->access->availableGares($request->user(), $serviceScope),
+            'module' => $module,
             'maxSizeKb' => (int) env('JUSTIFICATIF_MAX_SIZE_KB', 5120),
         ]);
     }
@@ -68,9 +77,13 @@ class RecetteController extends Controller
     {
         $this->authorize('create', Recette::class);
         $user = $request->user();
-        $data = $this->normalizeRecetteData($request->validated());
 
-        $data['gare_id'] = $this->access->resolveGareIdForCreation($user, $request->integer('gare_id'));
+        $module = ModuleContext::fromRequest($request, $user);
+        $serviceScope = ModuleContext::financialScope($module);
+        $data = $this->normalizeRecetteData($request->validated(), $serviceScope);
+
+        $data['gare_id'] = $this->access->resolveGareIdForCreation($user, $request->integer('gare_id'), $serviceScope);
+        $data['service_scope'] = $serviceScope;
         $data['created_by'] = $user->id;
         $data['updated_by'] = $user->id;
         $data['reference'] = null;
@@ -78,8 +91,12 @@ class RecetteController extends Controller
         $recette = Recette::create($data);
 
         if ($request->hasFile('justificatif')) {
-            $piece = $this->attachUploadedPiece($recette, $request->file('justificatif'), $user->id, $request->string('justificatif_name')->toString());
-            $this->analysis->analyze($piece);
+            $this->attachUploadedPiece(
+                $recette,
+                $request->file('justificatif'),
+                $user->id,
+                $request->string('justificatif_name')->toString()
+            );
         }
 
         $this->activity->log($user, 'recette_created', $recette, 'Création d\'une recette.', [
@@ -93,20 +110,26 @@ class RecetteController extends Controller
                 'bagage_national_amount',
                 'amount',
                 'description',
+                'service_scope',
             ]),
             'gare_id' => $recette->gare_id,
         ]);
 
-        return redirect()->route('recettes.index')->with('status', 'Recette enregistrée.');
+        return redirect()->route('recettes.index', ['module' => $module->value])->with('status', 'Recette enregistrée.');
     }
 
     public function edit(Recette $recette): View
     {
         $this->authorize('update', $recette);
 
+        $module = ($recette->service_scope ?? 'gares') === 'courrier'
+            ? \App\Enums\ServiceModule::Courrier
+            : \App\Enums\ServiceModule::Gares;
+
         return view('recettes.edit', [
-            'recette' => $recette->load(['gare', 'histories.modifier', 'justificatives.latestAnalysis']),
-            'gares' => $this->access->availableGares(auth()->user()),
+            'recette' => $recette->load(['gare', 'histories.modifier', 'justificatives']),
+            'gares' => $this->access->availableGares(auth()->user(), $recette->service_scope ?? 'gares'),
+            'module' => $module,
             'maxSizeKb' => (int) env('JUSTIFICATIF_MAX_SIZE_KB', 5120),
         ]);
     }
@@ -126,11 +149,15 @@ class RecetteController extends Controller
             'gare_id',
         ]);
 
-        $data = $this->normalizeRecetteData($request->validated());
+        $data = $this->normalizeRecetteData($request->validated(), $recette->service_scope ?? 'gares');
         $data['updated_by'] = $request->user()->id;
         $data['reference'] = null;
 
-        if (! $request->user()->isChefDeGare()) {
+        $module = ($recette->service_scope ?? 'gares') === 'courrier'
+            ? \App\Enums\ServiceModule::Courrier
+            : \App\Enums\ServiceModule::Gares;
+
+        if (! $request->user()->isChefDeGare() && ! $request->user()->isAgentCourrierGare()) {
             $data['gare_id'] = $request->integer('gare_id', $recette->gare_id);
         }
 
@@ -159,8 +186,12 @@ class RecetteController extends Controller
         }
 
         if ($request->hasFile('justificatif')) {
-            $piece = $this->attachUploadedPiece($recette, $request->file('justificatif'), $request->user()->id, $request->string('justificatif_name')->toString());
-            $this->analysis->analyze($piece);
+            $this->attachUploadedPiece(
+                $recette,
+                $request->file('justificatif'),
+                $request->user()->id,
+                $request->string('justificatif_name')->toString()
+            );
         }
 
         if ($hasFieldChanges) {
@@ -174,7 +205,7 @@ class RecetteController extends Controller
 
         $status = $hasFieldChanges ? 'Recette modifiée.' : 'Aucune modification détectée sur la recette.';
 
-        return redirect()->route('recettes.index')->with('status', $status);
+        return redirect()->route('recettes.index', ['module' => $module->value])->with('status', $status);
     }
 
     public function unlock(UnlockRecetteRequest $request, Recette $recette): RedirectResponse
@@ -198,8 +229,18 @@ class RecetteController extends Controller
         return back()->with('status', 'Recette déverrouillée pour 24h.');
     }
 
-    protected function normalizeRecetteData(array $data): array
+    protected function normalizeRecetteData(array $data, string $serviceScope): array
     {
+        if ($serviceScope === 'courrier') {
+            $data['ticket_inter_amount'] = 0;
+            $data['ticket_national_amount'] = 0;
+            $data['bagage_inter_amount'] = 0;
+            $data['bagage_national_amount'] = 0;
+            $data['amount'] = (float) ($data['amount'] ?? 0);
+
+            return $data;
+        }
+
         $data['ticket_inter_amount'] = (float) ($data['ticket_inter_amount'] ?? 0);
         $data['ticket_national_amount'] = (float) ($data['ticket_national_amount'] ?? 0);
         $data['bagage_inter_amount'] = (float) ($data['bagage_inter_amount'] ?? 0);
@@ -238,7 +279,13 @@ class RecetteController extends Controller
     {
         $disk = env('JUSTIFICATIF_PRIVATE_DISK', 'private');
         $path = $file->store('justificatifs/recettes/'.now()->format('Y/m'), $disk);
-        $originalName = UploadedFileName::build($desiredName, $file);
+
+        $label = UploadedFileName::defaultLabel(
+            $recette->service_scope === 'courrier' ? 'RecetteCourrier' : 'Recette',
+            $recette->gare?->name,
+            optional($recette->operation_date)->format('Y-m-d')
+        );
+        $originalName = UploadedFileName::build($desiredName ?: $label, $file);
 
         $piece = $recette->justificatives()->create([
             'document_type' => 'recette',

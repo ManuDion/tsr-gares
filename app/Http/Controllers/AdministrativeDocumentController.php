@@ -156,6 +156,29 @@ class AdministrativeDocumentController extends Controller
         return redirect()->route('administrative-documents.index')->with('status', 'Document administratif mis à jour.');
     }
 
+    public function destroy(Request $request, AdministrativeDocument $administrativeDocument): RedirectResponse
+    {
+        $this->authorize('delete', $administrativeDocument);
+
+        $before = $administrativeDocument->only(['document_type', 'label', 'original_name', 'expires_at', 'is_active']);
+
+        if (Storage::disk($administrativeDocument->disk)->exists($administrativeDocument->path)) {
+            Storage::disk($administrativeDocument->disk)->delete($administrativeDocument->path);
+        }
+
+        $this->expiryService->clearPersistentAlerts($administrativeDocument);
+        $administrativeDocument->delete();
+
+        $this->activity->log($request->user(), 'administrative_document_deleted', 'AdministrativeDocument', 'Suppression d’un document administratif.', [
+            'entity_type' => 'AdministrativeDocument',
+            'entity_id' => $before['original_name'] ?? null,
+            'subject' => $before['label'] ?: ($before['original_name'] ?? 'Document administratif'),
+            'before' => $before,
+        ]);
+
+        return redirect()->route('administrative-documents.index')->with('status', 'Document administratif supprimé.');
+    }
+
     public function preview(Request $request, AdministrativeDocument $administrativeDocument): BinaryFileResponse
     {
         $this->authorize('view', $administrativeDocument);

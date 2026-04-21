@@ -1,12 +1,13 @@
 @extends('layouts.app')
 
 @section('title', 'Top 5 & Rapports')
-@section('heading', 'Top 5 et rapports de supervision')
+@section('heading', ($module?->value ?? 'gares') === 'courrier' ? 'Top 5 et rapports — Service courrier' : 'Top 5 et rapports de supervision')
 @section('subheading', 'Accessible uniquement à l’administrateur et au responsable')
 
 @section('content')
     <div class="panel">
         <form method="GET" class="filters-grid">
+            <input type="hidden" name="module" value="{{ $module->value }}">
             <div>
                 <label>Date début</label>
                 <input type="date" name="start_date" value="{{ $startDate }}">

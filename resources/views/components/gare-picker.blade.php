@@ -1,22 +1,26 @@
 @props([
     'gares' => [],
-    'datalistId',
+    'datalistId' => 'gare-picker',
     'selectedGareLabel' => null,
     'selectedGareId' => null,
     'hiddenName' => 'gare_id',
     'label' => 'Gare',
-    'placeholder' => 'Tapez une ville ou une gare',
+    'placeholder' => 'Filtrer une gare',
     'required' => true,
 ])
 
-<div data-gare-autocomplete>
+<div class="gare-filter-select" data-gare-filter-select>
     <label>{{ $label }}</label>
-    <input type="text" list="{{ $datalistId }}" data-gare-label value="{{ $selectedGareLabel ?? '' }}" placeholder="{{ $placeholder }}" @if($required) required @endif>
-    <input type="hidden" name="{{ $hiddenName }}" data-gare-id value="{{ $selectedGareId ?? '' }}">
-    <datalist id="{{ $datalistId }}">
+    <input type="text" value="{{ $selectedGareLabel ?? '' }}" placeholder="{{ $placeholder }}" data-gare-filter-input>
+    <select name="{{ $hiddenName }}" data-gare-filter-target @if($required) required @endif>
+        <option value="">Sélectionner une gare</option>
         @foreach($gares as $gare)
-            <option value="{{ $gare->name }} — {{ $gare->city }}" data-id="{{ $gare->id }}"></option>
+            <option value="{{ $gare->id }}"
+                data-search="{{ strtolower($gare->name.' '.$gare->city) }}"
+                @selected((string) $selectedGareId === (string) $gare->id)>
+                {{ $gare->name }} — {{ $gare->city }}
+            </option>
         @endforeach
-    </datalist>
-    <small>Champ filtré : ex. Yamoussoukro, Yopougon, Bouaké...</small>
+    </select>
+    <small>Saisissez quelques lettres pour filtrer la liste, puis choisissez la gare.</small>
 </div>

@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\ServiceModule;
 use App\Services\DailyControlService;
 use App\Services\DocumentExpiryService;
 use App\Services\VerificationService;
+use App\Support\ModuleContext;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
 
@@ -19,20 +21,25 @@ class DashboardController extends Controller
 
     public function __invoke(Request $request): View
     {
-        $this->dailyControlService->ensureFreshControl();
-        $this->verificationService->ensureFreshForDate();
-        $this->documentExpiryService->ensureFreshAlerts();
+        $module = ModuleContext::fromRequest($request, $request->user());
 
-        $user = $request->user();
+        if ($module->supportsFinancialFlows()) {
+            $scope = ModuleContext::financialScope($module);
+            $this->dailyControlService->ensureFreshControl(null, $scope);
+            $this->verificationService->ensureFreshForDate(null, $scope);
+        }
 
-        [$heading, $subheading] = match (true) {
-            $user->isAdmin() => ['Dashboard global', 'Supervision globale des gares, flux financiers et anomalies'],
-            $user->isResponsable() => ['Dashboard supervision', 'Vision consolidée des opérations, alertes et performances'],
-            $user->isChefDeGare() => ['Dashboard gare', 'Suivi opérationnel de votre gare et régularisation des saisies'],
-            $user->isControleur() => ['Dashboard conformité', 'Suivi des documents administratifs et des échéances réglementaires'],
-            default => ['Dashboard caissière', 'Saisie et suivi des gares qui vous sont affectées'],
+        if ($module === ServiceModule::Documents || $request->user()->isControleur() || $request->user()->hasGlobalVisibility()) {
+            $this->documentExpiryService->ensureFreshAlerts();
+        }
+
+        [$heading, $subheading] = match ($module) {
+            ServiceModule::Gares => ['Dashboard — Gestion des gares', 'Pilotage opérationnel et financier du service de gestion des gares.'],
+            ServiceModule::Documents => ['Dashboard — Gestion des documents', 'Suivi documentaire, échéances réglementaires et conformité.'],
+            ServiceModule::Courrier => ['Dashboard — Service courrier', 'Pilotage du service courrier par gare et par caissier courrier.'],
+            ServiceModule::Rh => ['Dashboard — Ressources Humaines', 'Vue d’ensemble du personnel, des dossiers et des comptes à activer.'],
         };
 
-        return view('dashboard.index', compact('heading', 'subheading'));
+        return view('dashboard.index', compact('heading', 'subheading', 'module'));
     }
 }

@@ -2,11 +2,12 @@
 
 @section('title', 'Vérification')
 @section('heading', 'Module de vérification')
-@section('subheading', 'Contrôle par gare : Versement = Recette - Dépense')
+@section('subheading', ($module?->value ?? 'gares') === 'courrier' ? 'Contrôle du service courrier : Versement = Recette - Dépense' : 'Contrôle par gare : Versement = Recette - Dépense')
 
 @section('content')
     <div class="panel">
         <form method="GET" class="filters-grid">
+            <input type="hidden" name="module" value="{{ $module->value }}">
             <div>
                 <label>Date d’opération</label>
                 <input type="date" name="operation_date" value="{{ $operationDate }}">
@@ -30,7 +31,7 @@
 
     @if(auth()->user()->isAdmin())
         <div class="panel">
-            <form method="POST" action="{{ route('verifications.purge-period') }}" class="filters-grid" onsubmit="return confirm('Supprimer les vérifications sur cette période ?');">
+            <form method="POST" action="{{ route('verifications.purge-period', ['module' => $module->value]) }}" class="filters-grid" onsubmit="return confirm('Supprimer les vérifications sur cette période ?');">
                 @csrf
                 @method('DELETE')
                 <div>
@@ -91,14 +92,14 @@
                             @if(abs($difference) < 0.01)
                                 <span class="text-muted">Aucune action</span>
                             @else
-                                <form method="POST" action="{{ route('verifications.confirm', $check) }}" class="form-inline form-inline-compact">
+                                <form method="POST" action="{{ route('verifications.confirm', ['verification' => $check, 'module' => $module->value]) }}" class="form-inline form-inline-compact">
                                     @csrf
                                     <input type="text" name="review_note" placeholder="Note">
                                     <button class="btn btn-sm btn-outline icon-only-btn" type="submit" title="Confirmer l'écart" aria-label="Confirmer l'écart">
                                         <span class="icon">{!! app_icon('checklist') !!}</span>
                                     </button>
                                 </form>
-                                <form method="POST" action="{{ route('verifications.enable-adjustments', $check) }}" class="form-inline form-inline-compact">
+                                <form method="POST" action="{{ route('verifications.enable-adjustments', ['verification' => $check, 'module' => $module->value]) }}" class="form-inline form-inline-compact">
                                     @csrf
                                     <input type="text" name="review_note" placeholder="Instruction">
                                     <button class="btn btn-sm btn-primary icon-only-btn" type="submit" title="Activer les modifications" aria-label="Activer les modifications">

@@ -6,10 +6,21 @@ enum UserRole: string
 {
     case Admin = 'admin';
     case Responsable = 'responsable';
+
     case ChefDeGare = 'chef_de_gare';
-    case Caissiere = 'caissiere';
-    case ChefDeZone = 'chef_de_zone'; // Legacy support
+    case CaissierGare = 'caissier_gare';
+
     case Controleur = 'controleur';
+
+    case AgentCourrierGare = 'agent_courrier_gare';
+    case CaissierCourrier = 'caissier_courrier';
+
+    case ResponsableRh = 'responsable_rh';
+    case PersonnelTsr = 'personnel_tsr';
+
+    // Legacy support
+    case Caissiere = 'caissiere';
+    case ChefDeZone = 'chef_de_zone';
 
     public function label(): string
     {
@@ -17,19 +28,52 @@ enum UserRole: string
             self::Admin => 'Administrateur',
             self::Responsable => 'Responsable',
             self::ChefDeGare => 'Chef de gare',
-            self::Caissiere, self::ChefDeZone => 'Caissière',
+            self::CaissierGare, self::Caissiere, self::ChefDeZone => 'Caissier gare',
             self::Controleur => 'Contrôleur',
+            self::AgentCourrierGare => 'Agent courrier gare',
+            self::CaissierCourrier => 'Caissier courrier',
+            self::ResponsableRh => 'Responsable RH',
+            self::PersonnelTsr => 'Personnel TSR',
+        };
+    }
+
+    public function module(): ?ServiceModule
+    {
+        return match ($this) {
+            self::Admin, self::Responsable => null,
+            self::ChefDeGare, self::CaissierGare, self::Caissiere, self::ChefDeZone => ServiceModule::Gares,
+            self::Controleur => ServiceModule::Documents,
+            self::AgentCourrierGare, self::CaissierCourrier => ServiceModule::Courrier,
+            self::ResponsableRh, self::PersonnelTsr => ServiceModule::Rh,
+        };
+    }
+
+    public function requiresPrimaryGare(): bool
+    {
+        return in_array($this, [self::ChefDeGare, self::AgentCourrierGare], true);
+    }
+
+    public function supportsMultipleGares(): bool
+    {
+        return in_array($this, [self::CaissierGare, self::Caissiere, self::ChefDeZone, self::CaissierCourrier], true);
+    }
+
+    public static function fromLegacyAware(string $value): self
+    {
+        return match ($value) {
+            'caissiere' => self::CaissierGare,
+            'chef_de_zone' => self::CaissierGare,
+            default => self::from($value),
         };
     }
 
     public static function options(): array
     {
-        return [
-            ['value' => self::Admin->value, 'label' => self::Admin->label()],
-            ['value' => self::Responsable->value, 'label' => self::Responsable->label()],
-            ['value' => self::ChefDeGare->value, 'label' => self::ChefDeGare->label()],
-            ['value' => self::Caissiere->value, 'label' => self::Caissiere->label()],
-            ['value' => self::Controleur->value, 'label' => self::Controleur->label()],
-        ];
+        $options = [];
+        foreach (ServiceModule::cases() as $module) {
+            $options[$module->value] = $module->roleOptions();
+        }
+
+        return $options;
     }
 }

@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Connexion · TSR Gares Finance</title>
+    <title>Connexion · TSR</title>
     <link rel="stylesheet" href="{{ asset('assets/app.css') }}">
 </head>
 <body class="auth-body">
@@ -12,12 +12,12 @@
             <img src="{{ asset('assets/logo-tsr.jpg') }}" alt="TSR Côte d'Ivoire" class="auth-logo auth-logo-large">
             <div class="auth-hero-copy">
                 <span class="auth-badge">Plateforme sécurisée</span>
-                <h1>Bienvenue sur TSR Gares Finance</h1>
-                <p>Centralisez les recettes, dépenses, versements bancaires, justificatifs et contrôles journaliers dans une interface moderne pensée pour les équipes terrain et les superviseurs.</p>
+                <h1>Bienvenue sur la plateforme TSR</h1>
+                <p>Accédez à votre espace de travail pour gérer les opérations des gares, les documents justificatifs, les contrôles journaliers et les échanges internes depuis une interface unique.</p>
                 <ul class="auth-points">
-                    <li>Dashboard adapté selon le rôle utilisateur</li>
-                    <li>Contrôles journaliers et notifications ciblées</li>
-                    <li>Versements avec OCR et validation humaine</li>
+                    <li>Accès personnalisé selon le rôle utilisateur</li>
+                    <li>Suivi financier, documentaire et notifications métier</li>
+                    <li>Interface pensée pour le mobile, la tablette et le poste fixe</li>
                 </ul>
             </div>
         </section>
@@ -25,7 +25,7 @@
         <section class="auth-card auth-card-modern">
             <div class="auth-card-head">
                 <h2>Connexion</h2>
-                <p>Accédez à votre espace de gestion financière.</p>
+                <p>Renseignez vos identifiants de production pour accéder à votre espace.</p>
             </div>
 
             @include('partials.flash')
@@ -34,7 +34,7 @@
                 @csrf
                 <div>
                     <label>Email</label>
-                    <input type="email" name="email" value="{{ old('email') }}" required autofocus placeholder="exemple@tsr.test">
+                    <input type="email" name="email" value="{{ old('email') }}" required autofocus placeholder="utilisateur@tsr.ci">
                 </div>
 
                 <div>
@@ -49,14 +49,6 @@
 
                 <button class="btn btn-primary btn-block" type="submit">Se connecter</button>
             </form>
-
-            <div class="demo-box">
-                <strong>Comptes de démonstration</strong>
-                <small>admin@tsr.test / password</small>
-                <small>responsable@tsr.test / password</small>
-                <small>chef.gare@tsr.test / password</small>
-                <small>caissiere@tsr.test / password</small>
-            </div>
         </section>
     </div>
 </body>

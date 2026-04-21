@@ -1,12 +1,12 @@
 @extends('layouts.app')
 
 @section('title', 'Modifier versement')
-@section('heading', 'Modifier un versement bancaire')
+@section('heading', ($module?->value ?? 'gares') === 'courrier' ? 'Modifier un versement courrier' : 'Modifier un versement bancaire')
 @section('subheading', 'Même principe de verrouillage que les recettes')
 
 @section('actions')
     @if(auth()->user()->isAdmin() || auth()->user()->isResponsable())
-        <form method="POST" action="{{ route('versements.unlock', $versement) }}">
+        <form method="POST" action="{{ route('versements.unlock', ['versement' => $versement, 'module' => $module->value]) }}">
             @csrf
             <input type="hidden" name="unlock_reason" value="Déverrouillage manuel par superviseur">
             <button class="btn btn-outline" type="submit">Déverrouiller 24h</button>
@@ -17,28 +17,17 @@
 @section('content')
     <div class="grid-2">
         <div class="panel">
-            <form method="POST" action="{{ route('versements.update', $versement) }}" enctype="multipart/form-data" class="stack-md">
+            <form method="POST" action="{{ route('versements.update', ['versement' => $versement, 'module' => $module->value]) }}" enctype="multipart/form-data" class="stack-md">
                 @csrf
                 @method('PUT')
-                @include('versements._form', ['draft' => null, 'draftToken' => null, 'defaultGareLabel' => null])
+                <input type="hidden" name="module" value="{{ $module->value }}">
+                @include('versements._form', ['maxSizeKb' => $maxSizeKb])
+
                 <div class="form-actions">
-                    <a class="btn btn-outline" href="{{ route('versements.index') }}">Retour</a>
+                    <a class="btn btn-outline" href="{{ route('versements.index', ['module' => $module->value]) }}">Retour</a>
                     <button class="btn btn-primary" type="submit">Mettre à jour</button>
                 </div>
             </form>
-
-            @if($versement->justificatives->isNotEmpty())
-                <div class="doc-links" style="margin-top: 1rem;">
-                    @foreach($versement->justificatives as $piece)
-                        <a class="btn btn-sm btn-outline" href="{{ route('justificatifs.preview', $piece) }}" target="_blank">
-                            <span class="icon">{!! app_icon('eye') !!}</span> Lire le bordereau
-                        </a>
-                        <a class="btn btn-sm btn-outline" href="{{ route('justificatifs.download', $piece) }}">
-                            <span class="icon">{!! app_icon('download') !!}</span> Télécharger
-                        </a>
-                    @endforeach
-                </div>
-            @endif
         </div>
 
         <div class="panel">

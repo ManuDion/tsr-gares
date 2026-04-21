@@ -24,10 +24,8 @@ class StoreVersementBancaireRequest extends FormRequest
             'bank_name' => ['nullable', 'string', 'max:150'],
             'description' => ['nullable', 'string', 'max:500'],
             'bordereau_name' => ['nullable', 'string', 'max:120'],
-            'analysis_token' => ['nullable', 'string', 'max:100', 'required_without:bordereau'],
             'bordereau' => [
-                'nullable',
-                'required_without:analysis_token',
+                'required',
                 'file',
                 'mimes:pdf,jpg,jpeg,png',
                 'max:'.$max,
@@ -38,8 +36,7 @@ class StoreVersementBancaireRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'analysis_token.required_without' => 'Le bordereau est obligatoire pour enregistrer un versement.',
-            'bordereau.required_without' => 'Le bordereau est obligatoire pour enregistrer un versement.',
+            'bordereau.required' => 'Le bordereau est obligatoire pour enregistrer un versement.',
         ];
     }
 }

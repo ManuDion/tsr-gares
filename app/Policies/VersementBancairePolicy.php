@@ -9,12 +9,12 @@ class VersementBancairePolicy
 {
     public function viewAny(User $user): bool
     {
-        return ! $user->isControleur();
+        return $user->hasGlobalVisibility() || $user->canAccessGaresModule() || $user->canAccessCourrierModule();
     }
 
     public function view(User $user, VersementBancaire $versement): bool
     {
-        return $user->hasAccessToGare($versement->gare_id);
+        return $user->hasAccessToGare($versement->gare_id, $versement->service_scope);
     }
 
     public function create(User $user): bool

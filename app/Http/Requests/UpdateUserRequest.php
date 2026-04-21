@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Enums\ServiceModule;
 use App\Enums\UserRole;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -17,29 +18,42 @@ class UpdateUserRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => ['required', 'string', 'max:120'],
+            'name' => ['required', 'string', 'max:180'],
+            'phone' => ['required', 'string', 'max:40'],
             'email' => ['required', 'email', 'max:180', Rule::unique('users', 'email')->ignore($this->route('user'))],
             'password' => ['nullable', Password::min(8)],
-            'role' => ['required', Rule::enum(UserRole::class)],
+            'module' => ['required', Rule::in(array_map(fn (ServiceModule $module) => $module->value, ServiceModule::cases()))],
+            'role' => ['required', Rule::in(array_map(fn (UserRole $role) => $role->value, UserRole::cases()))],
             'gare_id' => ['nullable', 'integer', 'exists:gares,id'],
             'zone_gares' => ['nullable', 'array'],
             'zone_gares.*' => ['integer', 'exists:gares,id'],
             'all_gares' => ['nullable', 'boolean'],
             'is_active' => ['nullable', 'boolean'],
+            'must_change_password' => ['nullable', 'boolean'],
         ];
     }
 
     public function withValidator($validator): void
     {
         $validator->after(function ($validator) {
-            $role = $this->input('role');
+            $role = UserRole::fromLegacyAware((string) $this->input('role'));
+            $module = ServiceModule::tryFrom((string) $this->input('module'));
 
-            if ($role === UserRole::ChefDeGare->value && ! $this->filled('gare_id')) {
-                $validator->errors()->add('gare_id', 'Veuillez sélectionner une gare principale pour le chef de gare.');
+            if (! $module) {
+                return;
             }
 
-            if ($role === UserRole::Caissiere->value && ! $this->boolean('all_gares') && empty($this->input('zone_gares', []))) {
-                $validator->errors()->add('zone_gares', 'Veuillez sélectionner au moins une gare pour la caissière.');
+            $allowedRoleValues = collect($module->roleOptions())->pluck('value')->all();
+            if (! in_array($role->value, $allowedRoleValues, true)) {
+                $validator->errors()->add('role', 'Le rôle choisi ne correspond pas au service sélectionné.');
+            }
+
+            if ($role->requiresPrimaryGare() && ! $this->filled('gare_id')) {
+                $validator->errors()->add('gare_id', 'Veuillez sélectionner une gare principale pour ce rôle.');
+            }
+
+            if ($role->supportsMultipleGares() && ! $this->boolean('all_gares') && empty($this->input('zone_gares', []))) {
+                $validator->errors()->add('zone_gares', 'Veuillez sélectionner au moins une gare pour ce profil.');
             }
         });
     }

@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\ServiceModule;
 use App\Models\VerificationCheck;
 use App\Services\VerificationService;
+use App\Support\ModuleContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -18,14 +20,19 @@ class VerificationController extends Controller
     {
         $this->authorize('viewAny', VerificationCheck::class);
 
+        $module = ModuleContext::fromRequest($request, $request->user());
+        abort_unless($module->supportsFinancialFlows(), 403);
+        $serviceScope = ModuleContext::financialScope($module);
+
         $operationDate = $request->date('operation_date')
             ? $request->date('operation_date')->toDateString()
             : now('Africa/Abidjan')->subDay()->toDateString();
 
-        $this->service->ensureFreshForDate($operationDate);
+        $this->service->ensureFreshForDate($operationDate, $serviceScope);
 
         $checks = VerificationCheck::query()
             ->with(['gare', 'reviewer'])
+            ->where('service_scope', $serviceScope)
             ->whereDate('operation_date', $operationDate)
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')->toString()))
             ->orderByDesc('difference')
@@ -36,6 +43,7 @@ class VerificationController extends Controller
         return view('verifications.index', [
             'checks' => $checks,
             'operationDate' => $operationDate,
+            'module' => $module,
             'statuses' => [
                 'conforme' => 'Conforme',
                 'ecart_detecte' => 'Écart détecté',
@@ -55,7 +63,10 @@ class VerificationController extends Controller
             $request->string('review_note')->toString() ?: null
         );
 
-        return back()->with('status', 'La différence a été confirmée.');
+        $module = ($verification->service_scope ?? 'gares') === 'courrier' ? ServiceModule::Courrier : ServiceModule::Gares;
+
+        return redirect()->route('verifications.index', ['module' => $module->value, 'operation_date' => optional($verification->operation_date)->toDateString()])
+            ->with('status', 'La différence a été confirmée.');
     }
 
     public function enableAdjustments(Request $request, VerificationCheck $verification): RedirectResponse
@@ -68,7 +79,10 @@ class VerificationController extends Controller
             $request->string('review_note')->toString() ?: null
         );
 
-        return back()->with('status', 'Les ajustements ont été ouverts pour la gare concernée.');
+        $module = ($verification->service_scope ?? 'gares') === 'courrier' ? ServiceModule::Courrier : ServiceModule::Gares;
+
+        return redirect()->route('verifications.index', ['module' => $module->value, 'operation_date' => optional($verification->operation_date)->toDateString()])
+            ->with('status', 'Les ajustements ont été ouverts pour la gare concernée.');
     }
 
     public function purgePeriod(Request $request): RedirectResponse
@@ -80,7 +94,11 @@ class VerificationController extends Controller
             'end_date' => ['required', 'date', 'after_or_equal:start_date'],
         ]);
 
+        $module = ModuleContext::fromRequest($request, $request->user());
+        $serviceScope = $module->supportsFinancialFlows() ? ModuleContext::financialScope($module) : 'gares';
+
         $deleted = VerificationCheck::query()
+            ->where('service_scope', $serviceScope)
             ->whereBetween('operation_date', [$data['start_date'], $data['end_date']])
             ->delete();
 

@@ -9,12 +9,12 @@ class DepensePolicy
 {
     public function viewAny(User $user): bool
     {
-        return ! $user->isControleur();
+        return $user->hasGlobalVisibility() || $user->canAccessGaresModule() || $user->canAccessCourrierModule();
     }
 
     public function view(User $user, Depense $depense): bool
     {
-        return $user->hasAccessToGare($depense->gare_id);
+        return $user->hasAccessToGare($depense->gare_id, $depense->service_scope);
     }
 
     public function create(User $user): bool

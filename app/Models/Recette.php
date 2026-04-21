@@ -14,6 +14,7 @@ class Recette extends Model
     use HasFactory;
 
     protected $fillable = [
+        'service_scope',
         'gare_id',
         'operation_date',
         'amount',
@@ -79,7 +80,7 @@ class Recette extends Model
             return true;
         }
 
-        if (! $user->hasAccessToGare($this->gare_id)) {
+        if (! $user->hasAccessToGare($this->gare_id, $this->service_scope)) {
             return false;
         }
 

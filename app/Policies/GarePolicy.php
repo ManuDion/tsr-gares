@@ -9,12 +9,12 @@ class GarePolicy
 {
     public function viewAny(User $user): bool
     {
-        return ! $user->isControleur();
+        return $user->hasGlobalVisibility() || $user->canAccessGaresModule();
     }
 
     public function view(User $user, Gare $gare): bool
     {
-        return $user->hasAccessToGare($gare->id);
+        return $user->hasAccessToGare($gare->id, 'gares');
     }
 
     public function create(User $user): bool

@@ -1,5 +1,6 @@
 @php
     $metrics = $this->metrics;
+    $module = $metrics['module'] ?? null;
 @endphp
 
 @if(($metrics['mode'] ?? 'financial') === 'controleur')
@@ -61,184 +62,149 @@
             </div>
         </div>
     </div>
-@else
-    @php
-        $trend = collect($metrics['trend']);
-        $maxValue = max(1, (int) $trend->flatMap(fn ($item) => [$item['recettes'], $item['depenses'], $item['versements']])->max());
-        $buildPoints = function (string $key) use ($trend, $maxValue) {
-            if ($trend->isEmpty()) {
-                return '';
-            }
-
-            return $trend->values()->map(function ($item, $index) use ($trend, $maxValue, $key) {
-                $x = $trend->count() === 1 ? 20 : 20 + ($index * (260 / max(1, $trend->count() - 1)));
-                $y = 120 - (($item[$key] / $maxValue) * 100);
-                return round($x, 2).','.round($y, 2);
-            })->implode(' ');
-        };
-        $topRecettes = $metrics['top_recettes'];
-        $topDepenses = $metrics['top_depenses'];
-        $topSaisie = $metrics['top_saisie'];
-    @endphp
-
+@elseif(($metrics['mode'] ?? '') === 'rh')
     <div class="stack-lg">
-        @if ($metrics['user_can_view_all'])
-            <div class="panel hero-panel">
-                <div class="filters-grid">
-                    <div>
-                        <label for="start_date">Date début</label>
-                        <input id="start_date" type="date" wire:model="start_date">
-                    </div>
-                    <div>
-                        <label for="end_date">Date fin</label>
-                        <input id="end_date" type="date" wire:model="end_date">
-                    </div>
-                    <div>
-                        <label for="gare_id">Gare</label>
-                        <select id="gare_id" wire:model="gare_id" @disabled(auth()->user()->isChefDeGare())>
-                            <option value="">Toutes les gares autorisées</option>
-                            @foreach ($this->gares as $gare)
-                                <option value="{{ $gare->id }}">{{ $gare->name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="align-end">
-                        <button class="btn btn-primary" type="button" wire:click="applyFilters">
-                            <span class="icon">{!! app_icon('filter') !!}</span>
-                            Filtrer
-                        </button>
-                    </div>
-                </div>
-            </div>
-        @endif
-
         <div class="stats-grid">
-            <x-stat-card title="Total recettes" :value="number_format($metrics['recettes_total'], 0, ',', ' ') . ' FCFA'" :meta="$metrics['user_can_view_all'] ? $metrics['recettes_count'] . ' enregistrements' : $metrics['period_label']" icon="wallet" />
-            <x-stat-card title="Total dépenses" :value="number_format($metrics['depenses_total'], 0, ',', ' ') . ' FCFA'" :meta="$metrics['user_can_view_all'] ? $metrics['depenses_count'] . ' enregistrements' : $metrics['period_label']" icon="receipt" />
-            <x-stat-card title="Total versements" :value="number_format($metrics['versements_total'], 0, ',', ' ') . ' FCFA'" :meta="$metrics['user_can_view_all'] ? $metrics['versements_count'] . ' enregistrements' : $metrics['period_label']" icon="bank" />
+            <x-stat-card title="Agents enregistrés" :value="$metrics['employees_total']" meta="Dossiers du personnel" icon="users" />
+            <x-stat-card title="Agents actifs" :value="$metrics['employees_active']" meta="Statut actif" icon="shield" />
+            <x-stat-card title="Comptes à activer" :value="$metrics['accounts_pending_activation']" meta="Espaces personnels en attente" icon="bell" />
+            <x-stat-card title="Pièces RH" :value="$metrics['documents_total']" meta="Documents centralisés" icon="document" />
         </div>
-
-        @php
-            $recetteBreakdownTotals = $metrics['recette_breakdown_totals'];
-            $recetteBreakdownByGare = $metrics['recette_breakdown_by_gare'];
-        @endphp
-
-        <div class="panel">
-            <div class="panel-header">
-                <div>
-                    <h2>Détail des types de recettes</h2>
-                    <p class="text-muted">
-                        Répartition par gare sur {{ strtolower($metrics['period_label']) }}.
-                    </p>
-                </div>
-            </div>
-
-            <div class="breakdown-kpis">
-                <article class="breakdown-kpi-card">
-                    <span>Tickets inter</span>
-                    <strong>{{ number_format((float) ($recetteBreakdownTotals->ticket_inter_total ?? 0), 0, ',', ' ') }} FCFA</strong>
-                </article>
-                <article class="breakdown-kpi-card">
-                    <span>Tickets national</span>
-                    <strong>{{ number_format((float) ($recetteBreakdownTotals->ticket_national_total ?? 0), 0, ',', ' ') }} FCFA</strong>
-                </article>
-                <article class="breakdown-kpi-card">
-                    <span>Bagages inter</span>
-                    <strong>{{ number_format((float) ($recetteBreakdownTotals->bagage_inter_total ?? 0), 0, ',', ' ') }} FCFA</strong>
-                </article>
-                <article class="breakdown-kpi-card">
-                    <span>Bagages national</span>
-                    <strong>{{ number_format((float) ($recetteBreakdownTotals->bagage_national_total ?? 0), 0, ',', ' ') }} FCFA</strong>
-                </article>
-            </div>
-
-            <div class="table-wrapper table-plain">
-                <table class="compact-table">
-                    <thead>
-                        <tr>
-                            <th>Gare</th>
-                            <th>Tickets inter<br><span class="th-sub">FCFA</span></th>
-                            <th>Tickets national<br><span class="th-sub">FCFA</span></th>
-                            <th>Bagages inter<br><span class="th-sub">FCFA</span></th>
-                            <th>Bagages national<br><span class="th-sub">FCFA</span></th>
-                            <th>Total recettes<br><span class="th-sub">FCFA</span></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse ($recetteBreakdownByGare as $row)
-                            <tr>
-                                <td>
-                                    <strong>{{ $row->gare?->name ?? 'Gare' }}</strong>
-                                    @if($row->gare?->city)
-                                        <div class="table-helper">{{ $row->gare->city }}</div>
-                                    @endif
-                                </td>
-                                <td>{{ number_format((float) $row->ticket_inter_total, 0, ',', ' ') }}</td>
-                                <td>{{ number_format((float) $row->ticket_national_total, 0, ',', ' ') }}</td>
-                                <td>{{ number_format((float) $row->bagage_inter_total, 0, ',', ' ') }}</td>
-                                <td>{{ number_format((float) $row->bagage_national_total, 0, ',', ' ') }}</td>
-                                <td><strong>{{ number_format((float) $row->total_amount, 0, ',', ' ') }}</strong></td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="6">Aucune recette disponible sur cette période.</td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        @if ($metrics['missing_yesterday']->isNotEmpty())
-            <div class="alert alert-error alert-rich">
-                <div class="alert-icon">{!! app_icon('bell') !!}</div>
-                <div>
-                    <strong>Alertes de non-saisie du jour précédent</strong>
-                    <ul>
-                        @foreach ($metrics['missing_yesterday'] as $control)
-                            <li>{{ $control->gare->name }} : {{ implode(', ', $control->missing_operations ?? []) }}</li>
-                        @endforeach
-                    </ul>
-                </div>
-            </div>
-        @endif
 
         <div class="grid-2">
             <div class="panel">
                 <div class="panel-header">
                     <div>
-                        <h2>Évolution des montants</h2>
-                        <p class="text-muted">
-                            {{ $metrics['user_can_view_all'] ? 'Courbes dynamiques sur la période filtrée' : 'Suivi du mois en cours pour votre périmètre' }}
-                        </p>
+                        <h2>Répartition par service</h2>
+                        <p class="text-muted">Base préparatoire du module RH</p>
                     </div>
                 </div>
-                <div class="chart-card">
-                    <svg viewBox="0 0 300 140" class="chart-svg" aria-label="Courbes financières">
-                        <line x1="20" y1="120" x2="280" y2="120" class="chart-axis" />
-                        <line x1="20" y1="20" x2="20" y2="120" class="chart-axis" />
-                        <polyline points="{{ $buildPoints('recettes') }}" class="chart-line chart-line-recettes" />
-                        <polyline points="{{ $buildPoints('depenses') }}" class="chart-line chart-line-depenses" />
-                        <polyline points="{{ $buildPoints('versements') }}" class="chart-line chart-line-versements" />
-                    </svg>
-                    <div class="chart-legend">
-                        <span><i class="legend-dot recettes"></i> Recettes</span>
-                        <span><i class="legend-dot depenses"></i> Dépenses</span>
-                        <span><i class="legend-dot versements"></i> Versements</span>
-                    </div>
-                    <div class="chart-labels">
-                        @foreach ($trend as $item)
-                            <span>{{ $item['label'] }}</span>
-                        @endforeach
-                    </div>
+                <div class="table-wrapper table-plain">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Service</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse($metrics['employees_by_department'] as $row)
+                                <tr>
+                                    <td>{{ $row->department?->name ?? 'Non renseigné' }}</td>
+                                    <td>{{ $row->total }}</td>
+                                </tr>
+                            @empty
+                                <tr><td colspan="2">Aucun dossier RH enregistré.</td></tr>
+                            @endforelse
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
             <div class="panel">
                 <div class="panel-header">
                     <div>
-                        <h2>{{ $metrics['user_can_view_all'] ? 'Dernières notifications' : 'Notifications récentes' }}</h2>
-                        <p class="text-muted">Anomalies, rappels et contrôles journaliers</p>
+                        <h2>Derniers dossiers créés</h2>
+                        <p class="text-muted">Créations récentes du service RH</p>
+                    </div>
+                </div>
+                <div class="table-wrapper table-plain">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Agent</th>
+                                <th>Service</th>
+                                <th>Statut</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse($metrics['recent_employees'] as $employee)
+                                <tr>
+                                    <td>{{ $employee->full_name }}</td>
+                                    <td>{{ $employee->department?->name ?? '—' }}</td>
+                                    <td>{{ $employee->employment_status }}</td>
+                                </tr>
+                            @empty
+                                <tr><td colspan="3">Aucun dossier récent.</td></tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+@else
+    @php
+        $serviceTitle = ($module?->value ?? 'gares') === 'courrier' ? 'service courrier' : 'service de gestion des gares';
+        $isCourrier = ($module?->value ?? 'gares') === 'courrier';
+    @endphp
+    <div class="stack-lg">
+        <div class="panel hero-panel">
+            @if ($metrics['user_can_view_all'])
+                <div class="filters-grid">
+                    <div>
+                        <label for="start_date">Date début</label>
+                        <input id="start_date" type="date" wire:model.live="start_date">
+                    </div>
+                    <div>
+                        <label for="end_date">Date fin</label>
+                        <input id="end_date" type="date" wire:model.live="end_date">
+                    </div>
+                    <div>
+                        <label for="gare_id">Gare</label>
+                        <select id="gare_id" wire:model.live="gare_id">
+                            <option value="">Toutes les gares</option>
+                            @foreach($this->gares as $gare)
+                                <option value="{{ $gare->id }}">{{ $gare->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div>
+            @endif
+
+            <div class="stats-grid">
+                <x-stat-card title="Total recettes" :value="number_format($metrics['recettes_total'], 0, ',', ' ')" meta="{{ $serviceTitle }} · {{ $metrics['period_label'] }}" icon="wallet" />
+                <x-stat-card title="Total dépenses" :value="number_format($metrics['depenses_total'], 0, ',', ' ')" meta="{{ $serviceTitle }} · {{ $metrics['period_label'] }}" icon="receipt" />
+                <x-stat-card title="Total versements" :value="number_format($metrics['versements_total'], 0, ',', ' ')" meta="{{ $serviceTitle }} · {{ $metrics['period_label'] }}" icon="bank" />
+            </div>
+        </div>
+
+        <div class="grid-2">
+            <div class="panel">
+                <div class="panel-header">
+                    <div>
+                        <h2>{{ $isCourrier ? 'Recettes courrier' : 'Détail des types de recettes' }}</h2>
+                        <p class="text-muted">{{ $isCourrier ? 'Le service courrier utilise une recette unique par jour.' : 'Répartition globale pour la période sélectionnée' }}</p>
+                    </div>
+                </div>
+                <div class="table-wrapper table-plain">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Type</th>
+                                <th>Total FCFA</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if($isCourrier)
+                                <tr><td>Recette unique courrier</td><td>{{ number_format($metrics['recette_breakdown_totals']->total_amount ?? 0, 0, ',', ' ') }}</td></tr>
+                            @else
+                                <tr><td>Tickets inter</td><td>{{ number_format($metrics['recette_breakdown_totals']->ticket_inter_total ?? 0, 0, ',', ' ') }}</td></tr>
+                                <tr><td>Tickets national</td><td>{{ number_format($metrics['recette_breakdown_totals']->ticket_national_total ?? 0, 0, ',', ' ') }}</td></tr>
+                                <tr><td>Bagages inter</td><td>{{ number_format($metrics['recette_breakdown_totals']->bagage_inter_total ?? 0, 0, ',', ' ') }}</td></tr>
+                                <tr><td>Bagages national</td><td>{{ number_format($metrics['recette_breakdown_totals']->bagage_national_total ?? 0, 0, ',', ' ') }}</td></tr>
+                                <tr><td><strong>Total recettes</strong></td><td><strong>{{ number_format($metrics['recette_breakdown_totals']->total_amount ?? 0, 0, ',', ' ') }}</strong></td></tr>
+                            @endif
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header">
+                    <div>
+                        <h2>Notifications récentes</h2>
+                        <p class="text-muted">Messages liés au module actif</p>
                     </div>
                 </div>
                 <div class="notification-list">
@@ -246,127 +212,178 @@
                         <article class="notification-item">
                             <strong>{{ $notification->subject }}</strong>
                             <p>{{ $notification->content }}</p>
-                            <small>{{ $notification->concerned_date?->format('d/m/Y') ?? $notification->created_at?->format('d/m/Y H:i') }}</small>
+                            <small>{{ $notification->created_at?->format('d/m/Y H:i') }}</small>
                         </article>
                     @empty
-                        <p class="text-muted">Aucune notification pour le moment.</p>
+                        <p class="text-muted">Aucune notification récente.</p>
                     @endforelse
                 </div>
             </div>
         </div>
 
-        @if ($metrics['user_can_view_all'])
-            <div class="grid-3">
-                <div class="panel">
-                    <div class="panel-header">
-                        <div>
-                            <h2>Top 5 en saisie</h2>
-                            <p class="text-muted">Les gares les plus régulières sur la période</p>
-                        </div>
-                    </div>
-                    <div class="mini-bars">
-                        @forelse ($topSaisie as $gare)
-                            @php $width = $topSaisie->max('saisie_total') > 0 ? ($gare->saisie_total / $topSaisie->max('saisie_total')) * 100 : 0; @endphp
-                            <div class="mini-bar-row">
-                                <div class="mini-bar-header">
-                                    <strong>{{ $gare->name }}</strong>
-                                    <span>{{ $gare->saisie_total }} saisies</span>
-                                </div>
-                                <div class="mini-bar-track"><div class="mini-bar-fill" style="width: {{ $width }}%"></div></div>
-                            </div>
-                        @empty
-                            <p class="text-muted">Aucune donnée.</p>
-                        @endforelse
+        <div class="grid-2">
+            <div class="panel">
+                <div class="panel-header">
+                    <div>
+                        <h2>Évolution des montants</h2>
+                        <p class="text-muted">Comparatif hebdomadaire du mois en cours (S1 à S4)</p>
                     </div>
                 </div>
 
-                <div class="panel">
-                    <div class="panel-header">
-                        <div>
-                            <h2>Top 5 recettes</h2>
-                            <p class="text-muted">Gares les plus performantes sur la période</p>
-                        </div>
-                    </div>
-                    <div class="mini-bars">
-                        @forelse ($topRecettes as $row)
-                            @php $width = $topRecettes->max('total') > 0 ? ($row->total / $topRecettes->max('total')) * 100 : 0; @endphp
-                            <div class="mini-bar-row">
-                                <div class="mini-bar-header">
-                                    <strong>{{ $row->gare?->name ?? 'Gare' }}</strong>
-                                    <span>{{ number_format($row->total, 0, ',', ' ') }} FCFA</span>
-                                </div>
-                                <div class="mini-bar-track"><div class="mini-bar-fill" style="width: {{ $width }}%"></div></div>
-                            </div>
-                        @empty
-                            <p class="text-muted">Aucune donnée.</p>
-                        @endforelse
+                <div class="trend-chart-card">
+                    <svg viewBox="0 0 300 160" class="trend-chart" aria-label="Graphique d'évolution des montants">
+                        <line x1="20" y1="140" x2="280" y2="140" class="chart-axis" />
+                        <line x1="20" y1="20" x2="20" y2="140" class="chart-axis" />
+                        <polyline class="chart-line chart-line-recettes" points="{{ $metrics['trend_chart']['recettes'] ?? '' }}"></polyline>
+                        <polyline class="chart-line chart-line-depenses" points="{{ $metrics['trend_chart']['depenses'] ?? '' }}"></polyline>
+                        <polyline class="chart-line chart-line-versements" points="{{ $metrics['trend_chart']['versements'] ?? '' }}"></polyline>
+                        @foreach($metrics['trend'] as $index => $row)
+                            @php($x = 20 + ($index * (260 / max(1, (count($metrics['trend']) - 1)))))
+                            <text x="{{ $x }}" y="154" text-anchor="middle" class="chart-label">{{ $row['label'] }}</text>
+                        @endforeach
+                    </svg>
+
+                    <div class="chart-legend">
+                        <span><i class="legend-dot legend-dot-recettes"></i> Recettes</span>
+                        <span><i class="legend-dot legend-dot-depenses"></i> Dépenses</span>
+                        <span><i class="legend-dot legend-dot-versements"></i> Versements</span>
                     </div>
                 </div>
 
-                <div class="panel">
-                    <div class="panel-header">
-                        <div>
-                            <h2>Top 5 dépenses</h2>
-                            <p class="text-muted">Gares avec le plus de dépenses sur la période</p>
-                        </div>
-                    </div>
-                    <div class="mini-bars">
-                        @forelse ($topDepenses as $row)
-                            @php $width = $topDepenses->max('total') > 0 ? ($row->total / $topDepenses->max('total')) * 100 : 0; @endphp
-                            <div class="mini-bar-row">
-                                <div class="mini-bar-header">
-                                    <strong>{{ $row->gare?->name ?? 'Gare' }}</strong>
-                                    <span>{{ number_format($row->total, 0, ',', ' ') }} FCFA</span>
-                                </div>
-                                <div class="mini-bar-track"><div class="mini-bar-fill" style="width: {{ $width }}%"></div></div>
-                            </div>
-                        @empty
-                            <p class="text-muted">Aucune donnée.</p>
-                        @endforelse
-                    </div>
+                <div class="table-wrapper table-plain">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Semaine</th>
+                                <th>Recettes</th>
+                                <th>Dépenses</th>
+                                <th>Versements</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse($metrics['trend'] as $row)
+                                <tr>
+                                    <td>{{ $row['label'] }}</td>
+                                    <td>{{ number_format($row['recettes'], 0, ',', ' ') }}</td>
+                                    <td>{{ number_format($row['depenses'], 0, ',', ' ') }}</td>
+                                    <td>{{ number_format($row['versements'], 0, ',', ' ') }}</td>
+                                </tr>
+                            @empty
+                                <tr><td colspan="4">Aucune donnée de période.</td></tr>
+                            @endforelse
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
             <div class="panel">
                 <div class="panel-header">
                     <div>
-                        <h2>Derniers contrôles journaliers</h2>
-                        <p class="text-muted">Synthèse des conformités et anomalies détectées</p>
+                        <h2>Alertes métier</h2>
+                        <p class="text-muted">Non-saisies détectées sur la journée précédente</p>
                     </div>
                 </div>
-                <div class="table-wrapper table-plain">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Date contrôlée</th>
-                                <th>Gare</th>
-                                <th>Recette</th>
-                                <th>Dépense</th>
-                                <th>Versement</th>
-                                <th>Statut</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @forelse ($metrics['controls'] as $control)
-                                <tr>
-                                    <td>{{ $control->concerned_date?->format('d/m/Y') }}</td>
-                                    <td>{{ $control->gare?->name }}</td>
-                                    <td>{{ $control->has_recette ? 'Oui' : 'Non' }}</td>
-                                    <td>{{ $control->has_depense ? 'Oui' : 'Non' }}</td>
-                                    <td>{{ $control->has_versement ? 'Oui' : 'Non' }}</td>
-                                    <td>
-                                        <span class="badge {{ $control->is_compliant ? 'badge-success' : 'badge-danger' }}">
-                                            {{ $control->is_compliant ? 'Conforme' : 'Anomalie' }}
-                                        </span>
-                                    </td>
-                                </tr>
-                            @empty
-                                <tr><td colspan="6">Aucun contrôle disponible.</td></tr>
-                            @endforelse
-                        </tbody>
-                    </table>
+                <div class="notification-list">
+                    @forelse($metrics['missing_yesterday'] as $control)
+                        <article class="notification-item">
+                            <strong>{{ $control->gare?->name }}</strong>
+                            <p>Opérations manquantes : {{ collect($control->missing_operations ?? [])->map(fn($item) => str_replace('_', ' ', $item))->implode(', ') }}</p>
+                            <small>{{ $control->concerned_date?->format('d/m/Y') }}</small>
+                        </article>
+                    @empty
+                        <p class="text-muted">Aucune alerte de non-saisie pour la veille.</p>
+                    @endforelse
                 </div>
             </div>
+        </div>
+
+        @if($metrics['user_can_view_all'])
+            <div class="grid-2">
+                <div class="panel">
+                    <div class="panel-header">
+                        <div>
+                            <h2>Top gares en recettes</h2>
+                            <p class="text-muted">Période sélectionnée</p>
+                        </div>
+                    </div>
+                    <div class="table-wrapper table-plain">
+                        <table>
+                            <thead>
+                                <tr><th>Gare</th><th>Total FCFA</th></tr>
+                            </thead>
+                            <tbody>
+                                @forelse($metrics['top_recettes'] as $row)
+                                    <tr><td>{{ $row->gare?->name }}</td><td>{{ number_format($row->total, 0, ',', ' ') }}</td></tr>
+                                @empty
+                                    <tr><td colspan="2">Aucune donnée.</td></tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-header">
+                        <div>
+                            <h2>Top gares en dépenses</h2>
+                            <p class="text-muted">Période sélectionnée</p>
+                        </div>
+                    </div>
+                    <div class="table-wrapper table-plain">
+                        <table>
+                            <thead>
+                                <tr><th>Gare</th><th>Total FCFA</th></tr>
+                            </thead>
+                            <tbody>
+                                @forelse($metrics['top_depenses'] as $row)
+                                    <tr><td>{{ $row->gare?->name }}</td><td>{{ number_format($row->total, 0, ',', ' ') }}</td></tr>
+                                @empty
+                                    <tr><td colspan="2">Aucune donnée.</td></tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            @unless($isCourrier)
+                <div class="panel">
+                    <div class="panel-header">
+                        <div>
+                            <h2>Détail des types de recettes par gare</h2>
+                            <p class="text-muted">Affichage par gare et par période</p>
+                        </div>
+                    </div>
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Gare</th>
+                                    <th>Tickets inter</th>
+                                    <th>Tickets national</th>
+                                    <th>Bagages inter</th>
+                                    <th>Bagages national</th>
+                                    <th>Total recettes</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($metrics['recette_breakdown_by_gare'] as $row)
+                                    <tr>
+                                        <td>{{ $row->gare?->name }}</td>
+                                        <td>{{ number_format($row->ticket_inter_total, 0, ',', ' ') }}</td>
+                                        <td>{{ number_format($row->ticket_national_total, 0, ',', ' ') }}</td>
+                                        <td>{{ number_format($row->bagage_inter_total, 0, ',', ' ') }}</td>
+                                        <td>{{ number_format($row->bagage_national_total, 0, ',', ' ') }}</td>
+                                        <td>{{ number_format($row->total_amount, 0, ',', ' ') }}</td>
+                                    </tr>
+                                @empty
+                                    <tr><td colspan="6">Aucune donnée à afficher.</td></tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            @endunless
         @endif
     </div>
 @endif

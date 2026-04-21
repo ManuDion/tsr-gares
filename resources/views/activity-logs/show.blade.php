@@ -8,6 +8,15 @@
     <a class="btn btn-outline" href="{{ route('activity-logs.index', request()->query()) }}">
         <span class="icon">{!! app_icon('back') !!}</span> Retour à l'historique
     </a>
+    @if(auth()->user()->isAdmin())
+        <form method="POST" action="{{ route('activity-logs.destroy', $log) }}" onsubmit="return confirm('Supprimer cet historique ?');" style="display:inline-flex;">
+            @csrf
+            @method('DELETE')
+            <button class="btn btn-danger" type="submit">
+                <span class="icon">{!! app_icon('trash') !!}</span> Supprimer
+            </button>
+        </form>
+    @endif
 @endsection
 
 @section('content')

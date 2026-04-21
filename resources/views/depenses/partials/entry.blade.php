@@ -12,7 +12,13 @@
     </div>
 
     <div class="form-grid">
-        @unless(auth()->user()->isChefDeGare())
+        @if(auth()->user()->isChefDeGare() || auth()->user()->isAgentCourrierGare())
+            <div>
+                <label>Gare affectée</label>
+                <input type="hidden" name="entries[{{ $index }}][gare_id]" value="{{ auth()->user()->gare_id }}">
+                <input type="text" value="{{ auth()->user()->primaryGare?->name }}" disabled>
+            </div>
+        @else
             <x-gare-picker
                 :gares="$gares"
                 :datalistId="'depense-gares-'.$index"
@@ -20,13 +26,7 @@
                 :selectedGareId="old($oldPrefix.'.gare_id', data_get($entry, 'gare_id'))"
                 :hiddenName="'entries['.$index.'][gare_id]'"
             />
-        @else
-            <div>
-                <label>Gare affectée</label>
-                <input type="hidden" name="entries[{{ $index }}][gare_id]" value="{{ auth()->user()->gare_id }}">
-                <input type="text" value="{{ auth()->user()->primaryGare?->name }}" disabled>
-            </div>
-        @endunless
+        @endif
 
         <div>
             <label>Date opération</label>
@@ -51,11 +51,12 @@
         <div>
             <label>Nom du justificatif</label>
             <input type="text" name="entries[{{ $index }}][justificatif_name]" value="{{ old($oldPrefix.'.justificatif_name', data_get($entry, 'justificatif_name')) }}" placeholder="Ex. Dépense billetage {{ is_numeric($index) ? ((int) $index + 1) : '' }}">
-            <small>Optionnel. Le nom saisi sera utilisé pour le fichier téléchargé.</small>
+            <small>Optionnel. À défaut, le nom utilisé sera : Module_Gare_Date opération.</small>
         </div>
         <div>
             <label>Justificatif (max {{ $maxSizeKb }} Ko)</label>
-            <input type="file" name="entries[{{ $index }}][justificatif]" accept=".pdf,.jpg,.jpeg,.png">
+            <input type="file" name="entries[{{ $index }}][justificatif]" accept=".pdf,.jpg,.jpeg,.png,image/*,application/pdf" capture="environment">
+            <small>Photo mobile ou fichier PDF/image.</small>
         </div>
     </div>
 </div>

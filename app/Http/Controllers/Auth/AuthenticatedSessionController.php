@@ -41,6 +41,11 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
+        if ($request->user()?->must_change_password) {
+            return redirect()->route('password.personalize.edit')
+                ->with('status', 'Veuillez personnaliser votre mot de passe avant de poursuivre.');
+        }
+
         return redirect()->intended(route('dashboard'));
     }
 

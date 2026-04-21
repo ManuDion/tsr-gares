@@ -2,70 +2,78 @@
 
 namespace App\Services;
 
+use App\Enums\ServiceModule;
 use App\Enums\UserRole;
 use App\Models\DailyControl;
 use App\Models\Gare;
 use App\Models\NotificationHistory;
 use App\Models\User;
-use App\Notifications\DailyControlAlertNotification;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Notification;
 
 class DailyControlService
 {
-    public function runForDate(string $concernedDate): Collection
+    public function runForDate(string $concernedDate, ?string $serviceScope = null): Collection
     {
-        $controls = Gare::query()
-            ->where('is_active', true)
-            ->get()
-            ->map(function (Gare $gare) use ($concernedDate) {
-                $hasRecette = $gare->recettes()->whereDate('operation_date', $concernedDate)->exists();
-                $hasDepense = $gare->depenses()->whereDate('operation_date', $concernedDate)->exists();
-                $hasVersement = $gare->versementsBancaires()->whereDate('operation_date', $concernedDate)->exists();
+        $scopes = $serviceScope ? [$serviceScope] : ['gares', 'courrier'];
+        $controls = collect();
 
-                $missing = [];
-                if (! $hasRecette) {
-                    $missing[] = 'recette';
-                }
-                if (! $hasDepense) {
-                    $missing[] = 'depense';
-                }
-                if (! $hasVersement) {
-                    $missing[] = 'versement_bancaire';
-                }
+        foreach ($scopes as $scope) {
+            $module = $scope === 'courrier' ? ServiceModule::Courrier : ServiceModule::Gares;
 
-                return DailyControl::updateOrCreate(
-                    [
-                        'gare_id' => $gare->id,
-                        'concerned_date' => $concernedDate,
-                    ],
-                    [
-                        'control_date' => now('Africa/Abidjan')->toDateString(),
-                        'has_recette' => $hasRecette,
-                        'has_depense' => $hasDepense,
-                        'has_versement' => $hasVersement,
-                        'is_compliant' => count($missing) === 0,
-                        'missing_operations' => $missing,
-                    ]
-                )->load('gare');
-            });
+            $scopeControls = Gare::query()
+                ->where('is_active', true)
+                ->get()
+                ->map(function (Gare $gare) use ($concernedDate, $scope) {
+                    $hasRecette = $gare->recettes()->where('service_scope', $scope)->whereDate('operation_date', $concernedDate)->exists();
+                    $hasDepense = $gare->depenses()->where('service_scope', $scope)->whereDate('operation_date', $concernedDate)->exists();
+                    $hasVersement = $gare->versementsBancaires()->where('service_scope', $scope)->whereDate('operation_date', $concernedDate)->exists();
 
-        $anomalies = $controls->filter(fn (DailyControl $control) => ! $control->is_compliant)->values();
+                    $missing = [];
+                    if (! $hasRecette) {
+                        $missing[] = 'recette';
+                    }
+                    if (! $hasDepense) {
+                        $missing[] = 'depense';
+                    }
+                    if (! $hasVersement) {
+                        $missing[] = 'versement_bancaire';
+                    }
 
-        $this->notifySupervisors($anomalies, $concernedDate);
-        $this->notifyOperators($anomalies, $concernedDate);
+                    return DailyControl::updateOrCreate(
+                        [
+                            'service_scope' => $scope,
+                            'gare_id' => $gare->id,
+                            'concerned_date' => $concernedDate,
+                        ],
+                        [
+                            'control_date' => now('Africa/Abidjan')->toDateString(),
+                            'has_recette' => $hasRecette,
+                            'has_depense' => $hasDepense,
+                            'has_versement' => $hasVersement,
+                            'is_compliant' => count($missing) === 0,
+                            'missing_operations' => $missing,
+                        ]
+                    )->load('gare');
+                });
+
+            $anomalies = $scopeControls->filter(fn (DailyControl $control) => ! $control->is_compliant)->values();
+            $this->notifySupervisors($anomalies, $concernedDate, $module);
+            $this->notifyOperators($anomalies, $concernedDate, $scope, $module);
+
+            $controls = $controls->merge($scopeControls);
+        }
 
         return $controls;
     }
 
-    public function ensureFreshControl(?string $concernedDate = null): Collection
+    public function ensureFreshControl(?string $concernedDate = null, ?string $serviceScope = null): Collection
     {
         $date = $concernedDate ?: now('Africa/Abidjan')->subDay()->toDateString();
 
-        return $this->runForDate($date);
+        return $this->runForDate($date, $serviceScope);
     }
 
-    protected function notifySupervisors(Collection $anomalies, string $concernedDate): void
+    protected function notifySupervisors(Collection $anomalies, string $concernedDate, ServiceModule $module): void
     {
         $supervisors = User::query()
             ->whereIn('role', [UserRole::Admin->value, UserRole::Responsable->value])
@@ -76,71 +84,58 @@ class DailyControlService
             return;
         }
 
-        if ($anomalies->isEmpty()) {
-            foreach ($supervisors as $supervisor) {
-                NotificationHistory::updateOrCreate(
-                    [
-                        'user_id' => $supervisor->id,
-                        'type' => 'daily_control_ok',
-                        'concerned_date' => $concernedDate,
-                    ],
-                    [
-                        'subject' => 'Contrôle journalier conforme',
-                        'content' => "Toutes les gares actives ont renseigné leurs opérations du {$concernedDate}.",
-                        'status' => 'generated',
-                        'control_date' => now('Africa/Abidjan')->toDateString(),
-                        'gares' => [],
-                        'operations' => [],
-                        'payload' => [
-                            'anomaly_count' => 0,
-                        ],
-                    ]
-                );
-            }
-
-            return;
-        }
-
         $gares = $anomalies->pluck('gare.name')->filter()->values()->all();
         $operations = $anomalies->pluck('missing_operations')->flatten()->unique()->values()->all();
-
-        Notification::send($supervisors, new DailyControlAlertNotification(
-            concernedDate: $concernedDate,
-            anomalyCount: $anomalies->count(),
-            gares: $gares,
-        ));
 
         foreach ($supervisors as $supervisor) {
             NotificationHistory::updateOrCreate(
                 [
                     'user_id' => $supervisor->id,
-                    'type' => 'daily_control_alert',
-                    'concerned_date' => $concernedDate,
+                    'type' => $anomalies->isEmpty() ? 'daily_control_ok' : 'daily_control_alert',
+                    'source_key' => 'daily-control:'.$module->value.':'.$concernedDate.':'.$supervisor->id,
                 ],
                 [
-                    'subject' => 'Alerte de non-saisie',
-                    'content' => "Une ou plusieurs gares n'ont pas finalisé leurs saisies du {$concernedDate}.",
+                    'subject' => $anomalies->isEmpty() ? 'Contrôle journalier conforme' : 'Alerte de non-saisie',
+                    'content' => $anomalies->isEmpty()
+                        ? sprintf('[%s] Toutes les gares actives ont renseigné leurs opérations du %s.', $module->shortLabel(), $concernedDate)
+                        : sprintf('[%s] Une ou plusieurs gares n\'ont pas finalisé leurs saisies du %s.', $module->shortLabel(), $concernedDate),
                     'status' => 'generated',
                     'control_date' => now('Africa/Abidjan')->toDateString(),
+                    'concerned_date' => $concernedDate,
                     'gares' => $gares,
-                    'operations' => $operations,
-                    'payload' => [
-                        'anomaly_count' => $anomalies->count(),
-                    ],
+                    'operations' => array_merge($operations, [$module->value]),
+                    'payload' => ['anomaly_count' => $anomalies->count(), 'module' => $module->value],
                 ]
             );
         }
     }
 
-    protected function notifyOperators(Collection $anomalies, string $concernedDate): void
+    protected function notifyOperators(Collection $anomalies, string $concernedDate, string $scope, ServiceModule $module): void
     {
         foreach ($anomalies as $control) {
+            $gare = $control->gare;
+            if (! $gare) {
+                continue;
+            }
+
             $users = User::query()
                 ->where('is_active', true)
-                ->whereIn('role', [UserRole::ChefDeGare->value, UserRole::Caissiere->value, UserRole::ChefDeZone->value])
-                ->where(function ($query) use ($control) {
-                    $query->where('gare_id', $control->gare_id)
-                        ->orWhereHas('gares', fn ($garesQuery) => $garesQuery->where('gares.id', $control->gare_id));
+                ->where(function ($query) use ($gare, $scope) {
+                    if ($scope === 'courrier') {
+                        $query->where(function ($inner) use ($gare) {
+                            $inner->where('role', UserRole::AgentCourrierGare->value)->where('gare_id', $gare->id);
+                        })->orWhere(function ($inner) use ($gare) {
+                            $inner->where('role', UserRole::CaissierCourrier->value)
+                                ->whereHas('gares', fn ($q) => $q->where('gares.id', $gare->id));
+                        });
+                    } else {
+                        $query->where(function ($inner) use ($gare) {
+                            $inner->where('role', UserRole::ChefDeGare->value)->where('gare_id', $gare->id);
+                        })->orWhere(function ($inner) use ($gare) {
+                            $inner->whereIn('role', [UserRole::CaissierGare->value, UserRole::Caissiere->value, UserRole::ChefDeZone->value])
+                                ->whereHas('gares', fn ($q) => $q->where('gares.id', $gare->id));
+                        });
+                    }
                 })
                 ->get();
 
@@ -148,19 +143,24 @@ class DailyControlService
                 NotificationHistory::updateOrCreate(
                     [
                         'user_id' => $user->id,
-                        'type' => 'daily_control_station_alert',
-                        'concerned_date' => $concernedDate,
+                        'type' => 'daily_control_operator_alert',
+                        'source_key' => 'daily-control-operator:'.$scope.':'.$control->id.':'.$user->id,
                     ],
                     [
-                        'subject' => 'Régularisation requise',
-                        'content' => "Des saisies obligatoires du {$concernedDate} sont manquantes pour {$control->gare->name}.",
+                        'subject' => 'Saisie manquante à régulariser',
+                        'content' => sprintf(
+                            '[%s] Des opérations restent à saisir pour %s au titre du %s : %s.',
+                            $module->shortLabel(),
+                            $gare->name,
+                            now()->parse($concernedDate)->format('d/m/Y'),
+                            collect($control->missing_operations ?? [])->map(fn ($item) => str_replace('_', ' ', $item))->implode(', ')
+                        ),
                         'status' => 'generated',
                         'control_date' => now('Africa/Abidjan')->toDateString(),
-                        'gares' => [$control->gare->name],
-                        'operations' => $control->missing_operations ?? [],
-                        'payload' => [
-                            'gare_id' => $control->gare_id,
-                        ],
+                        'concerned_date' => $concernedDate,
+                        'gares' => [$gare->name],
+                        'operations' => array_merge($control->missing_operations ?? [], [$module->value]),
+                        'payload' => ['module' => $module->value],
                     ]
                 );
             }
