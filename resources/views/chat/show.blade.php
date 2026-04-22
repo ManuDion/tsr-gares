@@ -2,10 +2,10 @@
 
 @section('title', 'Conversation')
 @section('heading', $conversation->displayNameFor(auth()->user()))
-@section('subheading', $conversation->is_group ? 'Discussion de groupe' : 'Conversation privée')
+@section('subheading', $conversation->typeLabel())
 
 @section('actions')
-    <a class="btn btn-outline" href="{{ route('chat.index') }}">
+    <a class="btn btn-outline" href="{{ route('chat.index', ['module' => request('module')]) }}">
         <span class="icon">{!! app_icon('back') !!}</span> Retour au chat
     </a>
 @endsection
@@ -31,7 +31,7 @@
                 @empty
                     <div class="empty-state">
                         <strong>Aucun message</strong>
-                        <p>Envoyez le premier message à partir du formulaire ci-dessous.</p>
+                        <p>Envoyez le premier message a partir du formulaire ci-dessous.</p>
                     </div>
                 @endforelse
             </div>
@@ -39,7 +39,7 @@
 
         <div class="panel">
             <h2>Nouveau message</h2>
-            <form method="POST" action="{{ route('chat.messages.store', $conversation) }}" class="stack-md">
+            <form method="POST" action="{{ route('chat.messages.store', ['conversation' => $conversation, 'module' => request('module')]) }}" class="stack-md">
                 @csrf
                 <div>
                     <label>Message</label>

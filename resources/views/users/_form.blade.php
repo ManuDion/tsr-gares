@@ -1,7 +1,7 @@
 @php
-    $selectedModule = old('module', isset($user) ? ($user->assignedModule()?->value ?? 'gares') : 'gares');
+    $selectedModule = (string) old('module', isset($user) ? ($user->assignedModule()?->value ?? '') : '');
     $selectedRole = old('role', isset($user) ? $user->role?->value : null);
-    $selectedZoneGares = old('zone_gares', isset($user) ? $user->gares->pluck('id')->map(fn($id)=>(string)$id)->all() : []);
+    $selectedZoneGares = old('zone_gares', isset($user) ? $user->gares->pluck('id')->map(fn ($id) => (string) $id)->all() : []);
 @endphp
 
 <div class="form-grid">
@@ -11,7 +11,7 @@
     </div>
 
     <div>
-        <label>Téléphone</label>
+        <label>Telephone</label>
         <input type="text" name="phone" value="{{ old('phone', $user->phone ?? '') }}" required placeholder="+225 0700000000">
     </div>
 
@@ -23,7 +23,7 @@
     <div>
         <label>Mot de passe {{ isset($user) ? '(laisser vide pour conserver)' : '' }}</label>
         <input type="password" name="password" {{ isset($user) ? '' : 'required' }}>
-        <small>Le mot de passe sera personnalisé à la première connexion.</small>
+        <small>Le mot de passe sera personalise a la premiere connexion.</small>
     </div>
 
     @if(isset($user))
@@ -38,6 +38,14 @@
     <div class="col-span-2">
         <label>Service / module principal</label>
         <div class="radio-grid radio-grid-services">
+            <label class="radio-card">
+                <input type="radio" name="module" value="" data-user-module @checked($selectedModule === '')>
+                <span>
+                    <strong>Aucun service</strong>
+                    <small>Supervision globale. Reserve aux roles Administrateur et Responsable.</small>
+                </span>
+            </label>
+
             @foreach($moduleOptions as $module)
                 <label class="radio-card">
                     <input type="radio" name="module" value="{{ $module['value'] }}" data-user-module @checked($selectedModule === $module['value'])>
@@ -51,7 +59,7 @@
     </div>
 
     <div>
-        <label>Rôle</label>
+        <label>Role</label>
         <select
             name="role"
             required
@@ -59,7 +67,10 @@
             data-current-role="{{ $selectedRole }}"
             data-role-options='@json($roleOptionsByModule)'>
         </select>
-        <small>La liste des rôles s’adapte automatiquement au service choisi.</small>
+        <small>La liste des roles s'adapte automatiquement au service choisi. Sans service, seuls Administrateur et Responsable sont proposes.</small>
+        <div class="badge badge-info" data-supervision-label hidden style="margin-top:.5rem;">
+            <span data-supervision-label-text></span>
+        </div>
     </div>
 
     <div>
@@ -72,12 +83,12 @@
     <div data-chef-gare-section class="col-span-2">
         <label>Gare principale</label>
         <select name="gare_id">
-            <option value="">Sélectionner une gare</option>
+            <option value="">Selectionner une gare</option>
             @foreach($gares as $gare)
-                <option value="{{ $gare->id }}" @selected((string) old('gare_id', $user->gare_id ?? '') === (string) $gare->id)>{{ $gare->name }} — {{ $gare->city }}</option>
+                <option value="{{ $gare->id }}" @selected((string) old('gare_id', $user->gare_id ?? '') === (string) $gare->id)>{{ $gare->name }} - {{ $gare->city }}</option>
             @endforeach
         </select>
-        <small>Utilisé pour les rôles Chef de gare et Agent courrier gare.</small>
+        <small>Utilise pour les roles Chef de gare et Agent courrier gare.</small>
     </div>
 
     <div data-multi-gares-section class="col-span-2">
@@ -85,7 +96,7 @@
             <div class="assignment-head">
                 <div>
                     <strong>Affectation des gares</strong>
-                    <small>Pour les rôles Caissier gare et Caissier courrier.</small>
+                    <small>Pour les roles Caissier gare, Caissier courrier et Verificateur.</small>
                 </div>
                 <label class="checkbox-line">
                     <input type="checkbox" name="all_gares" value="1" data-all-gares @checked(old('all_gares', isset($user) && $user->gares->count() === $gares->count()))>
@@ -111,8 +122,8 @@
         <div class="panel panel-muted">
             <strong>Principe de fonctionnement</strong>
             <p class="text-muted">
-                L’utilisateur est affecté à un service. Le service détermine les rôles proposés et donc l’accès au bon module, au bon dashboard et aux bons menus.
-                Les rôles Administrateur et Responsable conservent une visibilité générale sur l’ensemble du progiciel.
+                L'utilisateur est affecte a un service. Le service determine les roles proposes et donc l'acces au bon module.
+                Les roles Administrateur et Responsable conservent une visibilite generale sur l'ensemble du progiciel.
             </p>
         </div>
     </div>

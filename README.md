@@ -1,187 +1,256 @@
-# Progiciel TSR — mise à jour production V4.1
+# Progiciel TSR - README complet et a jour
 
-Application Laravel 12 pour TSR, structurée par **services / modules métiers** et prête pour la mise en production.
+Application Laravel 12 pour la gestion TSR, organisee par modules metiers.
 
-## Services / modules pris en charge
+## 1) Vue d'ensemble
 
-- **Service de gestion des gares**
-- **Service de gestion des documents**
-- **Service courrier**
-- **Service RH** (socle préparatoire)
+Le progiciel est structure autour de 4 modules:
 
-Les rôles **Administrateur** et **Responsable** restent universels.
+- Gares
+- Documents
+- Courrier
+- RH
 
-## Correctifs et évolutions de cette version
+Les roles `admin` et `responsable` sont universels (vision globale).
+Les autres roles sont limites a leur module metier.
 
-### Tableau de bord
-- dashboard **gares** et **courrier** avec :
-  - total recettes
-  - total dépenses
-  - total versements
-  - alertes métier
-  - notifications récentes
-  - **évolution comparative par semaine S1 à S4** sous forme de graphique
-- pour le **service courrier**, la recette est considérée comme **unique** et non ventilée
+## 2) Fonctionnalites principales
 
-### Recettes
-- **service gares** :
-  - 4 postes de recette :
-    - ventes tickets inter
-    - ventes tickets national
-    - transport bagages inter
-    - transport bagages national
-  - **montant total calculé automatiquement**
-- **service courrier** :
-  - recette **unique**
-  - un seul champ montant
-- justificatif possible en PDF / image / photo mobile
-- si le nom du justificatif n’est pas renseigné, le système utilise automatiquement :
-  - `Module_Gare_DateOperation`
+### 2.1 Module Gares
 
-### Dépenses
-- saisie multiple maintenue
-- rôle **Agent courrier gare** : gare imposée par la connexion
-- rôle **Caissier courrier** : sélection filtrée parmi les gares affectées
-- justificatif possible en PDF / image / photo mobile
-- si le nom du justificatif n’est pas renseigné, le système utilise automatiquement :
-  - `Module_Gare_DateOperation`
+- Saisie des recettes
+- Saisie des depenses (multi-lignes)
+- Saisie des versements avec justificatif
+- Controle des ecarts / verifications
+- Dashboard financier
+- Exports
 
-### Versements
-- saisie manuelle simple
-- rôle **Agent courrier gare** : gare imposée par la connexion
-- rôle **Caissier courrier** : sélection filtrée parmi les gares affectées
-- import PDF / image / photo mobile
-- si le nom du bordereau n’est pas renseigné, le système utilise automatiquement :
-  - `Module_Gare_DateOperation`
+### 2.2 Module Courrier
 
-### Gestion des utilisateurs
-- correction de la suppression d’utilisateur
-- prise en compte des derniers ajustements du `UserController`
-- rôles et accès conservés selon le module/service
+- Meme moteur fonctionnel que Gares, isole via `service_scope = courrier`
+- Recettes
+- Depenses
+- Versements
+- Verifications
+- Dashboard courrier
 
-### Langue et messages
-- configuration prévue pour le **français**
-- fichier de validation Laravel en français ajouté
-- messages d’erreur plus lisibles
+### 2.3 Module Documents
 
-### Correctif technique important
-- correction de l’erreur :
-  - `preg_replace(): Unknown modifier '\'`
-- correction de la génération de nom de fichier personnalisé
+- Gestion des documents administratifs
+- Echeances et suivi de conformite
+- Notifications documentaires
 
-## Affectation des gares selon les rôles
+### 2.4 Module RH (socle)
 
-### Service de gestion des gares
-- **Chef de gare** : gare imposée
-- **Caissier gare** : choix parmi les gares affectées
+- Dossier agent
+- Pieces RH
+- Affectations (base prete pour evolution)
+- Comptes et statut d'activation
 
-### Service courrier
-- **Agent courrier gare** : gare imposée
-- **Caissier courrier** : choix parmi les gares affectées
+## 3) Gestion des utilisateurs et roles
 
-## Menus et création
-- **Admin** et **Responsable** peuvent consulter largement mais ne doivent pas être utilisés comme profils de saisie terrain
-- les boutons de création dépendent désormais des **permissions réelles de saisie**
-- si un rôle ne peut pas saisir, le bouton de création n’apparaît pas
+### 3.1 Roles universels
 
-## Justificatifs mobiles
-Les formulaires de recettes, dépenses et versements acceptent :
-- PDF
-- JPG / JPEG
-- PNG
-- photo mobile via caméra
+- Administrateur (`admin`)
+- Responsable (`responsable`)
 
-> Remarque : le recadrage dépend du navigateur / téléphone utilisé. Sur beaucoup de smartphones, l’interface native permet déjà d’ajuster l’image avant validation.
+### 3.2 Roles metier
 
-## Fichiers de langue
-Cette version ajoute :
-- `lang/fr/validation.php`
+- Verificateur (`verificateur`) - supervise un module financier sur une ou plusieurs gares
+- Chef de gare (`chef_de_gare`)
+- Caissier gare (`caissier_gare`)
+- Controleur (`controleur`)
+- Agent courrier gare (`agent_courrier_gare`)
+- Caissier courrier (`caissier_courrier`)
+- Responsable RH (`responsable_rh`)
+- Personnel TSR (`personnel_tsr`)
 
-Pensez à utiliser dans votre `.env` :
+Notes:
 
-```env
-APP_LOCALE=fr
-APP_FALLBACK_LOCALE=fr
-```
+- `caissiere` et `chef_de_zone` sont geres comme aliases historiques de `caissier_gare`.
+- Les roles `admin` et `responsable` peuvent etre crees sans module/service.
 
-## Installation / mise à jour
+### 3.3 Creation utilisateur (formulaire)
 
-### 1. Dépendances
+Le formulaire supporte:
+
+- Choix du module principal (ou aucun pour les superviseurs universels)
+- Filtrage automatique des roles selon le module
+- Affectation gare principale pour certains roles
+- Affectation multi-gares (dont verificateur)
+- Option "toutes les gares"
+- Libelle visuel de supervision:
+  - `Superviseur universel`
+  - `Superviseur limite a X gare(s)`
+
+### 3.4 Connexion et securite
+
+- `must_change_password` impose la personnalisation du mot de passe a la premiere connexion.
+
+## 4) Chat interne
+
+Le chat supporte 3 types de conversation:
+
+- `general`: canal global pour tous les utilisateurs actifs
+- `service_internal`: canal interne a un seul service/module
+- `direct`: conversation B2B entre 2 utilisateurs
+
+Comportements:
+
+- Bouton `Nouvelle conversation` vers un ecran dedie
+- Mode direct avec champ de recherche/filtre interlocuteur (auto-completion)
+- Reutilisation d'une conversation directe existante si deja presente
+- Pruning automatique des conversations directes inactives
+
+## 5) Dashboard et reporting
+
+### 5.1 Evolution des montants
+
+Sur dashboards Gares/Courrier:
+
+- `Evolution des montants` en courbe (graphique)
+- Granularite jour par jour du 1 au 31
+- Tableau en dessous conserve en comparatif hebdomadaire `S1` a `S4`
+
+### 5.2 Filtre gare sans duplication
+
+Quand une gare est selectionnee:
+
+- les donnees globales ne sont plus dupliquees
+- seules les informations de la gare ciblee restent affichees
+
+### 5.3 Detail recettes par gare
+
+- Bloc `Detail des types de recettes par gare` limite au Top 5
+
+### 5.4 Particularite module Courrier
+
+- La recette courrier est traitee comme un type unique (non desagrege comme Gares)
+
+## 6) Notifications et historique systeme
+
+- Les notifications sont filtrees par module actif
+- L'historique systeme est filtre par module actif
+- En pratique, un utilisateur dans un module ne voit que les elements pertinents de ce module
+
+## 7) OCR versements
+
+Le pre-remplissage OCR des versements est retire dans cette version de production.
+Parcours actuel:
+
+1. Upload PDF / image justificative
+2. Saisie manuelle
+3. Enregistrement
+
+## 8) Base de donnees - points importants
+
+- `service_scope` sur flux financiers et verifications
+- Tables socle RH: `employees`, `employee_assignments`, `employee_documents`, etc.
+- Chat:
+  - `conversation_type` (`general`, `service_internal`, `direct`)
+  - `service_module` sur conversations de service
+
+Migrations recentes a verifier:
+
+- `2026_05_10_090000_refonte_services_and_rh_foundation.php`
+- `2026_05_11_120000_add_conversation_type_to_conversations_table.php`
+- `2026_05_11_130000_add_service_module_to_conversations_table.php`
+
+## 9) Installation locale
+
+### Prerequis
+
+- PHP 8.2+
+- Composer
+- MySQL ou MariaDB
+- Extensions PHP requises par Laravel
+
+### Etapes
+
 ```bash
 composer install
-composer dump-autoload
-```
-
-### 2. Environnement
-Copier le fichier d’environnement si nécessaire :
-
-```bash
 cp .env.example .env
-```
-
-Configurer ensuite :
-- la base MySQL
-- `APP_LOCALE=fr`
-- `APP_FALLBACK_LOCALE=fr`
-
-### 3. Base de données
-Si la base est déjà en place :
-
-```bash
+php artisan key:generate
 php artisan migrate
-```
-
-### 4. Nettoyage cache
-```bash
+php artisan storage:link
 php artisan optimize:clear
-php artisan view:clear
 ```
 
-### 5. Lancement
+### Seeder administrateur
+
+Configurer dans `.env`:
+
+```env
+APP_ADMIN_NAME="Administrateur TSR"
+APP_ADMIN_PHONE="+2250000000000"
+APP_ADMIN_EMAIL="admin@votredomaine.com"
+APP_ADMIN_PASSWORD="MotDePasseFort123!"
+```
+
+Puis:
+
+```bash
+php artisan db:seed
+```
+
+### Demarrage
+
 ```bash
 php artisan serve
 ```
 
-## Points de contrôle après mise à jour
+## 10) Tests et verification
 
-Tester en priorité :
+Tests:
 
-1. création / modification d’une recette **gares**
-2. création / modification d’une recette **courrier**
-3. calcul automatique du **montant total**
-4. saisie d’une dépense avec justificatif sur téléphone
-5. saisie d’un versement avec bordereau PDF / image
-6. sélection de gare :
-   - imposée pour chef de gare / agent courrier gare
-   - filtrée pour caissier gare / caissier courrier
-7. suppression d’un utilisateur
-8. affichage du dashboard avec graphique **S1 à S4**
+```bash
+php artisan test
+```
 
-## Structure métier actuelle
+Nettoyage cache:
 
-### Service de gestion des gares
-- recettes
-- dépenses
-- versements
-- vérifications
-- rapports
-- notifications
+```bash
+php artisan optimize:clear
+php artisan view:clear
+php artisan route:clear
+php artisan config:clear
+```
 
-### Service courrier
-- même logique que le service gares
-- mais périmètre fonctionnel séparé
+## 11) Deploiement production
 
-### Service de gestion des documents
-- documents administratifs
-- échéances
-- rappels
+`.env`:
 
-### Service RH
-- socle de préparation
-- base de données prête pour les futurs workflows du personnel
+```env
+APP_ENV=production
+APP_DEBUG=false
+```
 
-## Prochaine étape recommandée
-Après validation de cette version, la suite logique sera :
-- consolidation fonctionnelle complète
-- stabilisation production
-- puis enrichissement du **module RH** selon les flows détaillés fournis par TSR
+Commandes:
+
+```bash
+composer install --no-dev --optimize-autoloader
+php artisan migrate --force
+php artisan optimize
+```
+
+## 12) Changelog recent (mise a niveau)
+
+- Chat aligne sur 3 modalites: `general`, `service_internal`, `direct`
+- Ecran dedie `Nouvelle conversation`
+- Selection interlocuteur direct via filtre/auto-completion
+- Notifications et historique systeme filtres par module
+- Dashboard Gares/Courrier: courbe evolutive jour par jour (1 a 31)
+- Comparatif hebdomadaire conserve (S1 a S4)
+- Correction duplication des blocs globaux lors du filtre sur une gare
+- `Detail des types de recettes par gare` en Top 5
+- Recettes Courrier en type unique
+- Formulaire utilisateur:
+  - verificateur avec choix des gares
+  - affichage `Superviseur universel` / `Superviseur limite a X gare(s)`
+  - possibilite de creer `admin`/`responsable` sans service
+
+## 13) Limites actuelles et prochaines etapes
+
+- Module RH: socle en place, workflows RH complets a etendre
+- Evolutions metier courrier possibles selon vos regles operationnelles
+- Extension decisionnelle et API metier a planifier

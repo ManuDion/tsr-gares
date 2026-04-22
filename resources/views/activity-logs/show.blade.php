@@ -9,7 +9,7 @@
         <span class="icon">{!! app_icon('back') !!}</span> Retour à l'historique
     </a>
     @if(auth()->user()->isAdmin())
-        <form method="POST" action="{{ route('activity-logs.destroy', $log) }}" onsubmit="return confirm('Supprimer cet historique ?');" style="display:inline-flex;">
+        <form method="POST" action="{{ route('activity-logs.destroy', array_merge(['activityLog' => $log], request()->query())) }}" onsubmit="return confirm('Supprimer cet historique ?');" style="display:inline-flex;">
             @csrf
             @method('DELETE')
             <button class="btn btn-danger" type="submit">

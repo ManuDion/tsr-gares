@@ -14,7 +14,6 @@ use App\Models\Recette;
 use App\Models\VersementBancaire;
 use App\Support\ModuleContext;
 use Illuminate\Contracts\View\View;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Computed;
@@ -94,8 +93,13 @@ class DashboardOverview extends Component
     {
         $user = auth()->user();
         $serviceScope = $module->financialScope() ?? 'gares';
+        $isCourrier = $serviceScope === 'courrier';
         [$startDate, $endDate] = $this->resolvedPeriod($serviceScope);
         $gareIds = $this->resolvedGareIds($serviceScope);
+        $selectedGareId = $this->gare_id ? (int) $this->gare_id : null;
+        $showGlobalSections = $user->canViewAllGares() && ! $selectedGareId;
+        $monthStart = now('Africa/Abidjan')->startOfMonth();
+        $monthEnd = now('Africa/Abidjan')->endOfMonth();
 
         $recettes = Recette::query()
             ->where('service_scope', $serviceScope)
@@ -132,11 +136,74 @@ class DashboardOverview extends Component
             ->with('gare')
             ->get();
 
+        $recettesTrend = Recette::query()
+            ->selectRaw('DAY(operation_date) as day_num, SUM(amount) as total')
+            ->where('service_scope', $serviceScope)
+            ->whereBetween('operation_date', [$monthStart->toDateString(), $monthEnd->toDateString()])
+            ->whereIn('gare_id', $gareIds)
+            ->groupBy(DB::raw('DAY(operation_date)'))
+            ->pluck('total', 'day_num');
+
+        $depensesTrend = Depense::query()
+            ->selectRaw('DAY(operation_date) as day_num, SUM(amount) as total')
+            ->where('service_scope', $serviceScope)
+            ->whereBetween('operation_date', [$monthStart->toDateString(), $monthEnd->toDateString()])
+            ->whereIn('gare_id', $gareIds)
+            ->groupBy(DB::raw('DAY(operation_date)'))
+            ->pluck('total', 'day_num');
+
+        $versementsTrend = VersementBancaire::query()
+            ->selectRaw('DAY(operation_date) as day_num, SUM(amount) as total')
+            ->where('service_scope', $serviceScope)
+            ->whereBetween('operation_date', [$monthStart->toDateString(), $monthEnd->toDateString()])
+            ->whereIn('gare_id', $gareIds)
+            ->groupBy(DB::raw('DAY(operation_date)'))
+            ->pluck('total', 'day_num');
+
+        $trend = collect(range(1, 31))->map(function (int $day) use ($recettesTrend, $depensesTrend, $versementsTrend) {
+            return [
+                'label' => sprintf('%02d', $day),
+                'recettes' => (float) ($recettesTrend[$day] ?? 0),
+                'depenses' => (float) ($depensesTrend[$day] ?? 0),
+                'versements' => (float) ($versementsTrend[$day] ?? 0),
+            ];
+        })->values();
+
+        $weeklyWindows = [
+            ['label' => 'S1', 'start' => $monthStart->copy(), 'end' => $monthStart->copy()->day(7)],
+            ['label' => 'S2', 'start' => $monthStart->copy()->day(8), 'end' => $monthStart->copy()->day(14)],
+            ['label' => 'S3', 'start' => $monthStart->copy()->day(15), 'end' => $monthStart->copy()->day(21)],
+            ['label' => 'S4', 'start' => $monthStart->copy()->day(22), 'end' => $monthEnd->copy()],
+        ];
+
+        $weeklyComparison = collect($weeklyWindows)->map(function (array $window) use ($serviceScope, $gareIds) {
+            $period = [$window['start']->toDateString(), $window['end']->toDateString()];
+
+            return [
+                'label' => $window['label'],
+                'recettes' => (float) Recette::query()
+                    ->where('service_scope', $serviceScope)
+                    ->whereBetween('operation_date', $period)
+                    ->whereIn('gare_id', $gareIds)
+                    ->sum('amount'),
+                'depenses' => (float) Depense::query()
+                    ->where('service_scope', $serviceScope)
+                    ->whereBetween('operation_date', $period)
+                    ->whereIn('gare_id', $gareIds)
+                    ->sum('amount'),
+                'versements' => (float) VersementBancaire::query()
+                    ->where('service_scope', $serviceScope)
+                    ->whereBetween('operation_date', $period)
+                    ->whereIn('gare_id', $gareIds)
+                    ->sum('amount'),
+            ];
+        })->values();
+
         $topRecettes = collect();
         $topDepenses = collect();
         $topSaisie = collect();
 
-        if ($user->canViewAllGares()) {
+        if ($showGlobalSections) {
             $topRecettes = Recette::query()
                 ->selectRaw('gare_id, SUM(amount) as total')
                 ->where('service_scope', $serviceScope)
@@ -176,71 +243,51 @@ class DashboardOverview extends Component
                 ->values();
         }
 
-        $recetteBreakdownTotals = $serviceScope === 'courrier'
-            ? (object) [
-                'ticket_inter_total' => 0,
-                'ticket_national_total' => 0,
-                'bagage_inter_total' => 0,
-                'bagage_national_total' => 0,
-                'total_amount' => (float) $recettes->sum('amount'),
-            ]
-            : $recettes->clone()->selectRaw('
+        $recetteBreakdownTotals = $recettes->clone()
+            ->selectRaw('
                 COALESCE(SUM(ticket_inter_amount), 0) as ticket_inter_total,
                 COALESCE(SUM(ticket_national_amount), 0) as ticket_national_total,
                 COALESCE(SUM(bagage_inter_amount), 0) as bagage_inter_total,
                 COALESCE(SUM(bagage_national_amount), 0) as bagage_national_total,
                 COALESCE(SUM(amount), 0) as total_amount
-            ')->first();
+            ')
+            ->first();
 
-        $recetteBreakdownByGare = $serviceScope === 'courrier'
-            ? collect()
-            : Recette::query()
-                ->selectRaw('
-                    gare_id,
-                    COALESCE(SUM(ticket_inter_amount), 0) as ticket_inter_total,
-                    COALESCE(SUM(ticket_national_amount), 0) as ticket_national_total,
-                    COALESCE(SUM(bagage_inter_amount), 0) as bagage_inter_total,
-                    COALESCE(SUM(bagage_national_amount), 0) as bagage_national_total,
-                    COALESCE(SUM(amount), 0) as total_amount
-                ')
-                ->where('service_scope', $serviceScope)
-                ->whereBetween('operation_date', [$startDate, $endDate])
-                ->whereIn('gare_id', $gareIds)
-                ->groupBy('gare_id')
-                ->with('gare')
-                ->orderByDesc('total_amount')
-                ->get();
+        $recetteBreakdownByGare = Recette::query()
+            ->selectRaw(
+                $isCourrier
+                    ? 'gare_id, COALESCE(SUM(amount), 0) as total_amount'
+                    : '
+                        gare_id,
+                        COALESCE(SUM(ticket_inter_amount), 0) as ticket_inter_total,
+                        COALESCE(SUM(ticket_national_amount), 0) as ticket_national_total,
+                        COALESCE(SUM(bagage_inter_amount), 0) as bagage_inter_total,
+                        COALESCE(SUM(bagage_national_amount), 0) as bagage_national_total,
+                        COALESCE(SUM(amount), 0) as total_amount
+                    '
+            )
+            ->where('service_scope', $serviceScope)
+            ->whereBetween('operation_date', [$startDate, $endDate])
+            ->whereIn('gare_id', $gareIds)
+            ->groupBy('gare_id')
+            ->with('gare')
+            ->orderByDesc('total_amount')
+            ->limit(5)
+            ->get();
 
         $recentNotifications = NotificationHistory::query()
             ->where('user_id', $user->id)
+            ->forModule($module)
             ->latest('created_at')
-            ->limit(30)
-            ->get()
-            ->filter(function ($notification) use ($module) {
-                $ops = collect($notification->operations ?? []);
-                return $ops->isEmpty() || $ops->contains($module->value) || ! $ops->intersect(['gares', 'courrier'])->isNotEmpty();
-            })
-            ->unique(function ($notification) {
-                $payload = (array) ($notification->payload ?? []);
-                return implode('|', [
-                    $notification->type,
-                    $payload['verification_check_id'] ?? $payload['document_id'] ?? '',
-                    $notification->concerned_date?->toDateString() ?: '',
-                    collect($notification->gares ?? [])->filter()->sort()->values()->implode(','),
-                    collect($notification->operations ?? [])->filter()->sort()->values()->implode(','),
-                ]);
-            })
-            ->take(5)
-            ->values();
-
-        $trendWeekly = $this->buildWeeklyTrend($serviceScope, $startDate, $endDate, $gareIds);
+            ->limit(5)
+            ->get();
 
         return [
             'mode' => 'financial',
             'module' => $module,
             'user_can_view_all' => $user->canViewAllGares(),
             'period_label' => $user->canViewAllGares()
-                ? 'Période filtrée'
+                ? 'Periode filtree'
                 : 'Mois en cours du '.now('Africa/Abidjan')->startOfMonth()->format('d/m/Y').' au '.now('Africa/Abidjan')->format('d/m/Y'),
             'recettes_total' => (float) $recettes->sum('amount'),
             'depenses_total' => (float) $depenses->sum('amount'),
@@ -250,71 +297,17 @@ class DashboardOverview extends Component
             'versements_count' => $versements->count(),
             'controls' => $controls,
             'missing_yesterday' => $missingYesterday,
-            'trend' => $trendWeekly,
-            'trend_chart' => $this->buildTrendChart($trendWeekly),
+            'trend' => $trend,
+            'weekly_comparison' => $weeklyComparison,
             'top_recettes' => $topRecettes,
             'top_depenses' => $topDepenses,
             'top_saisie' => $topSaisie,
             'recette_breakdown_totals' => $recetteBreakdownTotals,
             'recette_breakdown_by_gare' => $recetteBreakdownByGare,
             'recent_notifications' => $recentNotifications,
-        ];
-    }
-
-    protected function buildWeeklyTrend(string $serviceScope, string $startDate, string $endDate, array $gareIds): Collection
-    {
-        $start = Carbon::parse($startDate);
-        $monthStart = $start->copy()->startOfMonth();
-        $monthEnd = Carbon::parse($endDate)->endOfDay();
-
-        $segments = collect(range(1, 4))->map(function (int $segment) use ($serviceScope, $gareIds, $monthStart, $monthEnd) {
-            $segmentStart = $monthStart->copy()->addDays(($segment - 1) * 7)->startOfDay();
-            $segmentEnd = $segment === 4
-                ? $monthEnd->copy()
-                : $segmentStart->copy()->addDays(6)->endOfDay();
-
-            return [
-                'label' => 'S'.$segment,
-                'recettes' => (float) Recette::query()
-                    ->where('service_scope', $serviceScope)
-                    ->whereBetween('operation_date', [$segmentStart->toDateString(), $segmentEnd->toDateString()])
-                    ->whereIn('gare_id', $gareIds)
-                    ->sum('amount'),
-                'depenses' => (float) Depense::query()
-                    ->where('service_scope', $serviceScope)
-                    ->whereBetween('operation_date', [$segmentStart->toDateString(), $segmentEnd->toDateString()])
-                    ->whereIn('gare_id', $gareIds)
-                    ->sum('amount'),
-                'versements' => (float) VersementBancaire::query()
-                    ->where('service_scope', $serviceScope)
-                    ->whereBetween('operation_date', [$segmentStart->toDateString(), $segmentEnd->toDateString()])
-                    ->whereIn('gare_id', $gareIds)
-                    ->sum('amount'),
-            ];
-        });
-
-        return $segments;
-    }
-
-    protected function buildTrendChart(Collection $rows): array
-    {
-        $rows = $rows->values();
-        $max = max(1, (float) $rows->flatMap(fn ($row) => [$row['recettes'], $row['depenses'], $row['versements']])->max());
-
-        $buildPoints = function (string $key) use ($rows, $max) {
-            $count = max(1, $rows->count() - 1);
-            return $rows->map(function ($row, $index) use ($count, $key, $max) {
-                $x = 20 + ($index * (260 / $count));
-                $y = 140 - (((float) $row[$key] / $max) * 110);
-                return round($x, 2).','.round($y, 2);
-            })->implode(' ');
-        };
-
-        return [
-            'recettes' => $buildPoints('recettes'),
-            'depenses' => $buildPoints('depenses'),
-            'versements' => $buildPoints('versements'),
-            'max' => $max,
+            'show_global_sections' => $showGlobalSections,
+            'is_courrier' => $isCourrier,
+            'trend_chart' => $this->buildTrendChart($trend),
         ];
     }
 
@@ -339,7 +332,7 @@ class DashboardOverview extends Component
 
         $recentNotifications = NotificationHistory::query()
             ->where('user_id', auth()->id())
-            ->whereIn('type', ['document_expired', 'document_expiry_daily', 'document_expiry_weekly'])
+            ->forModule(ServiceModule::Documents)
             ->latest('created_at')
             ->limit(5)
             ->get();
@@ -411,4 +404,31 @@ class DashboardOverview extends Component
     {
         return view('livewire.dashboard-overview');
     }
+
+    protected function buildTrendChart(Collection $trend): array
+    {
+        $rows = $trend->values();
+        $max = max(1, (float) $rows
+            ->flatMap(fn ($row) => [(float) ($row['recettes'] ?? 0), (float) ($row['depenses'] ?? 0), (float) ($row['versements'] ?? 0)])
+            ->max());
+
+        $pointBuilder = function (string $key) use ($rows, $max): string {
+            $count = max(1, $rows->count() - 1);
+
+            return $rows->map(function ($row, $index) use ($count, $key, $max) {
+                $x = 20 + ($index * (300 / $count));
+                $y = 140 - (((float) ($row[$key] ?? 0) / $max) * 110);
+
+                return round($x, 2).','.round($y, 2);
+            })->implode(' ');
+        };
+
+        return [
+            'max' => $max,
+            'recettes' => $pointBuilder('recettes'),
+            'depenses' => $pointBuilder('depenses'),
+            'versements' => $pointBuilder('versements'),
+        ];
+    }
 }
+

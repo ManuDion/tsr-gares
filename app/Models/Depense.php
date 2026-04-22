@@ -77,6 +77,10 @@ class Depense extends Model
             return false;
         }
 
+        if ($user->isVerificateur()) {
+            return true;
+        }
+
         return $this->created_at?->greaterThanOrEqualTo(now()->subHours(48))
             || ($this->force_unlocked_until instanceof CarbonInterface && $this->force_unlocked_until->isFuture());
     }

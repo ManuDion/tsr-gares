@@ -19,7 +19,7 @@ class DepensePolicy
 
     public function create(User $user): bool
     {
-        return $user->canCreateFinancialEntry();
+        return $this->viewAny($user);
     }
 
     public function update(User $user, Depense $depense): bool

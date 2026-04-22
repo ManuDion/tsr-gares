@@ -5,12 +5,12 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreRecetteRequest;
 use App\Http\Requests\UnlockRecetteRequest;
 use App\Http\Requests\UpdateRecetteRequest;
+use App\Support\ModuleContext;
 use App\Models\PieceJustificative;
 use App\Models\Recette;
 use App\Models\RecetteHistory;
 use App\Services\AccessScopeService;
 use App\Services\ActivityLogService;
-use App\Support\ModuleContext;
 use App\Support\UploadedFileName;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -62,7 +62,7 @@ class RecetteController extends Controller
     {
         $this->authorize('create', Recette::class);
 
-        $module = ModuleContext::fromRequest($request, $request->user());
+                $module = ModuleContext::fromRequest($request);
         abort_unless($module->supportsFinancialFlows() && $request->user()->canAccessModule($module), 403);
         $serviceScope = ModuleContext::financialScope($module);
 
@@ -77,10 +77,10 @@ class RecetteController extends Controller
     {
         $this->authorize('create', Recette::class);
         $user = $request->user();
+        $data = $this->normalizeRecetteData($request->validated());
 
-        $module = ModuleContext::fromRequest($request, $user);
+                $module = ModuleContext::fromRequest($request, $user);
         $serviceScope = ModuleContext::financialScope($module);
-        $data = $this->normalizeRecetteData($request->validated(), $serviceScope);
 
         $data['gare_id'] = $this->access->resolveGareIdForCreation($user, $request->integer('gare_id'), $serviceScope);
         $data['service_scope'] = $serviceScope;
@@ -91,12 +91,7 @@ class RecetteController extends Controller
         $recette = Recette::create($data);
 
         if ($request->hasFile('justificatif')) {
-            $this->attachUploadedPiece(
-                $recette,
-                $request->file('justificatif'),
-                $user->id,
-                $request->string('justificatif_name')->toString()
-            );
+            $piece = $this->attachUploadedPiece($recette, $request->file('justificatif'), $user->id, $request->string('justificatif_name')->toString());
         }
 
         $this->activity->log($user, 'recette_created', $recette, 'Création d\'une recette.', [
@@ -110,7 +105,6 @@ class RecetteController extends Controller
                 'bagage_national_amount',
                 'amount',
                 'description',
-                'service_scope',
             ]),
             'gare_id' => $recette->gare_id,
         ]);
@@ -122,9 +116,7 @@ class RecetteController extends Controller
     {
         $this->authorize('update', $recette);
 
-        $module = ($recette->service_scope ?? 'gares') === 'courrier'
-            ? \App\Enums\ServiceModule::Courrier
-            : \App\Enums\ServiceModule::Gares;
+                $module = ($recette->service_scope ?? 'gares') === 'courrier' ? \App\Enums\ServiceModule::Courrier : \App\Enums\ServiceModule::Gares;
 
         return view('recettes.edit', [
             'recette' => $recette->load(['gare', 'histories.modifier', 'justificatives']),
@@ -149,13 +141,11 @@ class RecetteController extends Controller
             'gare_id',
         ]);
 
-        $data = $this->normalizeRecetteData($request->validated(), $recette->service_scope ?? 'gares');
+        $data = $this->normalizeRecetteData($request->validated());
         $data['updated_by'] = $request->user()->id;
         $data['reference'] = null;
 
-        $module = ($recette->service_scope ?? 'gares') === 'courrier'
-            ? \App\Enums\ServiceModule::Courrier
-            : \App\Enums\ServiceModule::Gares;
+                $module = ($recette->service_scope ?? 'gares') === 'courrier' ? \App\Enums\ServiceModule::Courrier : \App\Enums\ServiceModule::Gares;
 
         if (! $request->user()->isChefDeGare() && ! $request->user()->isAgentCourrierGare()) {
             $data['gare_id'] = $request->integer('gare_id', $recette->gare_id);
@@ -186,12 +176,7 @@ class RecetteController extends Controller
         }
 
         if ($request->hasFile('justificatif')) {
-            $this->attachUploadedPiece(
-                $recette,
-                $request->file('justificatif'),
-                $request->user()->id,
-                $request->string('justificatif_name')->toString()
-            );
+            $piece = $this->attachUploadedPiece($recette, $request->file('justificatif'), $request->user()->id, $request->string('justificatif_name')->toString());
         }
 
         if ($hasFieldChanges) {
@@ -229,18 +214,8 @@ class RecetteController extends Controller
         return back()->with('status', 'Recette déverrouillée pour 24h.');
     }
 
-    protected function normalizeRecetteData(array $data, string $serviceScope): array
+    protected function normalizeRecetteData(array $data): array
     {
-        if ($serviceScope === 'courrier') {
-            $data['ticket_inter_amount'] = 0;
-            $data['ticket_national_amount'] = 0;
-            $data['bagage_inter_amount'] = 0;
-            $data['bagage_national_amount'] = 0;
-            $data['amount'] = (float) ($data['amount'] ?? 0);
-
-            return $data;
-        }
-
         $data['ticket_inter_amount'] = (float) ($data['ticket_inter_amount'] ?? 0);
         $data['ticket_national_amount'] = (float) ($data['ticket_national_amount'] ?? 0);
         $data['bagage_inter_amount'] = (float) ($data['bagage_inter_amount'] ?? 0);
@@ -279,13 +254,7 @@ class RecetteController extends Controller
     {
         $disk = env('JUSTIFICATIF_PRIVATE_DISK', 'private');
         $path = $file->store('justificatifs/recettes/'.now()->format('Y/m'), $disk);
-
-        $label = UploadedFileName::defaultLabel(
-            $recette->service_scope === 'courrier' ? 'RecetteCourrier' : 'Recette',
-            $recette->gare?->name,
-            optional($recette->operation_date)->format('Y-m-d')
-        );
-        $originalName = UploadedFileName::build($desiredName ?: $label, $file);
+        $originalName = UploadedFileName::build($desiredName, $file);
 
         $piece = $recette->justificatives()->create([
             'document_type' => 'recette',

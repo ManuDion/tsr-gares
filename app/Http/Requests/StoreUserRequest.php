@@ -22,7 +22,7 @@ class StoreUserRequest extends FormRequest
             'phone' => ['required', 'string', 'max:40'],
             'email' => ['required', 'email', 'max:180', 'unique:users,email'],
             'password' => ['required', Password::min(8)],
-            'module' => ['required', Rule::in(array_map(fn (ServiceModule $module) => $module->value, ServiceModule::cases()))],
+            'module' => ['nullable', Rule::in(array_map(fn (ServiceModule $module) => $module->value, ServiceModule::cases()))],
             'role' => ['required', Rule::in(array_map(fn (UserRole $role) => $role->value, UserRole::cases()))],
             'gare_id' => ['nullable', 'integer', 'exists:gares,id'],
             'zone_gares' => ['nullable', 'array'],
@@ -36,23 +36,33 @@ class StoreUserRequest extends FormRequest
     {
         $validator->after(function ($validator) {
             $role = UserRole::fromLegacyAware((string) $this->input('role'));
-            $module = ServiceModule::tryFrom((string) $this->input('module'));
+            $module = ServiceModule::tryFrom((string) ($this->input('module') ?? ''));
 
-            if (! $module) {
+            if (! $module && ! $role->isUniversalSupervisor()) {
+                $validator->errors()->add('module', 'Veuillez selectionner un service pour ce role.');
+
                 return;
             }
 
-            $allowedRoleValues = collect($module->roleOptions())->pluck('value')->all();
-            if (! in_array($role->value, $allowedRoleValues, true)) {
-                $validator->errors()->add('role', 'Le rôle choisi ne correspond pas au service sélectionné.');
+            if ($module) {
+                $allowedRoleValues = collect($module->roleOptions())->pluck('value')->all();
+                if (! in_array($role->value, $allowedRoleValues, true)) {
+                    $validator->errors()->add('role', 'Le role choisi ne correspond pas au service selectionne.');
+                }
+            } elseif (! $role->isUniversalSupervisor()) {
+                $validator->errors()->add('role', 'Seuls les roles Administrateur et Responsable peuvent etre crees sans service.');
+            }
+
+            if ($role->isUniversalSupervisor()) {
+                return;
             }
 
             if ($role->requiresPrimaryGare() && ! $this->filled('gare_id')) {
-                $validator->errors()->add('gare_id', 'Veuillez sélectionner une gare principale pour ce rôle.');
+                $validator->errors()->add('gare_id', 'Veuillez selectionner une gare principale pour ce role.');
             }
 
             if ($role->supportsMultipleGares() && ! $this->boolean('all_gares') && empty($this->input('zone_gares', []))) {
-                $validator->errors()->add('zone_gares', 'Veuillez sélectionner au moins une gare pour ce profil.');
+                $validator->errors()->add('zone_gares', 'Veuillez selectionner au moins une gare pour ce profil.');
             }
         });
     }

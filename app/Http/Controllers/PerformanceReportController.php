@@ -13,16 +13,17 @@ class PerformanceReportController extends Controller
 {
     public function __invoke(Request $request): View
     {
-        abort_unless($request->user()->isAdmin() || $request->user()->isResponsable(), 403);
-
         $module = ModuleContext::fromRequest($request, $request->user());
         abort_unless($module->supportsFinancialFlows(), 403);
         $scope = $module->financialScope() ?? 'gares';
+        abort_unless($request->user()->canSuperviseFinancialScope($scope), 403);
 
         $startDate = $request->date('start_date')?->toDateString() ?? now()->startOfMonth()->toDateString();
         $endDate = $request->date('end_date')?->toDateString() ?? now()->toDateString();
+        $allowedGares = $request->user()->canViewAllGares() ? null : $request->user()->accessibleGareIds($scope);
 
         $topSaisie = Gare::query()
+            ->when($allowedGares, fn ($q) => $q->whereIn('id', $allowedGares))
             ->withCount([
                 'recettes as recettes_count' => fn ($q) => $q->where('service_scope', $scope)->whereBetween('operation_date', [$startDate, $endDate]),
                 'depenses as depenses_count' => fn ($q) => $q->where('service_scope', $scope)->whereBetween('operation_date', [$startDate, $endDate]),
@@ -41,6 +42,7 @@ class PerformanceReportController extends Controller
             ->selectRaw('gare_id, SUM(amount) as total_amount')
             ->where('service_scope', $scope)
             ->whereBetween('operation_date', [$startDate, $endDate])
+            ->when($allowedGares, fn ($q) => $q->whereIn('gare_id', $allowedGares))
             ->groupBy('gare_id')
             ->with('gare')
             ->orderByDesc('total_amount')
@@ -51,6 +53,7 @@ class PerformanceReportController extends Controller
             ->selectRaw('gare_id, SUM(amount) as total_amount')
             ->where('service_scope', $scope)
             ->whereBetween('operation_date', [$startDate, $endDate])
+            ->when($allowedGares, fn ($q) => $q->whereIn('gare_id', $allowedGares))
             ->groupBy('gare_id')
             ->with('gare')
             ->orderByDesc('total_amount')

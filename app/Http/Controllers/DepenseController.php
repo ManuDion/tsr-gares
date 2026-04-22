@@ -221,12 +221,7 @@ class DepenseController extends Controller
     {
         $disk = env('JUSTIFICATIF_PRIVATE_DISK', 'private');
         $path = $file->store('justificatifs/depenses', $disk);
-        $label = UploadedFileName::defaultLabel(
-            $depense->service_scope === 'courrier' ? 'DepenseCourrier' : 'Depense',
-            $depense->gare?->name,
-            optional($depense->operation_date)->format('Y-m-d')
-        );
-        $originalName = UploadedFileName::build($desiredName ?: $label, $file);
+        $originalName = UploadedFileName::build($desiredName, $file);
 
         return $depense->justificatives()->create([
             'document_type' => 'depense',

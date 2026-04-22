@@ -6,21 +6,21 @@
 @endphp
 
 <div class="form-grid">
-    @if(auth()->user()->isChefDeGare() || auth()->user()->isAgentCourrierGare())
-        <div>
-            <label>Gare affectée</label>
-            <input type="hidden" name="gare_id" value="{{ auth()->user()->gare_id }}">
-            <input type="text" value="{{ auth()->user()->primaryGare?->name }}" disabled>
-            <small>Issue de votre connexion.</small>
-        </div>
-    @else
+    @unless(auth()->user()->isChefDeGare())
         <x-gare-picker
             :gares="$gares"
             datalistId="versement-gares"
             :selectedGareLabel="$selectedGareLabel"
             :selectedGareId="old('gare_id', $versement?->gare_id ?? null)"
         />
-    @endif
+    @else
+        <div>
+            <label>Gare affectée</label>
+            <input type="hidden" name="gare_id" value="{{ auth()->user()->gare_id }}">
+            <input type="text" value="{{ auth()->user()->primaryGare?->name }}" disabled>
+            <small>Issue de votre connexion.</small>
+        </div>
+    @endunless
 
     <div>
         <label>Date opération</label>
@@ -56,13 +56,13 @@
     <div>
         <label>Nom du bordereau</label>
         <input type="text" name="bordereau_name" value="{{ old('bordereau_name') }}" placeholder="Ex. Bordereau Ecobank 15-08-2026">
-        <small>Optionnel. À défaut, le nom utilisé sera : Module_Gare_Date opération.</small>
+        <small>Optionnel. Le nom saisi sera utilisé pour la lecture et le téléchargement.</small>
     </div>
 
     <div>
         <label>{{ isset($versement) ? 'Ajouter / remplacer un bordereau' : 'Bordereau justificatif obligatoire' }} (max {{ $maxSizeKb }} Ko)</label>
         <input type="file" name="bordereau" accept=".pdf,.jpg,.jpeg,.png,image/*,application/pdf" capture="environment" @if(! isset($versement)) required @endif>
-        <small>Import simple PDF ou photo mobile. Selon le téléphone, vous pouvez recadrer avant validation.</small>
+        <small>Import simple PDF ou photo mobile, sans préremplissage automatique.</small>
     </div>
 
     @if($latestPiece)

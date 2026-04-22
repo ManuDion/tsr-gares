@@ -50,7 +50,7 @@ class UserController extends Controller
 
         return view('users.create', [
             'moduleOptions' => ServiceModule::options(),
-            'roleOptionsByModule' => UserRole::options(),
+            'roleOptionsByModule' => $this->roleOptionsByModule(),
             'gares' => Gare::query()->where('is_active', true)->orderBy('name')->get(),
         ]);
     }
@@ -60,7 +60,7 @@ class UserController extends Controller
         $this->authorize('create', User::class);
 
         $data = $request->validated();
-        $module = ServiceModule::from($data['module']);
+        $module = ServiceModule::tryFrom((string) ($data['module'] ?? ''));
         $role = UserRole::fromLegacyAware($data['role']);
         $zoneGares = $this->resolveZoneGares($request, $role);
         $payload = $this->normalizePayload($request, $data, $module, $role);
@@ -92,7 +92,7 @@ class UserController extends Controller
                 'phone' => $user->phone,
                 'email' => $user->email,
                 'role' => $user->role?->value,
-                'module' => $module->value,
+                'module' => $module?->value,
                 'gare_id' => $user->gare_id,
                 'gares' => $zoneGares,
                 'is_active' => $user->is_active,
@@ -110,7 +110,7 @@ class UserController extends Controller
         return view('users.edit', [
             'user' => $user->load(['gares', 'department']),
             'moduleOptions' => ServiceModule::options(),
-            'roleOptionsByModule' => UserRole::options(),
+            'roleOptionsByModule' => $this->roleOptionsByModule(),
             'gares' => Gare::query()->where('is_active', true)->orderBy('name')->get(),
         ]);
     }
@@ -132,7 +132,7 @@ class UserController extends Controller
         ];
 
         $data = $request->validated();
-        $module = ServiceModule::from($data['module']);
+        $module = ServiceModule::tryFrom((string) ($data['module'] ?? ''));
         $role = UserRole::fromLegacyAware($data['role']);
         $zoneGares = $this->resolveZoneGares($request, $role);
         $payload = $this->normalizePayload($request, $data, $module, $role, $user);
@@ -151,7 +151,7 @@ class UserController extends Controller
                 'phone' => $user->phone,
                 'email' => $user->email,
                 'role' => $user->role?->value,
-                'module' => $module->value,
+                'module' => $module?->value,
                 'gare_id' => $user->gare_id,
                 'gares' => $zoneGares,
                 'is_active' => $user->is_active,
@@ -186,7 +186,7 @@ class UserController extends Controller
         $userId = $user->id;
 
         DB::transaction(function () use ($user, $actor) {
-                        DB::table('notifications')->where('notifiable_id', $user->id)->where('notifiable_type', User::class)->delete();
+            DB::table('notifications')->where('user_id', $user->id)->delete();
             DB::table('notification_histories')->where('user_id', $user->id)->delete();
             DB::table('activity_logs')->where('user_id', $user->id)->update(['user_id' => $actor->id]);
             DB::table('recettes')->where('created_by', $user->id)->update(['created_by' => $actor->id]);
@@ -247,14 +247,16 @@ class UserController extends Controller
         return back()->with('status', $user->is_active ? 'Utilisateur activé.' : 'Utilisateur désactivé.');
     }
 
-    protected function normalizePayload(Request $request, array $data, ServiceModule $module, UserRole $role, ?User $user = null): array
+    protected function normalizePayload(Request $request, array $data, ?ServiceModule $module, UserRole $role, ?User $user = null): array
     {
         $data['role'] = $role;
         $data['is_active'] = $request->boolean('is_active');
         $data['must_change_password'] = $user
             ? $request->boolean('must_change_password', $user->must_change_password)
             : true;
-        $data['department_id'] = Department::forModule($module)?->id ?? $user?->department_id;
+        $data['department_id'] = $role->isUniversalSupervisor()
+            ? null
+            : ($module ? (Department::forModule($module)?->id ?? $user?->department_id) : $user?->department_id);
         unset($data['module'], $data['zone_gares'], $data['all_gares']);
 
         if (! $role->requiresPrimaryGare()) {
@@ -293,5 +295,13 @@ class UserController extends Controller
         array_shift($parts);
 
         return trim(implode(' ', $parts));
+    }
+
+    protected function roleOptionsByModule(): array
+    {
+        return ['' => [
+            ['value' => UserRole::Admin->value, 'label' => UserRole::Admin->label()],
+            ['value' => UserRole::Responsable->value, 'label' => UserRole::Responsable->label()],
+        ]] + UserRole::options();
     }
 }

@@ -5,7 +5,7 @@
 @section('subheading', 'Historique et contrôle de la règle 48 heures')
 
 @section('actions')
-    @if(auth()->user()->isAdmin() || auth()->user()->isResponsable())
+    @if(auth()->user()->isAdmin() || auth()->user()->isResponsable() || auth()->user()->isVerificateur())
         <form method="POST" action="{{ route('depenses.unlock', ['depense' => $depense, 'module' => $module->value]) }}">
             @csrf
             <input type="hidden" name="unlock_reason" value="Déverrouillage manuel par superviseur">

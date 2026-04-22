@@ -50,7 +50,7 @@ class DatabaseSeeder extends Seeder
                     'phone' => $adminPhone,
                     'password' => $adminPassword,
                     'role' => UserRole::Admin,
-                    'department_id' => Department::forModule(ServiceModule::Gares)?->id,
+                    'department_id' => null,
                     'is_active' => true,
                     'must_change_password' => false,
                 ]

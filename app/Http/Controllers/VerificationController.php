@@ -34,6 +34,7 @@ class VerificationController extends Controller
             ->with(['gare', 'reviewer'])
             ->where('service_scope', $serviceScope)
             ->whereDate('operation_date', $operationDate)
+            ->when(! $request->user()->canViewAllGares(), fn ($q) => $q->whereIn('gare_id', $request->user()->accessibleGareIds($serviceScope)))
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')->toString()))
             ->orderByDesc('difference')
             ->orderBy('gare_id')

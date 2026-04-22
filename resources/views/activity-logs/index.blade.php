@@ -7,6 +7,7 @@
 @section('content')
     <div class="panel">
         <form method="GET" class="filters-grid">
+            <input type="hidden" name="module" value="{{ request('module', $module->value ?? 'gares') }}">
             <div>
                 <label>Recherche</label>
                 <input type="text" name="search" value="{{ request('search') }}" placeholder="Objet, description, événement...">
@@ -80,13 +81,13 @@
                         <td>{{ $log->gare?->name ?: 'Toutes gares' }}</td>
                         <td>{{ $log->description ?: 'Modification enregistrée.' }}</td>
                         <td>
-                            <a href="{{ route('activity-logs.show', $log) }}" class="btn btn-sm btn-outline">
+                            <a href="{{ route('activity-logs.show', array_merge(['activityLog' => $log], request()->query())) }}" class="btn btn-sm btn-outline">
                                 <span class="icon">{!! app_icon('eye') !!}</span> Voir
                             </a>
                         </td>
                         @if(auth()->user()->isAdmin())
                             <td>
-                                <form method="POST" action="{{ route('activity-logs.destroy', $log) }}" onsubmit="return confirm('Supprimer cet historique ?');">
+                                <form method="POST" action="{{ route('activity-logs.destroy', array_merge(['activityLog' => $log], request()->query())) }}" onsubmit="return confirm('Supprimer cet historique ?');">
                                     @csrf
                                     @method('DELETE')
                                     <button class="btn btn-sm btn-danger" type="submit">

@@ -1,17 +1,12 @@
-@php
-    $selectedGare = collect($gares)->firstWhere('id', (int) old('gare_id', $depense->gare_id ?? 0));
-    $selectedGareLabel = $selectedGare ? ($selectedGare->name.' — '.$selectedGare->city) : null;
-@endphp
 <div class="form-grid">
-    @if(auth()->user()->isChefDeGare() || auth()->user()->isAgentCourrierGare())
+    @unless(auth()->user()->isChefDeGare())
+        <x-gare-picker :gares="$gares" datalistId="depense-gares" :selectedGareLabel="collect($gares)->firstWhere('id', (int) old('gare_id', $depense->gare_id ?? 0))?->name . ' — ' . collect($gares)->firstWhere('id', (int) old('gare_id', $depense->gare_id ?? 0))?->city" :selectedGareId="old('gare_id', $depense->gare_id ?? null)" />
+    @else
         <div>
             <label>Gare affectée</label>
-            <input type="hidden" name="gare_id" value="{{ auth()->user()->gare_id }}">
             <input type="text" value="{{ auth()->user()->primaryGare?->name }}" disabled>
         </div>
-    @else
-        <x-gare-picker :gares="$gares" datalistId="depense-gares" :selectedGareLabel="$selectedGareLabel" :selectedGareId="old('gare_id', $depense->gare_id ?? null)" />
-    @endif
+    @endunless
 
     <div>
         <label>Date opération</label>
@@ -36,12 +31,11 @@
     <div>
         <label>Nom du justificatif</label>
         <input type="text" name="justificatif_name" value="{{ old('justificatif_name') }}" placeholder="Ex. Dépense carburant 15-07-2025">
-        <small>Optionnel. À défaut, le nom utilisé sera : Module_Gare_Date opération.</small>
+        <small>Optionnel. Le nom saisi sera utilisé pour le fichier téléchargé.</small>
     </div>
     <div>
         <label>Justificatif (max {{ $maxSizeKb }} Ko)</label>
-        <input type="file" name="justificatif" accept=".pdf,.jpg,.jpeg,.png,image/*,application/pdf" capture="environment">
-        <small>PDF, image ou photo mobile. Selon le téléphone, vous pouvez recadrer avant validation.</small>
+        <input type="file" name="justificatif" accept=".pdf,.jpg,.jpeg,.png">
     </div>
     @if(isset($depense))
         <div class="col-span-2">

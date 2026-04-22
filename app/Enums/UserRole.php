@@ -6,6 +6,7 @@ enum UserRole: string
 {
     case Admin = 'admin';
     case Responsable = 'responsable';
+    case Verificateur = 'verificateur';
 
     case ChefDeGare = 'chef_de_gare';
     case CaissierGare = 'caissier_gare';
@@ -18,7 +19,6 @@ enum UserRole: string
     case ResponsableRh = 'responsable_rh';
     case PersonnelTsr = 'personnel_tsr';
 
-    // Legacy support
     case Caissiere = 'caissiere';
     case ChefDeZone = 'chef_de_zone';
 
@@ -27,6 +27,7 @@ enum UserRole: string
         return match ($this) {
             self::Admin => 'Administrateur',
             self::Responsable => 'Responsable',
+            self::Verificateur => 'Vérificateur',
             self::ChefDeGare => 'Chef de gare',
             self::CaissierGare, self::Caissiere, self::ChefDeZone => 'Caissier gare',
             self::Controleur => 'Contrôleur',
@@ -40,7 +41,7 @@ enum UserRole: string
     public function module(): ?ServiceModule
     {
         return match ($this) {
-            self::Admin, self::Responsable => null,
+            self::Admin, self::Responsable, self::Verificateur => null,
             self::ChefDeGare, self::CaissierGare, self::Caissiere, self::ChefDeZone => ServiceModule::Gares,
             self::Controleur => ServiceModule::Documents,
             self::AgentCourrierGare, self::CaissierCourrier => ServiceModule::Courrier,
@@ -55,7 +56,12 @@ enum UserRole: string
 
     public function supportsMultipleGares(): bool
     {
-        return in_array($this, [self::CaissierGare, self::Caissiere, self::ChefDeZone, self::CaissierCourrier], true);
+        return in_array($this, [self::CaissierGare, self::Caissiere, self::ChefDeZone, self::CaissierCourrier, self::Verificateur], true);
+    }
+
+    public function isUniversalSupervisor(): bool
+    {
+        return in_array($this, [self::Admin, self::Responsable], true);
     }
 
     public static function fromLegacyAware(string $value): self

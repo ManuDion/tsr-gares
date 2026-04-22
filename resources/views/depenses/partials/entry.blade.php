@@ -12,13 +12,7 @@
     </div>
 
     <div class="form-grid">
-        @if(auth()->user()->isChefDeGare() || auth()->user()->isAgentCourrierGare())
-            <div>
-                <label>Gare affectée</label>
-                <input type="hidden" name="entries[{{ $index }}][gare_id]" value="{{ auth()->user()->gare_id }}">
-                <input type="text" value="{{ auth()->user()->primaryGare?->name }}" disabled>
-            </div>
-        @else
+        @unless(auth()->user()->isChefDeGare())
             <x-gare-picker
                 :gares="$gares"
                 :datalistId="'depense-gares-'.$index"
@@ -26,7 +20,13 @@
                 :selectedGareId="old($oldPrefix.'.gare_id', data_get($entry, 'gare_id'))"
                 :hiddenName="'entries['.$index.'][gare_id]'"
             />
-        @endif
+        @else
+            <div>
+                <label>Gare affectée</label>
+                <input type="hidden" name="entries[{{ $index }}][gare_id]" value="{{ auth()->user()->gare_id }}">
+                <input type="text" value="{{ auth()->user()->primaryGare?->name }}" disabled>
+            </div>
+        @endunless
 
         <div>
             <label>Date opération</label>
@@ -51,12 +51,11 @@
         <div>
             <label>Nom du justificatif</label>
             <input type="text" name="entries[{{ $index }}][justificatif_name]" value="{{ old($oldPrefix.'.justificatif_name', data_get($entry, 'justificatif_name')) }}" placeholder="Ex. Dépense billetage {{ is_numeric($index) ? ((int) $index + 1) : '' }}">
-            <small>Optionnel. À défaut, le nom utilisé sera : Module_Gare_Date opération.</small>
+            <small>Optionnel. Le nom saisi sera utilisé pour le fichier téléchargé.</small>
         </div>
         <div>
             <label>Justificatif (max {{ $maxSizeKb }} Ko)</label>
-            <input type="file" name="entries[{{ $index }}][justificatif]" accept=".pdf,.jpg,.jpeg,.png,image/*,application/pdf" capture="environment">
-            <small>Photo mobile ou fichier PDF/image.</small>
+            <input type="file" name="entries[{{ $index }}][justificatif]" accept=".pdf,.jpg,.jpeg,.png">
         </div>
     </div>
 </div>

@@ -5,7 +5,7 @@
 @section('subheading', 'Même principe de verrouillage que les recettes')
 
 @section('actions')
-    @if(auth()->user()->isAdmin() || auth()->user()->isResponsable())
+    @if(auth()->user()->isAdmin() || auth()->user()->isResponsable() || auth()->user()->isVerificateur())
         <form method="POST" action="{{ route('versements.unlock', ['versement' => $versement, 'module' => $module->value]) }}">
             @csrf
             <input type="hidden" name="unlock_reason" value="Déverrouillage manuel par superviseur">

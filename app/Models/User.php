@@ -124,6 +124,10 @@ class User extends Authenticatable
             return true;
         }
 
+        if ($this->isVerificateur()) {
+            return $this->assignedModule() === ServiceModule::Gares;
+        }
+
         return in_array($this->role, [
             UserRole::ChefDeGare,
             UserRole::CaissierGare,
@@ -147,6 +151,10 @@ class User extends Authenticatable
             return true;
         }
 
+        if ($this->isVerificateur()) {
+            return $this->assignedModule() === ServiceModule::Courrier;
+        }
+
         return in_array($this->role, [UserRole::AgentCourrierGare, UserRole::CaissierCourrier], true);
     }
 
@@ -167,6 +175,11 @@ class User extends Authenticatable
     public function isResponsable(): bool
     {
         return $this->role === UserRole::Responsable;
+    }
+
+    public function isVerificateur(): bool
+    {
+        return $this->role === UserRole::Verificateur;
     }
 
     public function isChefDeGare(): bool
@@ -215,12 +228,27 @@ class User extends Authenticatable
         };
     }
 
+    public function canSuperviseFinancialScope(?string $scope = null): bool
+    {
+        $scope = $scope ?: $this->defaultModule()->financialScope();
+
+        if ($this->isAdmin() || $this->isResponsable()) {
+            return true;
+        }
+
+        return $this->isVerificateur() && $this->assignedModule()?->financialScope() === $scope;
+    }
+
     public function accessibleGareIds(?string $scope = null): array
     {
         $scope = $scope ?: $this->defaultModule()->financialScope();
 
         if ($this->canViewAllGares()) {
             return Gare::query()->pluck('id')->all();
+        }
+
+        if ($this->isVerificateur()) {
+            return $this->gares()->pluck('gares.id')->all();
         }
 
         if ($scope === 'gares') {

@@ -247,15 +247,9 @@ class VersementBancaireController extends Controller
         $disk = env('JUSTIFICATIF_PRIVATE_DISK', 'private');
         $path = $file->store('justificatifs/versements/'.now()->format('Y/m'), $disk);
 
-        $label = UploadedFileName::defaultLabel(
-            $versement->service_scope === 'courrier' ? 'VersementCourrier' : 'Versement',
-            $versement->gare?->name,
-            optional($versement->operation_date)->format('Y-m-d')
-        );
-
         return $versement->justificatives()->create([
             'document_type' => 'versement_bancaire',
-            'original_name' => UploadedFileName::build($desiredName ?: $label, $file),
+            'original_name' => UploadedFileName::build($desiredName, $file),
             'file_name' => basename($path),
             'mime_type' => $file->getMimeType() ?: 'application/pdf',
             'size' => $file->getSize(),

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\ServiceModule;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -40,5 +41,24 @@ class NotificationHistory extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function scopeForModule($query, ServiceModule $module)
+    {
+        return match ($module) {
+            ServiceModule::Gares => $query->whereJsonContains('operations', ServiceModule::Gares->value),
+            ServiceModule::Courrier => $query->whereJsonContains('operations', ServiceModule::Courrier->value),
+            ServiceModule::Documents => $query->where(function ($builder) {
+                $builder->whereIn('type', ['document_expired', 'document_expiry_daily', 'document_expiry_weekly'])
+                    ->orWhereJsonContains('operations', 'documents_administratifs')
+                    ->orWhereJsonContains('operations', ServiceModule::Documents->value)
+                    ->orWhere('payload->module', ServiceModule::Documents->value);
+            }),
+            ServiceModule::Rh => $query->where(function ($builder) {
+                $builder->where('type', 'like', 'rh_%')
+                    ->orWhereJsonContains('operations', ServiceModule::Rh->value)
+                    ->orWhere('payload->module', ServiceModule::Rh->value);
+            }),
+        };
     }
 }

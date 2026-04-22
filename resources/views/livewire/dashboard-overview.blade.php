@@ -1,4 +1,4 @@
-@php
+﻿@php
     $metrics = $this->metrics;
     $module = $metrics['module'] ?? null;
 @endphp
@@ -7,7 +7,7 @@
     <div class="stack-lg">
         <div class="stats-grid">
             <x-stat-card title="Total documents" :value="$metrics['documents_total']" meta="Tous les fichiers administratifs" icon="document" />
-            <x-stat-card title="Documents actifs" :value="$metrics['documents_active']" meta="Documents non archivés" icon="shield" />
+            <x-stat-card title="Documents actifs" :value="$metrics['documents_active']" meta="Documents non archives" icon="shield" />
             <x-stat-card title="Zone critique" :value="$metrics['documents_critical']" meta="Expire dans 30 jours" icon="bell" />
         </div>
 
@@ -15,8 +15,8 @@
             <div class="panel">
                 <div class="panel-header">
                     <div>
-                        <h2>Répartition par type</h2>
-                        <p class="text-muted">Nombre de fichiers enregistrés par type de document</p>
+                        <h2>Repartition par type</h2>
+                        <p class="text-muted">Nombre de fichiers enregistres par type de document</p>
                     </div>
                 </div>
                 <div class="table-wrapper table-plain">
@@ -34,7 +34,7 @@
                                     <td>{{ $row->total }}</td>
                                 </tr>
                             @empty
-                                <tr><td colspan="2">Aucun document enregistré.</td></tr>
+                                <tr><td colspan="2">Aucun document enregistre.</td></tr>
                             @endforelse
                         </tbody>
                     </table>
@@ -44,7 +44,7 @@
             <div class="panel">
                 <div class="panel-header">
                     <div>
-                        <h2>Notifications récentes</h2>
+                        <h2>Notifications recentes</h2>
                         <p class="text-muted">Rappels documentaires uniquement</p>
                     </div>
                 </div>
@@ -65,18 +65,18 @@
 @elseif(($metrics['mode'] ?? '') === 'rh')
     <div class="stack-lg">
         <div class="stats-grid">
-            <x-stat-card title="Agents enregistrés" :value="$metrics['employees_total']" meta="Dossiers du personnel" icon="users" />
+            <x-stat-card title="Agents enregistres" :value="$metrics['employees_total']" meta="Dossiers du personnel" icon="users" />
             <x-stat-card title="Agents actifs" :value="$metrics['employees_active']" meta="Statut actif" icon="shield" />
-            <x-stat-card title="Comptes à activer" :value="$metrics['accounts_pending_activation']" meta="Espaces personnels en attente" icon="bell" />
-            <x-stat-card title="Pièces RH" :value="$metrics['documents_total']" meta="Documents centralisés" icon="document" />
+            <x-stat-card title="Comptes a activer" :value="$metrics['accounts_pending_activation']" meta="Espaces personnels en attente" icon="bell" />
+            <x-stat-card title="Pieces RH" :value="$metrics['documents_total']" meta="Documents centralises" icon="document" />
         </div>
 
         <div class="grid-2">
             <div class="panel">
                 <div class="panel-header">
                     <div>
-                        <h2>Répartition par service</h2>
-                        <p class="text-muted">Base préparatoire du module RH</p>
+                        <h2>Repartition par service</h2>
+                        <p class="text-muted">Base preparatoire du module RH</p>
                     </div>
                 </div>
                 <div class="table-wrapper table-plain">
@@ -90,11 +90,11 @@
                         <tbody>
                             @forelse($metrics['employees_by_department'] as $row)
                                 <tr>
-                                    <td>{{ $row->department?->name ?? 'Non renseigné' }}</td>
+                                    <td>{{ $row->department?->name ?? 'Non renseigne' }}</td>
                                     <td>{{ $row->total }}</td>
                                 </tr>
                             @empty
-                                <tr><td colspan="2">Aucun dossier RH enregistré.</td></tr>
+                                <tr><td colspan="2">Aucun dossier RH enregistre.</td></tr>
                             @endforelse
                         </tbody>
                     </table>
@@ -104,8 +104,8 @@
             <div class="panel">
                 <div class="panel-header">
                     <div>
-                        <h2>Derniers dossiers créés</h2>
-                        <p class="text-muted">Créations récentes du service RH</p>
+                        <h2>Derniers dossiers crees</h2>
+                        <p class="text-muted">Creations recentes du service RH</p>
                     </div>
                 </div>
                 <div class="table-wrapper table-plain">
@@ -121,11 +121,11 @@
                             @forelse($metrics['recent_employees'] as $employee)
                                 <tr>
                                     <td>{{ $employee->full_name }}</td>
-                                    <td>{{ $employee->department?->name ?? '—' }}</td>
+                                    <td>{{ $employee->department?->name ?? '-' }}</td>
                                     <td>{{ $employee->employment_status }}</td>
                                 </tr>
                             @empty
-                                <tr><td colspan="3">Aucun dossier récent.</td></tr>
+                                <tr><td colspan="3">Aucun dossier recent.</td></tr>
                             @endforelse
                         </tbody>
                     </table>
@@ -136,14 +136,15 @@
 @else
     @php
         $serviceTitle = ($module?->value ?? 'gares') === 'courrier' ? 'service courrier' : 'service de gestion des gares';
-        $isCourrier = ($module?->value ?? 'gares') === 'courrier';
+        $isCourrier = (bool) ($metrics['is_courrier'] ?? false);
     @endphp
+
     <div class="stack-lg">
         <div class="panel hero-panel">
             @if ($metrics['user_can_view_all'])
                 <div class="filters-grid">
                     <div>
-                        <label for="start_date">Date début</label>
+                        <label for="start_date">Date debut</label>
                         <input id="start_date" type="date" wire:model.live="start_date">
                     </div>
                     <div>
@@ -164,7 +165,7 @@
 
             <div class="stats-grid">
                 <x-stat-card title="Total recettes" :value="number_format($metrics['recettes_total'], 0, ',', ' ')" meta="{{ $serviceTitle }} · {{ $metrics['period_label'] }}" icon="wallet" />
-                <x-stat-card title="Total dépenses" :value="number_format($metrics['depenses_total'], 0, ',', ' ')" meta="{{ $serviceTitle }} · {{ $metrics['period_label'] }}" icon="receipt" />
+                <x-stat-card title="Total depenses" :value="number_format($metrics['depenses_total'], 0, ',', ' ')" meta="{{ $serviceTitle }} · {{ $metrics['period_label'] }}" icon="receipt" />
                 <x-stat-card title="Total versements" :value="number_format($metrics['versements_total'], 0, ',', ' ')" meta="{{ $serviceTitle }} · {{ $metrics['period_label'] }}" icon="bank" />
             </div>
         </div>
@@ -173,8 +174,8 @@
             <div class="panel">
                 <div class="panel-header">
                     <div>
-                        <h2>{{ $isCourrier ? 'Recettes courrier' : 'Détail des types de recettes' }}</h2>
-                        <p class="text-muted">{{ $isCourrier ? 'Le service courrier utilise une recette unique par jour.' : 'Répartition globale pour la période sélectionnée' }}</p>
+                        <h2>Detail des types de recettes</h2>
+                        <p class="text-muted">Repartition globale pour la periode selectionnee</p>
                     </div>
                 </div>
                 <div class="table-wrapper table-plain">
@@ -187,7 +188,10 @@
                         </thead>
                         <tbody>
                             @if($isCourrier)
-                                <tr><td>Recette unique courrier</td><td>{{ number_format($metrics['recette_breakdown_totals']->total_amount ?? 0, 0, ',', ' ') }}</td></tr>
+                                <tr>
+                                    <td>Recette courrier</td>
+                                    <td>{{ number_format($metrics['recette_breakdown_totals']->total_amount ?? 0, 0, ',', ' ') }}</td>
+                                </tr>
                             @else
                                 <tr><td>Tickets inter</td><td>{{ number_format($metrics['recette_breakdown_totals']->ticket_inter_total ?? 0, 0, ',', ' ') }}</td></tr>
                                 <tr><td>Tickets national</td><td>{{ number_format($metrics['recette_breakdown_totals']->ticket_national_total ?? 0, 0, ',', ' ') }}</td></tr>
@@ -203,8 +207,8 @@
             <div class="panel">
                 <div class="panel-header">
                     <div>
-                        <h2>Notifications récentes</h2>
-                        <p class="text-muted">Messages liés au module actif</p>
+                        <h2>Notifications recentes</h2>
+                        <p class="text-muted">Messages lies au module actif</p>
                     </div>
                 </div>
                 <div class="notification-list">
@@ -215,7 +219,7 @@
                             <small>{{ $notification->created_at?->format('d/m/Y H:i') }}</small>
                         </article>
                     @empty
-                        <p class="text-muted">Aucune notification récente.</p>
+                        <p class="text-muted">Aucune notification recente.</p>
                     @endforelse
                 </div>
             </div>
@@ -225,43 +229,44 @@
             <div class="panel">
                 <div class="panel-header">
                     <div>
-                        <h2>Évolution des montants</h2>
-                        <p class="text-muted">Comparatif hebdomadaire du mois en cours (S1 à S4)</p>
+                        <h2>Evolution des montants</h2>
+                        <p class="text-muted">Courbe evolutive jour par jour (1 a 31)</p>
                     </div>
                 </div>
 
-                <div class="trend-chart-card">
-                    <svg viewBox="0 0 300 160" class="trend-chart" aria-label="Graphique d'évolution des montants">
-                        <line x1="20" y1="140" x2="280" y2="140" class="chart-axis" />
+                <div class="chart-card">
+                    <svg viewBox="0 0 340 170" class="chart-svg" aria-label="Courbe d'evolution des montants">
+                        <line x1="20" y1="140" x2="320" y2="140" class="chart-axis" />
                         <line x1="20" y1="20" x2="20" y2="140" class="chart-axis" />
                         <polyline class="chart-line chart-line-recettes" points="{{ $metrics['trend_chart']['recettes'] ?? '' }}"></polyline>
                         <polyline class="chart-line chart-line-depenses" points="{{ $metrics['trend_chart']['depenses'] ?? '' }}"></polyline>
                         <polyline class="chart-line chart-line-versements" points="{{ $metrics['trend_chart']['versements'] ?? '' }}"></polyline>
-                        @foreach($metrics['trend'] as $index => $row)
-                            @php($x = 20 + ($index * (260 / max(1, (count($metrics['trend']) - 1)))))
-                            <text x="{{ $x }}" y="154" text-anchor="middle" class="chart-label">{{ $row['label'] }}</text>
-                        @endforeach
                     </svg>
-
                     <div class="chart-legend">
-                        <span><i class="legend-dot legend-dot-recettes"></i> Recettes</span>
-                        <span><i class="legend-dot legend-dot-depenses"></i> Dépenses</span>
-                        <span><i class="legend-dot legend-dot-versements"></i> Versements</span>
+                        <span><i class="legend-dot recettes"></i> Recettes</span>
+                        <span><i class="legend-dot depenses"></i> Depenses</span>
+                        <span><i class="legend-dot versements"></i> Versements</span>
                     </div>
                 </div>
 
+                <div class="panel-header" style="margin-top: 1rem;">
+                    <div>
+                        <h2>Comparatif hebdomadaire du mois en cours</h2>
+                        <p class="text-muted">Semaine S1 a S4</p>
+                    </div>
+                </div>
                 <div class="table-wrapper table-plain">
                     <table>
                         <thead>
                             <tr>
                                 <th>Semaine</th>
                                 <th>Recettes</th>
-                                <th>Dépenses</th>
+                                <th>Depenses</th>
                                 <th>Versements</th>
                             </tr>
                         </thead>
                         <tbody>
-                            @forelse($metrics['trend'] as $row)
+                            @forelse($metrics['weekly_comparison'] as $row)
                                 <tr>
                                     <td>{{ $row['label'] }}</td>
                                     <td>{{ number_format($row['recettes'], 0, ',', ' ') }}</td>
@@ -269,7 +274,7 @@
                                     <td>{{ number_format($row['versements'], 0, ',', ' ') }}</td>
                                 </tr>
                             @empty
-                                <tr><td colspan="4">Aucune donnée de période.</td></tr>
+                                <tr><td colspan="4">Aucune donnee hebdomadaire.</td></tr>
                             @endforelse
                         </tbody>
                     </table>
@@ -279,15 +284,15 @@
             <div class="panel">
                 <div class="panel-header">
                     <div>
-                        <h2>Alertes métier</h2>
-                        <p class="text-muted">Non-saisies détectées sur la journée précédente</p>
+                        <h2>Alertes metier</h2>
+                        <p class="text-muted">Non-saisies detectees sur la journee precedente</p>
                     </div>
                 </div>
                 <div class="notification-list">
                     @forelse($metrics['missing_yesterday'] as $control)
                         <article class="notification-item">
                             <strong>{{ $control->gare?->name }}</strong>
-                            <p>Opérations manquantes : {{ collect($control->missing_operations ?? [])->map(fn($item) => str_replace('_', ' ', $item))->implode(', ') }}</p>
+                            <p>Operations manquantes : {{ collect($control->missing_operations ?? [])->map(fn($item) => str_replace('_', ' ', $item))->implode(', ') }}</p>
                             <small>{{ $control->concerned_date?->format('d/m/Y') }}</small>
                         </article>
                     @empty
@@ -297,25 +302,31 @@
             </div>
         </div>
 
-        @if($metrics['user_can_view_all'])
+        @if($metrics['show_global_sections'])
             <div class="grid-2">
                 <div class="panel">
                     <div class="panel-header">
                         <div>
                             <h2>Top gares en recettes</h2>
-                            <p class="text-muted">Période sélectionnée</p>
+                            <p class="text-muted">Periode selectionnee</p>
                         </div>
                     </div>
                     <div class="table-wrapper table-plain">
                         <table>
                             <thead>
-                                <tr><th>Gare</th><th>Total FCFA</th></tr>
+                                <tr>
+                                    <th>Gare</th>
+                                    <th>Total FCFA</th>
+                                </tr>
                             </thead>
                             <tbody>
                                 @forelse($metrics['top_recettes'] as $row)
-                                    <tr><td>{{ $row->gare?->name }}</td><td>{{ number_format($row->total, 0, ',', ' ') }}</td></tr>
+                                    <tr>
+                                        <td>{{ $row->gare?->name }}</td>
+                                        <td>{{ number_format($row->total, 0, ',', ' ') }}</td>
+                                    </tr>
                                 @empty
-                                    <tr><td colspan="2">Aucune donnée.</td></tr>
+                                    <tr><td colspan="2">Aucune donnee.</td></tr>
                                 @endforelse
                             </tbody>
                         </table>
@@ -325,20 +336,26 @@
                 <div class="panel">
                     <div class="panel-header">
                         <div>
-                            <h2>Top gares en dépenses</h2>
-                            <p class="text-muted">Période sélectionnée</p>
+                            <h2>Top gares en depenses</h2>
+                            <p class="text-muted">Periode selectionnee</p>
                         </div>
                     </div>
                     <div class="table-wrapper table-plain">
                         <table>
                             <thead>
-                                <tr><th>Gare</th><th>Total FCFA</th></tr>
+                                <tr>
+                                    <th>Gare</th>
+                                    <th>Total FCFA</th>
+                                </tr>
                             </thead>
                             <tbody>
                                 @forelse($metrics['top_depenses'] as $row)
-                                    <tr><td>{{ $row->gare?->name }}</td><td>{{ number_format($row->total, 0, ',', ' ') }}</td></tr>
+                                    <tr>
+                                        <td>{{ $row->gare?->name }}</td>
+                                        <td>{{ number_format($row->total, 0, ',', ' ') }}</td>
+                                    </tr>
                                 @empty
-                                    <tr><td colspan="2">Aucune donnée.</td></tr>
+                                    <tr><td colspan="2">Aucune donnee.</td></tr>
                                 @endforelse
                             </tbody>
                         </table>
@@ -346,17 +363,22 @@
                 </div>
             </div>
 
-            @unless($isCourrier)
-                <div class="panel">
-                    <div class="panel-header">
-                        <div>
-                            <h2>Détail des types de recettes par gare</h2>
-                            <p class="text-muted">Affichage par gare et par période</p>
-                        </div>
+            <div class="panel">
+                <div class="panel-header">
+                    <div>
+                        <h2>Detail des types de recettes par gare (Top 5)</h2>
+                        <p class="text-muted">Top 5 des gares sur la periode selectionnee</p>
                     </div>
-                    <div class="table-wrapper">
-                        <table>
-                            <thead>
+                </div>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            @if($isCourrier)
+                                <tr>
+                                    <th>Gare</th>
+                                    <th>Total recettes</th>
+                                </tr>
+                            @else
                                 <tr>
                                     <th>Gare</th>
                                     <th>Tickets inter</th>
@@ -365,25 +387,29 @@
                                     <th>Bagages national</th>
                                     <th>Total recettes</th>
                                 </tr>
-                            </thead>
-                            <tbody>
-                                @forelse($metrics['recette_breakdown_by_gare'] as $row)
-                                    <tr>
-                                        <td>{{ $row->gare?->name }}</td>
+                            @endif
+                        </thead>
+                        <tbody>
+                            @forelse($metrics['recette_breakdown_by_gare'] as $row)
+                                <tr>
+                                    <td>{{ $row->gare?->name }}</td>
+                                    @if($isCourrier)
+                                        <td>{{ number_format($row->total_amount, 0, ',', ' ') }}</td>
+                                    @else
                                         <td>{{ number_format($row->ticket_inter_total, 0, ',', ' ') }}</td>
                                         <td>{{ number_format($row->ticket_national_total, 0, ',', ' ') }}</td>
                                         <td>{{ number_format($row->bagage_inter_total, 0, ',', ' ') }}</td>
                                         <td>{{ number_format($row->bagage_national_total, 0, ',', ' ') }}</td>
                                         <td>{{ number_format($row->total_amount, 0, ',', ' ') }}</td>
-                                    </tr>
-                                @empty
-                                    <tr><td colspan="6">Aucune donnée à afficher.</td></tr>
-                                @endforelse
-                            </tbody>
-                        </table>
-                    </div>
+                                    @endif
+                                </tr>
+                            @empty
+                                <tr><td colspan="{{ $isCourrier ? 2 : 6 }}">Aucune donnee a afficher.</td></tr>
+                            @endforelse
+                        </tbody>
+                    </table>
                 </div>
-            @endunless
+            </div>
         @endif
     </div>
 @endif

@@ -22,7 +22,7 @@
         $notificationCount = $user
             ? \App\Models\NotificationHistory::query()
                 ->where('user_id', $user->id)
-                ->when($currentModule === ServiceModule::Documents, fn ($q) => $q->whereIn('type', ['document_expired', 'document_expiry_daily', 'document_expiry_weekly']))
+                ->forModule($currentModule)
                 ->whereNull('read_at')
                 ->count()
             : 0;
@@ -95,7 +95,7 @@
                         </a>
                     @endif
 
-                    @if($user->hasGlobalVisibility())
+                    @if($currentModule->supportsFinancialFlows() && $user->canSuperviseFinancialScope($currentModule->financialScope()))
                         <a href="{{ route('verifications.index', ['module' => $currentModule->value]) }}" class="{{ request()->routeIs('verifications.*') ? 'active' : '' }}">
                             <span class="icon">{!! app_icon('checklist') !!}</span><span>Vérification</span>
                         </a>
@@ -138,7 +138,7 @@
                     </a>
                 @endif
 
-                @if($user->hasGlobalVisibility() && $currentModule->supportsFinancialFlows())
+                @if($currentModule->supportsFinancialFlows() && $user->canSuperviseFinancialScope($currentModule->financialScope()))
                     <a href="{{ route('reports.performance', ['module' => $currentModule->value]) }}" class="{{ request()->routeIs('reports.performance') ? 'active' : '' }}">
                         <span class="icon">{!! app_icon('trophy') !!}</span><span>Top 5 & rapports</span>
                     </a>
@@ -191,57 +191,22 @@
             window.addEventListener('load', () => navigator.serviceWorker.register('{{ asset('sw.js') }}'));
         }
 
-        document.querySelectorAll('[data-gare-filter-select]').forEach(function(wrapper) {
-            const filterInput = wrapper.querySelector('[data-gare-filter-input]');
-            const select = wrapper.querySelector('[data-gare-filter-target]');
-            if (!filterInput || !select) return;
+        document.querySelectorAll('[data-gare-autocomplete]').forEach(function(wrapper) {
+            const textInput = wrapper.querySelector('input[data-gare-label]');
+            const hiddenInput = wrapper.querySelector('input[data-gare-id]');
+            const options = Array.from(wrapper.querySelectorAll('datalist option'));
 
-            const allOptions = Array.from(select.querySelectorAll('option')).map(function(option) {
-                return {
-                    value: option.value,
-                    text: option.textContent,
-                    search: (option.getAttribute('data-search') || option.textContent || '').toLowerCase(),
-                    selected: option.selected,
-                };
-            });
-
-            function renderOptions() {
-                const term = (filterInput.value || '').toLowerCase().trim();
-                const selectedValue = select.value;
-                select.innerHTML = '';
-
-                allOptions.forEach(function(option) {
-                    if (option.value === '') {
-                        const empty = document.createElement('option');
-                        empty.value = '';
-                        empty.textContent = option.text;
-                        select.appendChild(empty);
-                        return;
-                    }
-
-                    if (term !== '' && ! option.search.includes(term)) {
-                        return;
-                    }
-
-                    const el = document.createElement('option');
-                    el.value = option.value;
-                    el.textContent = option.text;
-                    if (selectedValue && selectedValue === option.value) {
-                        el.selected = true;
-                    }
-                    select.appendChild(el);
-                });
-
-                if (select.options.length === 1 && term !== '') {
-                    const none = document.createElement('option');
-                    none.value = '';
-                    none.textContent = 'Aucune gare trouvée';
-                    select.appendChild(none);
-                }
+            function syncGareId() {
+                const inputValue = textInput.value.toLowerCase();
+                const exact = options.find(option => option.value === textInput.value);
+                const partial = options.find(option => option.value.toLowerCase().includes(inputValue));
+                const match = exact || partial;
+                hiddenInput.value = match ? match.dataset.id : '';
             }
 
-            filterInput.addEventListener('input', renderOptions);
-            renderOptions();
+            textInput.addEventListener('input', syncGareId);
+            textInput.addEventListener('change', syncGareId);
+            syncGareId();
         });
 
         const body = document.body;
@@ -264,17 +229,19 @@
         const multiGaresSection = document.querySelector('[data-multi-gares-section]');
         const allGaresCheckbox = document.querySelector('[data-all-gares]');
         const zoneCheckboxes = Array.from(document.querySelectorAll('[data-zone-gares]'));
+        const supervisionLabel = document.querySelector('[data-supervision-label]');
+        const supervisionLabelText = supervisionLabel ? supervisionLabel.querySelector('[data-supervision-label-text]') : null;
 
         function selectedModuleValue() {
             const activeRadio = moduleRadios.find(radio => radio.checked);
-            return activeRadio ? activeRadio.value : null;
+            return activeRadio ? activeRadio.value : '';
         }
 
         function populateRoles() {
             if (! roleSelect) return;
 
             const module = selectedModuleValue();
-            const options = roleOptionsByModule[module] || [];
+            const options = roleOptionsByModule[module] || roleOptionsByModule[''] || [];
             const previous = roleSelect.value || currentRoleValue;
             roleSelect.innerHTML = '';
 
@@ -288,18 +255,27 @@
                 roleSelect.appendChild(el);
             });
 
+            if (! roleSelect.value && roleSelect.options.length > 0) {
+                roleSelect.options[0].selected = true;
+            }
+
             syncUserRoleForm();
         }
 
         function syncUserRoleForm() {
             if (! roleSelect) return;
             const role = roleSelect.value;
+            const canSelectPrimaryGare = ['chef_de_gare', 'agent_courrier_gare'].includes(role);
+            const canSelectMultipleGares = ['caissier_gare', 'caissiere', 'chef_de_zone', 'caissier_courrier', 'verificateur'].includes(role);
+
             if (chefSection) {
-                chefSection.hidden = ! ['chef_de_gare', 'agent_courrier_gare'].includes(role);
+                chefSection.hidden = ! canSelectPrimaryGare;
             }
             if (multiGaresSection) {
-                multiGaresSection.hidden = ! ['caissier_gare', 'caissiere', 'chef_de_zone', 'caissier_courrier'].includes(role);
+                multiGaresSection.hidden = ! canSelectMultipleGares;
             }
+
+            updateSupervisionLabel(role);
         }
 
         function syncAllGaresState() {
@@ -307,6 +283,36 @@
             zoneCheckboxes.forEach(function(checkbox) {
                 checkbox.disabled = allGaresCheckbox.checked;
             });
+            updateSupervisionLabel(roleSelect ? roleSelect.value : '');
+        }
+
+        function selectedZoneGareCount() {
+            if (allGaresCheckbox && allGaresCheckbox.checked) {
+                return zoneCheckboxes.length;
+            }
+
+            return zoneCheckboxes.filter(function(checkbox) {
+                return checkbox.checked;
+            }).length;
+        }
+
+        function updateSupervisionLabel(role) {
+            if (! supervisionLabel || ! supervisionLabelText) return;
+
+            if (['admin', 'responsable'].includes(role)) {
+                supervisionLabel.hidden = false;
+                supervisionLabelText.textContent = 'Superviseur universel';
+                return;
+            }
+
+            if (role === 'verificateur') {
+                supervisionLabel.hidden = false;
+                const count = selectedZoneGareCount();
+                supervisionLabelText.textContent = `Superviseur limite a ${count} gare(s)`;
+                return;
+            }
+
+            supervisionLabel.hidden = true;
         }
 
         moduleRadios.forEach(function(radio) {
@@ -321,6 +327,12 @@
             allGaresCheckbox.addEventListener('change', syncAllGaresState);
             syncAllGaresState();
         }
+
+        zoneCheckboxes.forEach(function(checkbox) {
+            checkbox.addEventListener('change', function() {
+                updateSupervisionLabel(roleSelect ? roleSelect.value : '');
+            });
+        });
 
         document.querySelectorAll('.table-wrapper table').forEach(function(table) {
             const headers = Array.from(table.querySelectorAll('thead th')).map(function(header) {

@@ -56,6 +56,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/verifications/{verification}/enable-adjustments', [VerificationController::class, 'enableAdjustments'])->name('verifications.enable-adjustments');
 
         Route::get('/chat', [ConversationController::class, 'index'])->name('chat.index');
+        Route::get('/chat/create', [ConversationController::class, 'create'])->name('chat.create');
         Route::post('/chat', [ConversationController::class, 'store'])->name('chat.store');
         Route::get('/chat/{conversation}', [ConversationController::class, 'show'])->name('chat.show');
         Route::post('/chat/{conversation}/messages', [ConversationController::class, 'storeMessage'])->name('chat.messages.store');

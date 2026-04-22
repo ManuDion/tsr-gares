@@ -2121,31 +2121,3 @@ tbody tr:hover {
     grid-template-columns:1fr 1fr;
   }
 }
-
-
-.page-stack { display:grid; gap:1.25rem; }
-.th-stack { display:inline-flex; flex-direction:column; line-height:1.15; }
-.breakdown-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:1rem; }
-.breakdown-summary { display:flex; flex-wrap:wrap; gap:.5rem; }
-.breakdown-summary span { background:#f8fafc; border:1px solid var(--border); border-radius:999px; padding:.25rem .55rem; font-size:.82rem; }
-.gare-filter-select { display:grid; gap:.45rem; }
-.gare-filter-select select { min-height: 3rem; }
-.sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); border:0; }
-.text-muted { color:var(--muted); }
-.table-plain { border:none; box-shadow:none; }
-.trend-chart-card { display:grid; gap:.75rem; }
-.trend-chart { width:100%; height:auto; background:linear-gradient(180deg,#fff,#fafcff); border:1px solid var(--border); border-radius:1rem; padding:.5rem; }
-.chart-axis { stroke:#cbd5e1; stroke-width:1.5; }
-.chart-line { fill:none; stroke-width:3; stroke-linecap:round; stroke-linejoin:round; }
-.chart-line-recettes { stroke:#8a2433; }
-.chart-line-depenses { stroke:#b97a3d; }
-.chart-line-versements { stroke:#15803d; }
-.chart-label { font-size:10px; fill:#64748b; }
-.chart-legend { display:flex; gap:1rem; flex-wrap:wrap; font-size:.9rem; color:var(--muted); }
-.legend-dot { display:inline-block; width:.8rem; height:.8rem; border-radius:999px; margin-right:.35rem; vertical-align:middle; }
-.legend-dot-recettes { background:#8a2433; }
-.legend-dot-depenses { background:#b97a3d; }
-.legend-dot-versements { background:#15803d; }
-@media (max-width: 768px) {
-    .chart-legend { font-size:.82rem; }
-}

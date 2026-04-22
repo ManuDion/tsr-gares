@@ -15,6 +15,8 @@ class Conversation extends Model
     protected $fillable = [
         'name',
         'is_group',
+        'conversation_type',
+        'service_module',
         'created_by',
         'last_message_at',
     ];
@@ -60,7 +62,7 @@ class Conversation extends Model
 
         $other = $this->participants->firstWhere('id', '!=', $user->id);
 
-        return $other?->name ?: ($this->name ?: 'Conversation privée');
+        return $other?->name ?: ($this->name ?: 'Conversation privee');
     }
 
     public function unreadMessagesCountFor(User $user): int
@@ -72,5 +74,14 @@ class Conversation extends Model
             ->where('user_id', '!=', $user->id)
             ->when($lastReadAt, fn ($query) => $query->where('created_at', '>', $lastReadAt))
             ->count();
+    }
+
+    public function typeLabel(): string
+    {
+        return match ($this->conversation_type) {
+            'general' => 'General',
+            'service_internal', 'inter_service' => 'Interne service',
+            default => 'Direct',
+        };
     }
 }

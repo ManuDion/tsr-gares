@@ -36,7 +36,7 @@ enum ServiceModule: string
         return match ($this) {
             self::Gares => 'Recettes, dépenses, versements, vérifications et supervision des gares.',
             self::Documents => 'Suivi des documents administratifs, échéances et conformité.',
-            self::Courrier => 'Service courrier exploité dans les gares avec la même logique métier que le module gares.',
+            self::Courrier => 'Service courrier exploité dans les gares avec la même logique métier que le service de gestion des gares.',
             self::Rh => 'Préparation du module Ressources Humaines pour le cycle administratif du personnel.',
         };
     }
@@ -74,6 +74,7 @@ enum ServiceModule: string
 
         $specific = match ($this) {
             self::Gares => [
+                ['value' => UserRole::Verificateur->value, 'label' => UserRole::Verificateur->label()],
                 ['value' => UserRole::ChefDeGare->value, 'label' => UserRole::ChefDeGare->label()],
                 ['value' => UserRole::CaissierGare->value, 'label' => UserRole::CaissierGare->label()],
             ],
@@ -81,6 +82,7 @@ enum ServiceModule: string
                 ['value' => UserRole::Controleur->value, 'label' => UserRole::Controleur->label()],
             ],
             self::Courrier => [
+                ['value' => UserRole::Verificateur->value, 'label' => UserRole::Verificateur->label()],
                 ['value' => UserRole::AgentCourrierGare->value, 'label' => UserRole::AgentCourrierGare->label()],
                 ['value' => UserRole::CaissierCourrier->value, 'label' => UserRole::CaissierCourrier->label()],
             ],

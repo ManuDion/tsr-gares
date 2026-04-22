@@ -24,6 +24,7 @@
             <form method="POST" action="{{ route('notifications.purge-period') }}" class="filters-grid" onsubmit="return confirm('Supprimer les historiques de notifications sur cette période ?');">
                 @csrf
                 @method('DELETE')
+                <input type="hidden" name="module" value="{{ request('module', $module->value ?? 'gares') }}">
                 <div>
                     <label>Date début</label>
                     <input type="date" name="start_date" required>

@@ -3,7 +3,6 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
-use Throwable;
 
 return new class () extends Migration {
     public function up(): void
@@ -12,6 +11,7 @@ return new class () extends Migration {
             if (! Schema::hasColumn('users', 'phone')) {
                 $table->string('phone', 40)->nullable()->after('name');
             }
+
             if (! Schema::hasColumn('users', 'must_change_password')) {
                 $table->boolean('must_change_password')->default(false)->after('is_active');
             }
@@ -26,17 +26,23 @@ return new class () extends Migration {
             }
         }
 
-
         if (Schema::hasTable('verification_checks')) {
             Schema::table('verification_checks', function (Blueprint $table) {
                 try {
+                    $table->index('gare_id', 'verification_checks_gare_id_index');
+                } catch (\Throwable $e) {
+                }
+            });
+
+            Schema::table('verification_checks', function (Blueprint $table) {
+                try {
                     $table->dropUnique('verification_checks_gare_id_operation_date_unique');
-                } catch (Throwable $e) {
+                } catch (\Throwable $e) {
                 }
 
                 try {
                     $table->unique(['service_scope', 'gare_id', 'operation_date'], 'verification_checks_scope_gare_operation_unique');
-                } catch (Throwable $e) {
+                } catch (\Throwable $e) {
                 }
             });
         }
@@ -44,13 +50,20 @@ return new class () extends Migration {
         if (Schema::hasTable('daily_controls')) {
             Schema::table('daily_controls', function (Blueprint $table) {
                 try {
+                    $table->index('gare_id', 'daily_controls_gare_id_index');
+                } catch (\Throwable $e) {
+                }
+            });
+
+            Schema::table('daily_controls', function (Blueprint $table) {
+                try {
                     $table->dropUnique('daily_controls_gare_id_concerned_date_unique');
-                } catch (Throwable $e) {
+                } catch (\Throwable $e) {
                 }
 
                 try {
                     $table->unique(['service_scope', 'gare_id', 'concerned_date'], 'daily_controls_scope_gare_concerned_unique');
-                } catch (Throwable $e) {
+                } catch (\Throwable $e) {
                 }
             });
         }
@@ -103,22 +116,27 @@ return new class () extends Migration {
             Schema::table('verification_checks', function (Blueprint $table) {
                 try {
                     $table->dropUnique('verification_checks_scope_gare_operation_unique');
-                } catch (Throwable $e) {
+                } catch (\Throwable $e) {
                 }
 
                 try {
                     $table->dropUnique('verification_checks_gare_id_operation_date_unique');
-                } catch (Throwable $e) {
+                } catch (\Throwable $e) {
                 }
 
                 try {
                     $table->unique(['gare_id', 'operation_date'], 'verification_checks_gare_id_operation_date_unique');
-                } catch (Throwable $e) {
+                } catch (\Throwable $e) {
                 }
 
                 try {
                     $table->dropIndex('verification_checks_service_scope_index');
-                } catch (Throwable $e) {
+                } catch (\Throwable $e) {
+                }
+
+                try {
+                    $table->dropIndex('verification_checks_gare_id_index');
+                } catch (\Throwable $e) {
                 }
 
                 if (Schema::hasColumn('verification_checks', 'service_scope')) {
@@ -131,22 +149,27 @@ return new class () extends Migration {
             Schema::table('daily_controls', function (Blueprint $table) {
                 try {
                     $table->dropUnique('daily_controls_scope_gare_concerned_unique');
-                } catch (Throwable $e) {
+                } catch (\Throwable $e) {
                 }
 
                 try {
                     $table->dropUnique('daily_controls_gare_id_concerned_date_unique');
-                } catch (Throwable $e) {
+                } catch (\Throwable $e) {
                 }
 
                 try {
                     $table->unique(['gare_id', 'concerned_date'], 'daily_controls_gare_id_concerned_date_unique');
-                } catch (Throwable $e) {
+                } catch (\Throwable $e) {
                 }
 
                 try {
                     $table->dropIndex('daily_controls_service_scope_index');
-                } catch (Throwable $e) {
+                } catch (\Throwable $e) {
+                }
+
+                try {
+                    $table->dropIndex('daily_controls_gare_id_index');
+                } catch (\Throwable $e) {
                 }
 
                 if (Schema::hasColumn('daily_controls', 'service_scope')) {
@@ -159,8 +182,8 @@ return new class () extends Migration {
             if (Schema::hasTable($tableName) && Schema::hasColumn($tableName, 'service_scope')) {
                 Schema::table($tableName, function (Blueprint $table) use ($tableName) {
                     try {
-                        $table->dropIndex($tableName.'_service_scope_index');
-                    } catch (Throwable $e) {
+                        $table->dropIndex($tableName . '_service_scope_index');
+                    } catch (\Throwable $e) {
                     }
 
                     $table->dropColumn('service_scope');
@@ -172,10 +195,10 @@ return new class () extends Migration {
             if (Schema::hasColumn('users', 'must_change_password')) {
                 $table->dropColumn('must_change_password');
             }
+
             if (Schema::hasColumn('users', 'phone')) {
                 $table->dropColumn('phone');
             }
         });
     }
 };
-
