@@ -10,6 +10,7 @@ use App\Models\Depense;
 use App\Models\DepenseHistory;
 use App\Services\AccessScopeService;
 use App\Services\ActivityLogService;
+use App\Services\CashierVirtualGareService;
 use App\Support\UploadedFileName;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -21,7 +22,8 @@ class DepenseController extends Controller
 {
     public function __construct(
         protected AccessScopeService $access,
-        protected ActivityLogService $activity
+        protected ActivityLogService $activity,
+        protected CashierVirtualGareService $virtualGares
     ) {}
 
     public function index(Request $request): View
@@ -58,10 +60,14 @@ class DepenseController extends Controller
                 $module = ModuleContext::fromRequest($request);
         abort_unless($module->supportsFinancialFlows() && $request->user()->canAccessModule($module), 403);
         $serviceScope = ModuleContext::financialScope($module);
+        $virtualGare = $request->user()->canActAsCashierForScope($serviceScope)
+            ? $this->virtualGares->ensureForScope($request->user(), $serviceScope)
+            : null;
 
         return view('depenses.create', [
             'gares' => $this->access->availableGares($request->user(), $serviceScope),
             'module' => $module,
+            'virtualGare' => $virtualGare,
             'maxSizeKb' => (int) env('JUSTIFICATIF_MAX_SIZE_KB', 5120),
             'initialEntries' => old('entries', [[
                 'operation_date' => now()->toDateString(),
@@ -82,13 +88,17 @@ class DepenseController extends Controller
         $entries = $request->validated('entries');
         $module = ModuleContext::fromRequest($request, $user);
         $serviceScope = ModuleContext::financialScope($module);
+        $virtualGare = $user->canActAsCashierForScope($serviceScope)
+            ? $this->virtualGares->ensureForScope($user, $serviceScope)
+            : null;
 
-        $createdCount = DB::transaction(function () use ($entries, $request, $user, $serviceScope) {
+        $createdCount = DB::transaction(function () use ($entries, $request, $user, $serviceScope, $virtualGare) {
             $count = 0;
 
             foreach ($entries as $index => $entry) {
                 $depense = Depense::create([
-                    'gare_id' => $this->access->resolveGareIdForCreation($user, data_get($entry, 'gare_id'), $serviceScope),
+                    'gare_id' => $virtualGare?->id
+                        ?: $this->access->resolveGareIdForCreation($user, data_get($entry, 'gare_id'), $serviceScope),
                     'service_scope' => $serviceScope,
                     'operation_date' => data_get($entry, 'operation_date'),
                     'amount' => data_get($entry, 'amount'),
@@ -132,6 +142,9 @@ class DepenseController extends Controller
             'depense' => $depense->load(['gare', 'histories.modifier', 'justificatives']),
             'gares' => $this->access->availableGares(auth()->user(), $depense->service_scope ?? 'gares'),
             'module' => $module,
+            'virtualGare' => auth()->user()->canActAsCashierForScope($depense->service_scope ?? 'gares')
+                ? $this->virtualGares->ensureForScope(auth()->user(), $depense->service_scope ?? 'gares')
+                : null,
             'maxSizeKb' => (int) env('JUSTIFICATIF_MAX_SIZE_KB', 5120),
         ]);
     }
@@ -143,10 +156,16 @@ class DepenseController extends Controller
         $before = $depense->only(['operation_date', 'amount', 'motif', 'reference', 'description', 'gare_id']);
         $data = $request->validated();
         $data['updated_by'] = $request->user()->id;
+        $scope = (string) ($depense->service_scope ?? 'gares');
+        $virtualGare = $request->user()->canActAsCashierForScope($scope)
+            ? $this->virtualGares->ensureForScope($request->user(), $scope)
+            : null;
 
                 $module = ($depense->service_scope ?? 'gares') === 'courrier' ? \App\Enums\ServiceModule::Courrier : \App\Enums\ServiceModule::Gares;
 
-        if (! $request->user()->isChefDeGare() && ! $request->user()->isAgentCourrierGare()) {
+        if ($virtualGare) {
+            $data['gare_id'] = $virtualGare->id;
+        } elseif (! $request->user()->canActAsChefForScope((string) ($depense->service_scope ?? 'gares'))) {
             $data['gare_id'] = $request->integer('gare_id', $depense->gare_id);
         }
 

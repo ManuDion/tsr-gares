@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -17,6 +18,12 @@ class Gare extends Model
         'city',
         'zone',
         'address',
+        'versement_mode',
+        'cashier_user_id',
+        'activity_mode',
+        'is_virtual',
+        'virtual_owner_user_id',
+        'virtual_scope',
         'is_active',
     ];
 
@@ -24,6 +31,7 @@ class Gare extends Model
     {
         return [
             'is_active' => 'boolean',
+            'is_virtual' => 'boolean',
         ];
     }
 
@@ -51,5 +59,25 @@ class Gare extends Model
     public function dailyControls(): HasMany
     {
         return $this->hasMany(DailyControl::class);
+    }
+
+    public function assignedCashier(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'cashier_user_id');
+    }
+
+    public function virtualOwner(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'virtual_owner_user_id');
+    }
+
+    public function cashierConfirmations(): HasMany
+    {
+        return $this->hasMany(CashierReceiptConfirmation::class);
+    }
+
+    public function isInterOnly(): bool
+    {
+        return ($this->activity_mode ?? 'mixed') === 'inter_only';
     }
 }

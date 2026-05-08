@@ -9,7 +9,7 @@ class DepensePolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->hasGlobalVisibility() || $user->canAccessGaresModule() || $user->canAccessCourrierModule();
+        return $user->hasGlobalVisibility() || $user->canAccessFinancialScope('gares') || $user->canAccessFinancialScope('courrier');
     }
 
     public function view(User $user, Depense $depense): bool
@@ -19,7 +19,7 @@ class DepensePolicy
 
     public function create(User $user): bool
     {
-        return $this->viewAny($user);
+        return $user->canCreateFinancialEntry('gares') || $user->canCreateFinancialEntry('courrier');
     }
 
     public function update(User $user, Depense $depense): bool

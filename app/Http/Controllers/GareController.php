@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\UserRole;
 use App\Http\Requests\StoreGareRequest;
 use App\Http\Requests\UpdateGareRequest;
 use App\Models\Gare;
+use App\Models\User;
 use App\Services\ActivityLogService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -19,6 +21,7 @@ class GareController extends Controller
         $this->authorize('viewAny', Gare::class);
 
         $query = Gare::query()
+            ->where('is_virtual', false)
             ->when($request->filled('search'), function ($query) use ($request) {
                 $query->where(function ($inner) use ($request) {
                     $inner->where('name', 'like', '%'.$request->string('search').'%')
@@ -43,7 +46,9 @@ class GareController extends Controller
     {
         $this->authorize('create', Gare::class);
 
-        return view('gares.create');
+        return view('gares.create', [
+            'cashiers' => $this->cashiers(),
+        ]);
     }
 
     public function store(StoreGareRequest $request): RedirectResponse
@@ -52,12 +57,16 @@ class GareController extends Controller
 
         $data = $request->validated();
         $data['is_active'] = $request->boolean('is_active');
+        $data['activity_mode'] = $data['activity_mode'] ?? 'mixed';
+        $data['cashier_user_id'] = ($data['versement_mode'] ?? 'direct') === 'cashier'
+            ? ($data['cashier_user_id'] ?? null)
+            : null;
 
         $gare = Gare::create($data);
 
         $this->activity->log($request->user(), 'gare_created', $gare, 'Création d\'une gare.', [
             'gare_id' => $gare->id,
-            'after' => $gare->only(['name', 'code', 'city', 'zone', 'address', 'is_active']),
+            'after' => $gare->only(['name', 'code', 'city', 'zone', 'address', 'versement_mode', 'cashier_user_id', 'activity_mode', 'is_active']),
         ]);
 
         return redirect()->route('gares.index')->with('status', 'Gare créée avec succès.');
@@ -76,23 +85,30 @@ class GareController extends Controller
     {
         $this->authorize('update', $gare);
 
-        return view('gares.edit', compact('gare'));
+        return view('gares.edit', [
+            'gare' => $gare,
+            'cashiers' => $this->cashiers(),
+        ]);
     }
 
     public function update(UpdateGareRequest $request, Gare $gare): RedirectResponse
     {
         $this->authorize('update', $gare);
 
-        $before = $gare->only(['name', 'code', 'city', 'zone', 'address', 'is_active']);
+        $before = $gare->only(['name', 'code', 'city', 'zone', 'address', 'versement_mode', 'cashier_user_id', 'activity_mode', 'is_active']);
         $data = $request->validated();
         $data['is_active'] = $request->boolean('is_active');
+        $data['activity_mode'] = $data['activity_mode'] ?? 'mixed';
+        $data['cashier_user_id'] = ($data['versement_mode'] ?? 'direct') === 'cashier'
+            ? ($data['cashier_user_id'] ?? null)
+            : null;
 
         $gare->update($data);
 
         $this->activity->log($request->user(), 'gare_updated', $gare, 'Mise à jour d\'une gare.', [
             'gare_id' => $gare->id,
             'before' => $before,
-            'after' => $gare->fresh()->only(['name', 'code', 'city', 'zone', 'address', 'is_active']),
+            'after' => $gare->fresh()->only(['name', 'code', 'city', 'zone', 'address', 'versement_mode', 'cashier_user_id', 'activity_mode', 'is_active']),
         ]);
 
         return redirect()->route('gares.index')->with('status', 'Gare mise à jour.');
@@ -134,5 +150,19 @@ class GareController extends Controller
         ]);
 
         return back()->with('status', $gare->is_active ? 'Gare activée.' : 'Gare désactivée.');
+    }
+
+    protected function cashiers()
+    {
+        return User::query()
+            ->where('is_active', true)
+            ->whereIn('role', [
+                UserRole::CaissierGare->value,
+                UserRole::Caissiere->value,
+                UserRole::ChefDeZone->value,
+                UserRole::CaissierCourrier->value,
+            ])
+            ->orderBy('name')
+            ->get();
     }
 }

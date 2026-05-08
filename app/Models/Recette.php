@@ -101,4 +101,14 @@ class Recette extends Model
             'bagage_national_amount' => (float) $this->bagage_national_amount,
         ];
     }
+
+    public function interAmount(): float
+    {
+        return round((float) $this->ticket_inter_amount + (float) $this->bagage_inter_amount, 2);
+    }
+
+    public function nationalAmount(): float
+    {
+        return round((float) $this->ticket_national_amount + (float) $this->bagage_national_amount, 2);
+    }
 }

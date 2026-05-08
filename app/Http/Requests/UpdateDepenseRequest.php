@@ -23,11 +23,18 @@ class UpdateDepenseRequest extends FormRequest
             'justificatif_name' => ['nullable', 'string', 'max:120'],
             'history_comment' => ['nullable', 'string', 'max:255'],
             'justificatif' => [
-                'nullable',
+                'required',
                 'file',
                 'mimes:pdf,jpg,jpeg,png',
                 'max:'.(int) env('JUSTIFICATIF_MAX_SIZE_KB', 5120),
             ],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'justificatif.required' => 'Le justificatif est obligatoire pour modifier une dépense.',
         ];
     }
 }

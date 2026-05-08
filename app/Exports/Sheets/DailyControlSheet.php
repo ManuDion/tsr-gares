@@ -26,7 +26,9 @@ class DailyControlSheet implements FromArray, WithTitle
                     'Dépense' => $item->has_depense ? 'Oui' : 'Non',
                     'Versement' => $item->has_versement ? 'Oui' : 'Non',
                     'Statut' => $item->is_compliant ? 'Conforme' : 'Anomalie',
-                    'Manquants' => implode(', ', $item->missing_operations ?? []),
+                    'Manquants' => collect($item->missing_operations ?? [])
+                        ->map(fn ($operation) => $operation === 'validation_caissier' ? 'validation caissier' : str_replace('_', ' ', $operation))
+                        ->implode(', '),
                 ];
             })
             ->values()

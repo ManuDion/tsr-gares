@@ -9,7 +9,7 @@ class RecettePolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->hasGlobalVisibility() || $user->canAccessGaresModule() || $user->canAccessCourrierModule();
+        return $user->hasGlobalVisibility() || $user->canAccessFinancialScope('gares') || $user->canAccessFinancialScope('courrier');
     }
 
     public function view(User $user, Recette $recette): bool
@@ -19,7 +19,8 @@ class RecettePolicy
 
     public function create(User $user): bool
     {
-        return $this->viewAny($user);
+        return $user->canAccessFinancialScope('gares') && $user->canActAsChefForScope('gares')
+            || $user->canAccessFinancialScope('courrier') && $user->canActAsChefForScope('courrier');
     }
 
     public function update(User $user, Recette $recette): bool

@@ -19,6 +19,8 @@
                 <div><dt>Ville</dt><dd>{{ $gare->city }}</dd></div>
                 <div><dt>Zone</dt><dd>{{ $gare->zone ?: '—' }}</dd></div>
                 <div><dt>Adresse</dt><dd>{{ $gare->address ?: '—' }}</dd></div>
+                <div><dt>Mode de versement</dt><dd>{{ ($gare->versement_mode ?? 'direct') === 'cashier' ? 'Confie au caissier' : 'Direct par la gare' }}</dd></div>
+                <div><dt>Type d'activite</dt><dd>{{ ($gare->activity_mode ?? 'mixed') === 'inter_only' ? 'Inter uniquement' : 'Inter et national' }}</dd></div>
                 <div><dt>Statut</dt><dd><span class="badge {{ $gare->is_active ? 'badge-success' : 'badge-danger' }}">{{ $gare->is_active ? 'Active' : 'Inactive' }}</span></dd></div>
             </dl>
         </div>

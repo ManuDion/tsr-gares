@@ -2,7 +2,7 @@
 
 @section('title', 'Recettes')
 @section('heading', ($module?->value ?? 'gares') === 'courrier' ? 'Recettes courrier' : 'Gestion des recettes')
-@section('subheading', ($module?->value ?? 'gares') === 'courrier' ? 'Recettes du service courrier par gare et par période' : (auth()->user()->canViewAllGares() ? 'Saisie, consultation, modification et export' : 'Recettes visibles et modifiables dans votre périmètre'))
+@section('subheading', ($module?->value ?? 'gares') === 'courrier' ? 'Recettes du service courrier par gare et par periode' : (auth()->user()->canViewAllGares() ? 'Saisie, consultation, modification et export' : 'Recettes visibles et modifiables dans votre perimetre'))
 
 @section('actions')
     @can('create', App\Models\Recette::class)
@@ -25,7 +25,7 @@
                     </select>
                 </div>
                 <div>
-                    <label>Date début</label>
+                    <label>Date debut</label>
                     <input type="date" name="start_date" value="{{ request('start_date') }}">
                 </div>
                 <div>
@@ -47,6 +47,8 @@
                     <th>Date</th>
                     <th>Gare</th>
                     <th><span class="th-stack">Montant<small>en FCFA</small></span></th>
+                    <th>Recette inter</th>
+                    <th>Recette nationale</th>
                     <th>Composition</th>
                     <th>Justificatif</th>
                     <th>Saisi par</th>
@@ -59,6 +61,8 @@
                         <td>{{ $recette->operation_date?->format('d/m/Y') }}</td>
                         <td>{{ $recette->gare->name }}</td>
                         <td class="amount-cell">{{ number_format($recette->amount, 0, ',', ' ') }}</td>
+                        <td class="amount-cell">{{ number_format(($recette->ticket_inter_amount + $recette->bagage_inter_amount), 0, ',', ' ') }}</td>
+                        <td class="amount-cell">{{ number_format(($recette->ticket_national_amount + $recette->bagage_national_amount), 0, ',', ' ') }}</td>
                         <td>
                             <div class="breakdown-summary">
                                 <span>TI : {{ number_format($recette->ticket_inter_amount, 0, ',', ' ') }}</span>
@@ -74,14 +78,14 @@
                                         <span class="icon">{!! app_icon('eye') !!}</span> Lire
                                     </a>
                                     <a class="btn btn-sm btn-outline" href="{{ route('justificatifs.download', $piece) }}">
-                                        <span class="icon">{!! app_icon('download') !!}</span> Télécharger
+                                        <span class="icon">{!! app_icon('download') !!}</span> Telecharger
                                     </a>
                                 </div>
                             @empty
-                                —
+                                -
                             @endforelse
                         </td>
-                        <td>{{ $recette->creator->name ?? '—' }}</td>
+                        <td>{{ $recette->creator->name ?? '-' }}</td>
                         <td class="actions-cell">
                             @can('update', $recette)
                                 <a class="btn btn-sm btn-outline" href="{{ route('recettes.edit', $recette) }}">
@@ -89,12 +93,12 @@
                                     <span class="sr-only">Modifier</span>
                                 </a>
                             @else
-                                <span class="text-muted">Verrouillée</span>
+                                <span class="text-muted">Verrouillee</span>
                             @endcan
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="7">Aucune recette trouvée.</td></tr>
+                    <tr><td colspan="9">Aucune recette trouvee.</td></tr>
                 @endforelse
             </tbody>
         </table>
@@ -102,3 +106,4 @@
 
     {{ $recettes->links('partials.pagination') }}
 @endsection
+

@@ -5,6 +5,7 @@ use App\Http\Controllers\AdministrativeDocumentController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\PasswordPersonalizationController;
 use App\Http\Controllers\ConversationController;
+use App\Http\Controllers\CashierReceiptController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DepenseController;
 use App\Http\Controllers\ExportController;
@@ -54,6 +55,9 @@ Route::middleware('auth')->group(function () {
         Route::delete('/verifications/purge-period', [VerificationController::class, 'purgePeriod'])->name('verifications.purge-period');
         Route::post('/verifications/{verification}/confirm', [VerificationController::class, 'confirm'])->name('verifications.confirm');
         Route::post('/verifications/{verification}/enable-adjustments', [VerificationController::class, 'enableAdjustments'])->name('verifications.enable-adjustments');
+
+        Route::get('/receptions-caissier', [CashierReceiptController::class, 'index'])->name('cashier-receipts.index');
+        Route::post('/receptions-caissier', [CashierReceiptController::class, 'store'])->name('cashier-receipts.store');
 
         Route::get('/chat', [ConversationController::class, 'index'])->name('chat.index');
         Route::get('/chat/create', [ConversationController::class, 'create'])->name('chat.create');

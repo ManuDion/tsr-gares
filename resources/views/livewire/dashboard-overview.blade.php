@@ -197,6 +197,14 @@
                                 <tr><td>Tickets national</td><td>{{ number_format($metrics['recette_breakdown_totals']->ticket_national_total ?? 0, 0, ',', ' ') }}</td></tr>
                                 <tr><td>Bagages inter</td><td>{{ number_format($metrics['recette_breakdown_totals']->bagage_inter_total ?? 0, 0, ',', ' ') }}</td></tr>
                                 <tr><td>Bagages national</td><td>{{ number_format($metrics['recette_breakdown_totals']->bagage_national_total ?? 0, 0, ',', ' ') }}</td></tr>
+                                <tr>
+                                    <td><strong>Recette inter</strong></td>
+                                    <td><strong>{{ number_format(($metrics['recette_breakdown_totals']->ticket_inter_total ?? 0) + ($metrics['recette_breakdown_totals']->bagage_inter_total ?? 0), 0, ',', ' ') }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Recette nationale</strong></td>
+                                    <td><strong>{{ number_format(($metrics['recette_breakdown_totals']->ticket_national_total ?? 0) + ($metrics['recette_breakdown_totals']->bagage_national_total ?? 0), 0, ',', ' ') }}</strong></td>
+                                </tr>
                                 <tr><td><strong>Total recettes</strong></td><td><strong>{{ number_format($metrics['recette_breakdown_totals']->total_amount ?? 0, 0, ',', ' ') }}</strong></td></tr>
                             @endif
                         </tbody>
@@ -292,7 +300,7 @@
                     @forelse($metrics['missing_yesterday'] as $control)
                         <article class="notification-item">
                             <strong>{{ $control->gare?->name }}</strong>
-                            <p>Operations manquantes : {{ collect($control->missing_operations ?? [])->map(fn($item) => str_replace('_', ' ', $item))->implode(', ') }}</p>
+                            <p>Operations manquantes : {{ collect($control->missing_operations ?? [])->map(fn($item) => $item === 'validation_caissier' ? 'validation caissier' : str_replace('_', ' ', $item))->implode(', ') }}</p>
                             <small>{{ $control->concerned_date?->format('d/m/Y') }}</small>
                         </article>
                     @empty

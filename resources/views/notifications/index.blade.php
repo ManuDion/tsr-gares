@@ -16,6 +16,7 @@
             'recette' => 'Recette',
             'depense' => 'Dépense',
             'versement_bancaire' => 'Versement bancaire',
+            'validation_caissier' => 'Validation caissier',
         ];
     @endphp
 

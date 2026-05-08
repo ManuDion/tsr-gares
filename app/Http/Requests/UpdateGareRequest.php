@@ -20,7 +20,19 @@ class UpdateGareRequest extends FormRequest
             'city' => ['required', 'string', 'max:120'],
             'zone' => ['nullable', 'string', 'max:120'],
             'address' => ['nullable', 'string', 'max:255'],
+            'versement_mode' => ['required', 'in:direct,cashier'],
+            'cashier_user_id' => ['nullable', 'integer', 'exists:users,id'],
+            'activity_mode' => ['required', 'in:mixed,inter_only'],
             'is_active' => ['nullable', 'boolean'],
         ];
+    }
+
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator) {
+            if ($this->input('versement_mode') === 'cashier' && ! $this->filled('cashier_user_id')) {
+                $validator->errors()->add('cashier_user_id', 'Veuillez selectionner un caissier responsable pour cette gare.');
+            }
+        });
     }
 }

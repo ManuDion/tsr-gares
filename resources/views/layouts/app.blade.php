@@ -19,6 +19,9 @@
         $user = auth()->user();
         $currentModule = ModuleContext::fromRequest(request(), $user);
         $accessibleModules = collect($user->accessibleModules());
+        $financialBadges = collect([ServiceModule::Gares, ServiceModule::Courrier])
+            ->filter(fn (ServiceModule $module) => $user && $user->canAccessModule($module))
+            ->values();
         $notificationCount = $user
             ? \App\Models\NotificationHistory::query()
                 ->where('user_id', $user->id)
@@ -100,6 +103,12 @@
                             <span class="icon">{!! app_icon('checklist') !!}</span><span>Vérification</span>
                         </a>
                     @endif
+
+                    @if($currentModule->supportsFinancialFlows() && $user->canActAsCashierForScope($currentModule->financialScope()))
+                        <a href="{{ route('cashier-receipts.index', ['module' => $currentModule->value]) }}" class="{{ request()->routeIs('cashier-receipts.*') ? 'active' : '' }}">
+                            <span class="icon">{!! app_icon('wallet') !!}</span><span>Réceptions caissier</span>
+                        </a>
+                    @endif
                 @endif
 
                 @if($currentModule === ServiceModule::Documents && $user->canAccessAdministrativeDocumentsModule())
@@ -149,10 +158,17 @@
                 <div class="user-card">
                     <strong>{{ $user->name }}</strong>
                     <small>{{ $user->roleLabel() }} · {{ $user->moduleLabel() }}</small>
+                    @if($financialBadges->isNotEmpty())
+                        <div class="module-switcher" style="margin-top:.45rem;">
+                            @foreach($financialBadges as $badge)
+                                <span class="module-chip {{ $currentModule === $badge ? 'active' : '' }}">{{ $badge->shortLabel() }}</span>
+                            @endforeach
+                        </div>
+                    @endif
                     @if($user->isChefDeGare() || $user->isAgentCourrierGare())
                         <span class="user-chip">{{ $user->primaryGare?->name }}</span>
                     @elseif($user->isCaissierGare() || $user->isCaissierCourrier())
-                        <span class="user-chip">{{ $user->gares()->count() }} gare(s) affectée(s)</span>
+                        <span class="user-chip">{{ $user->gares()->where('gares.is_virtual', false)->count() }} gare(s) affectée(s)</span>
                     @elseif($user->isControleur())
                         <span class="user-chip">Conformité documentaire</span>
                     @elseif($user->isPersonnelTsr())

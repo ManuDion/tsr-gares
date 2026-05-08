@@ -7,6 +7,7 @@ use App\Enums\UserRole;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -58,9 +59,14 @@ class User extends Authenticatable
         return $this->belongsToMany(Gare::class)->withTimestamps();
     }
 
-    public function notificationHistories()
+    public function notificationHistories(): HasMany
     {
         return $this->hasMany(NotificationHistory::class);
+    }
+
+    public function serviceModules(): HasMany
+    {
+        return $this->hasMany(UserServiceModule::class);
     }
 
     public function hasGlobalVisibility(): bool
@@ -93,7 +99,16 @@ class User extends Authenticatable
             return ServiceModule::Gares;
         }
 
-        return $this->assignedModule() ?? ServiceModule::Gares;
+        if ($this->assignedModule()) {
+            return $this->assignedModule();
+        }
+
+        $memberships = $this->moduleMemberships();
+        if ($memberships !== []) {
+            return ServiceModule::from($memberships[0]);
+        }
+
+        return ServiceModule::Gares;
     }
 
     public function canAccessModule(ServiceModule $module): bool
@@ -103,9 +118,9 @@ class User extends Authenticatable
         }
 
         return match ($module) {
-            ServiceModule::Gares => $this->canAccessGaresModule(),
+            ServiceModule::Gares => $this->canAccessGaresModule() || $this->canAccessFinancialScope('gares'),
             ServiceModule::Documents => $this->canAccessAdministrativeDocumentsModule(),
-            ServiceModule::Courrier => $this->canAccessCourrierModule(),
+            ServiceModule::Courrier => $this->canAccessCourrierModule() || $this->canAccessFinancialScope('courrier'),
             ServiceModule::Rh => $this->canAccessRhModule(),
         };
     }
@@ -221,11 +236,12 @@ class User extends Authenticatable
     {
         $scope = $scope ?: $this->defaultModule()->financialScope();
 
-        return match ($scope) {
-            'gares' => $this->isChefDeGare() || $this->isCaissierGare(),
-            'courrier' => $this->isAgentCourrierGare() || $this->isCaissierCourrier(),
-            default => false,
-        };
+        return $this->canAccessFinancialScope($scope)
+            && match ($scope) {
+                'gares' => $this->canActAsChefForScope('gares') || $this->canActAsCashierForScope('gares'),
+                'courrier' => $this->canActAsChefForScope('courrier') || $this->canActAsCashierForScope('courrier'),
+                default => false,
+            };
     }
 
     public function canSuperviseFinancialScope(?string $scope = null): bool
@@ -236,7 +252,7 @@ class User extends Authenticatable
             return true;
         }
 
-        return $this->isVerificateur() && $this->assignedModule()?->financialScope() === $scope;
+        return $this->isVerificateur() && $this->canAccessFinancialScope($scope);
     }
 
     public function accessibleGareIds(?string $scope = null): array
@@ -247,31 +263,17 @@ class User extends Authenticatable
             return Gare::query()->pluck('id')->all();
         }
 
-        if ($this->isVerificateur()) {
-            return $this->gares()->pluck('gares.id')->all();
+        $ids = [];
+
+        if ($this->isVerificateur() && $this->canAccessFinancialScope($scope)) {
+            $ids = $this->gares()->pluck('gares.id')->all();
+        } elseif ($this->canActAsChefForScope($scope)) {
+            $ids = array_values(array_filter([$this->gare_id]));
+        } elseif ($this->canActAsCashierForScope($scope)) {
+            $ids = $this->gares()->pluck('gares.id')->all();
         }
 
-        if ($scope === 'gares') {
-            if ($this->isChefDeGare()) {
-                return array_values(array_filter([$this->gare_id]));
-            }
-
-            if ($this->isCaissierGare()) {
-                return $this->gares()->pluck('gares.id')->all();
-            }
-        }
-
-        if ($scope === 'courrier') {
-            if ($this->isAgentCourrierGare()) {
-                return array_values(array_filter([$this->gare_id]));
-            }
-
-            if ($this->isCaissierCourrier()) {
-                return $this->gares()->pluck('gares.id')->all();
-            }
-        }
-
-        return [];
+        return array_values(array_unique(array_merge($ids, $this->virtualGareIdsForScope($scope))));
     }
 
     public function hasAccessToGare(int $gareId, ?string $scope = null): bool
@@ -285,11 +287,72 @@ class User extends Authenticatable
 
     public function roleLabel(): string
     {
-        return $this->role?->label() ?? '—';
+        return $this->role?->label() ?? '-';
     }
 
     public function moduleLabel(): string
     {
         return $this->assignedModule()?->shortLabel() ?? 'Universel';
+    }
+
+    public function canAccessFinancialScope(?string $scope = null): bool
+    {
+        $scope = $scope ?: $this->defaultModule()->financialScope();
+        if (! in_array($scope, ['gares', 'courrier'], true)) {
+            return false;
+        }
+
+        $module = $scope === 'courrier' ? ServiceModule::Courrier : ServiceModule::Gares;
+
+        if ($this->assignedModule() === $module) {
+            return true;
+        }
+
+        return in_array($module->value, $this->moduleMemberships(), true);
+    }
+
+    public function moduleMemberships(): array
+    {
+        if (! $this->exists) {
+            return [];
+        }
+
+        return $this->relationLoaded('serviceModules')
+            ? $this->serviceModules->pluck('module')->filter()->unique()->values()->all()
+            : $this->serviceModules()->pluck('module')->filter()->unique()->values()->all();
+    }
+
+    public function canActAsChefForScope(string $scope): bool
+    {
+        return match ($scope) {
+            'gares' => $this->isChefDeGare() || ($this->isAgentCourrierGare() && $this->canAccessFinancialScope('gares')),
+            'courrier' => $this->isAgentCourrierGare() || ($this->isChefDeGare() && $this->canAccessFinancialScope('courrier')),
+            default => false,
+        };
+    }
+
+    public function canActAsCashierForScope(string $scope): bool
+    {
+        return match ($scope) {
+            'gares' => $this->isCaissierGare() || ($this->isCaissierCourrier() && $this->canAccessFinancialScope('gares')),
+            'courrier' => $this->isCaissierCourrier() || ($this->isCaissierGare() && $this->canAccessFinancialScope('courrier')),
+            default => false,
+        };
+    }
+
+    public function virtualGareIdsForScope(?string $scope = null): array
+    {
+        $scope = $scope ?: $this->defaultModule()->financialScope();
+
+        if (! $scope || ! $this->exists) {
+            return [];
+        }
+
+        return Gare::query()
+            ->where('is_virtual', true)
+            ->where('virtual_owner_user_id', $this->id)
+            ->where('virtual_scope', $scope)
+            ->pluck('id')
+            ->all();
     }
 }

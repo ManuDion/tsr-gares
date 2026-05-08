@@ -19,6 +19,7 @@ class VersementBancaire extends Model
         'operation_date',
         'receipt_date',
         'amount',
+        'account_type',
         'reference',
         'bank_name',
         'description',
@@ -35,6 +36,7 @@ class VersementBancaire extends Model
             'operation_date' => 'date',
             'receipt_date' => 'date',
             'amount' => 'decimal:2',
+            'account_type' => 'string',
             'force_unlocked_until' => 'datetime',
         ];
     }
@@ -85,5 +87,15 @@ class VersementBancaire extends Model
 
         return $this->created_at?->greaterThanOrEqualTo(now()->subHours(48))
             || ($this->force_unlocked_until instanceof CarbonInterface && $this->force_unlocked_until->isFuture());
+    }
+
+    public function isInterAccount(): bool
+    {
+        return ($this->account_type ?? 'national') === 'inter';
+    }
+
+    public function isNationalAccount(): bool
+    {
+        return ($this->account_type ?? 'national') === 'national';
     }
 }

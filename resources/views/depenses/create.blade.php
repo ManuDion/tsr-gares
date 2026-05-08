@@ -12,7 +12,7 @@
 
             <div id="depense-entries" class="stack-md">
                 @foreach($initialEntries as $index => $entry)
-                    @include('depenses.partials.entry', ['index' => $index, 'entry' => $entry, 'gares' => $gares, 'maxSizeKb' => $maxSizeKb])
+                    @include('depenses.partials.entry', ['index' => $index, 'entry' => $entry, 'gares' => $gares, 'maxSizeKb' => $maxSizeKb, 'module' => $module, 'virtualGare' => $virtualGare ?? null])
                 @endforeach
             </div>
 
@@ -24,7 +24,7 @@
             </div>
 
             <template id="depense-entry-template">
-                @include('depenses.partials.entry', ['index' => '__INDEX__', 'entry' => null, 'gares' => $gares, 'maxSizeKb' => $maxSizeKb])
+                @include('depenses.partials.entry', ['index' => '__INDEX__', 'entry' => null, 'gares' => $gares, 'maxSizeKb' => $maxSizeKb, 'module' => $module, 'virtualGare' => $virtualGare ?? null])
             </template>
 
             <div class="form-actions">

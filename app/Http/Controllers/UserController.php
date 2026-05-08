@@ -11,6 +11,7 @@ use App\Models\Employee;
 use App\Models\Gare;
 use App\Models\User;
 use App\Services\ActivityLogService;
+use App\Services\CashierVirtualGareService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -18,7 +19,10 @@ use Illuminate\View\View;
 
 class UserController extends Controller
 {
-    public function __construct(protected ActivityLogService $activity) {}
+    public function __construct(
+        protected ActivityLogService $activity,
+        protected CashierVirtualGareService $virtualGares
+    ) {}
 
     public function index(Request $request): View
     {
@@ -26,6 +30,7 @@ class UserController extends Controller
 
         $users = User::query()
             ->with(['primaryGare', 'gares', 'department'])
+            ->with('serviceModules')
             ->when($request->filled('search'), function ($query) use ($request) {
                 $search = $request->string('search')->toString();
 
@@ -51,7 +56,7 @@ class UserController extends Controller
         return view('users.create', [
             'moduleOptions' => ServiceModule::options(),
             'roleOptionsByModule' => $this->roleOptionsByModule(),
-            'gares' => Gare::query()->where('is_active', true)->orderBy('name')->get(),
+            'gares' => Gare::query()->where('is_active', true)->where('is_virtual', false)->orderBy('name')->get(),
         ]);
     }
 
@@ -64,9 +69,12 @@ class UserController extends Controller
         $role = UserRole::fromLegacyAware($data['role']);
         $zoneGares = $this->resolveZoneGares($request, $role);
         $payload = $this->normalizePayload($request, $data, $module, $role);
+        $modules = $this->resolveModules($request, $module);
 
         $user = User::create($payload);
         $user->gares()->sync($zoneGares);
+        $this->syncUserModules($user, $modules);
+        $this->ensureVirtualGaresForUser($user, $modules);
 
         if ($module === ServiceModule::Rh && in_array($role, [UserRole::ResponsableRh, UserRole::PersonnelTsr], true)) {
             Employee::query()->firstOrCreate(
@@ -93,6 +101,7 @@ class UserController extends Controller
                 'email' => $user->email,
                 'role' => $user->role?->value,
                 'module' => $module?->value,
+                'modules' => $modules,
                 'gare_id' => $user->gare_id,
                 'gares' => $zoneGares,
                 'is_active' => $user->is_active,
@@ -108,10 +117,10 @@ class UserController extends Controller
         $this->authorize('update', $user);
 
         return view('users.edit', [
-            'user' => $user->load(['gares', 'department']),
+            'user' => $user->load(['gares', 'department', 'serviceModules']),
             'moduleOptions' => ServiceModule::options(),
             'roleOptionsByModule' => $this->roleOptionsByModule(),
-            'gares' => Gare::query()->where('is_active', true)->orderBy('name')->get(),
+            'gares' => Gare::query()->where('is_active', true)->where('is_virtual', false)->orderBy('name')->get(),
         ]);
     }
 
@@ -125,6 +134,7 @@ class UserController extends Controller
             'email' => $user->email,
             'role' => $user->role?->value,
             'module' => $user->assignedModule()?->value,
+            'modules' => $user->moduleMemberships(),
             'gare_id' => $user->gare_id,
             'gares' => $user->gares()->pluck('gares.id')->all(),
             'is_active' => $user->is_active,
@@ -136,6 +146,7 @@ class UserController extends Controller
         $role = UserRole::fromLegacyAware($data['role']);
         $zoneGares = $this->resolveZoneGares($request, $role);
         $payload = $this->normalizePayload($request, $data, $module, $role, $user);
+        $modules = $this->resolveModules($request, $module);
 
         if (blank($payload['password'] ?? null)) {
             unset($payload['password']);
@@ -143,6 +154,8 @@ class UserController extends Controller
 
         $user->update($payload);
         $user->gares()->sync($zoneGares);
+        $this->syncUserModules($user, $modules);
+        $this->ensureVirtualGaresForUser($user, $modules);
 
         $this->activity->log($request->user(), 'user_updated', $user, 'Mise à jour d\'un utilisateur.', [
             'before' => $before,
@@ -152,6 +165,7 @@ class UserController extends Controller
                 'email' => $user->email,
                 'role' => $user->role?->value,
                 'module' => $module?->value,
+                'modules' => $modules,
                 'gare_id' => $user->gare_id,
                 'gares' => $zoneGares,
                 'is_active' => $user->is_active,
@@ -177,6 +191,7 @@ class UserController extends Controller
             'email' => $user->email,
             'role' => $user->role?->value,
             'module' => $user->assignedModule()?->value,
+            'modules' => $user->moduleMemberships(),
             'gare_id' => $user->gare_id,
             'department_id' => $user->department_id,
             'gares' => $user->gares()->pluck('gares.id')->all(),
@@ -257,7 +272,7 @@ class UserController extends Controller
         $data['department_id'] = $role->isUniversalSupervisor()
             ? null
             : ($module ? (Department::forModule($module)?->id ?? $user?->department_id) : $user?->department_id);
-        unset($data['module'], $data['zone_gares'], $data['all_gares']);
+        unset($data['module'], $data['modules'], $data['zone_gares'], $data['all_gares']);
 
         if (! $role->requiresPrimaryGare()) {
             $data['gare_id'] = null;
@@ -273,7 +288,7 @@ class UserController extends Controller
         }
 
         if ($request->boolean('all_gares')) {
-            return Gare::query()->where('is_active', true)->pluck('id')->all();
+            return Gare::query()->where('is_active', true)->where('is_virtual', false)->pluck('id')->all();
         }
 
         return array_map('intval', $request->input('zone_gares', []));
@@ -303,5 +318,43 @@ class UserController extends Controller
             ['value' => UserRole::Admin->value, 'label' => UserRole::Admin->label()],
             ['value' => UserRole::Responsable->value, 'label' => UserRole::Responsable->label()],
         ]] + UserRole::options();
+    }
+
+    protected function resolveModules(Request $request, ?ServiceModule $module): array
+    {
+        $modules = collect($request->input('modules', []))
+            ->filter()
+            ->map(fn ($value) => (string) $value)
+            ->values();
+
+        if ($module && ! $modules->contains($module->value)) {
+            $modules->prepend($module->value);
+        }
+
+        return $modules->unique()->take(2)->values()->all();
+    }
+
+    protected function syncUserModules(User $user, array $modules): void
+    {
+        $user->serviceModules()->delete();
+
+        foreach ($modules as $module) {
+            $user->serviceModules()->create(['module' => $module]);
+        }
+    }
+
+    protected function ensureVirtualGaresForUser(User $user, array $modules): void
+    {
+        if (! $user->canActAsCashierForScope('gares') && ! $user->canActAsCashierForScope('courrier')) {
+            return;
+        }
+
+        if (in_array(ServiceModule::Gares->value, $modules, true) && $user->canActAsCashierForScope('gares')) {
+            $this->virtualGares->ensureForScope($user, 'gares');
+        }
+
+        if (in_array(ServiceModule::Courrier->value, $modules, true) && $user->canActAsCashierForScope('courrier')) {
+            $this->virtualGares->ensureForScope($user, 'courrier');
+        }
     }
 }

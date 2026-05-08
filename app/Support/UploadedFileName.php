@@ -51,7 +51,7 @@ class UploadedFileName
         }
 
         $value = pathinfo($value, PATHINFO_FILENAME);
-        $value = preg_replace('/[\\\/\:\*\?\"\<\>\|]+/u', ' ', $value) ?? '';
+        $value = preg_replace('~[\\\\/:*?"<>|]+~u', ' ', $value) ?? '';
         $value = preg_replace('/\s+/u', ' ', $value) ?? '';
         $value = trim($value, " .\t\n\r\0\x0B");
 

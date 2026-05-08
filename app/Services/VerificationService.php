@@ -15,8 +15,11 @@ use Illuminate\Support\Collection;
 
 class VerificationService
 {
-    public function __construct(protected ActivityLogService $activity)
-    {
+    public function __construct(
+        protected ActivityLogService $activity,
+        protected CashierFlowService $cashierFlow,
+        protected CashierVirtualGareService $virtualGares
+    ) {
     }
 
     public function runForDate(string $operationDate, ?string $serviceScope = null): Collection
@@ -27,30 +30,49 @@ class VerificationService
         foreach ($scopes as $scope) {
             $module = $scope === 'courrier' ? ServiceModule::Courrier : ServiceModule::Gares;
 
-            $scopeChecks = Gare::query()
+            $physicalChecks = Gare::query()
                 ->where('is_active', true)
+                ->where('is_virtual', false)
                 ->get()
                 ->map(function (Gare $gare) use ($operationDate, $scope) {
-                    $recettes = (float) Recette::query()
-                        ->where('service_scope', $scope)
-                        ->where('gare_id', $gare->id)
-                        ->whereDate('operation_date', $operationDate)
-                        ->sum('amount');
+                    $metrics = $this->cashierFlow->expectedForGareDate($gare, $scope, $operationDate);
+                    $controlMode = $gare->versement_mode === 'cashier' ? 'cashier_transfer' : 'direct';
 
-                    $depenses = (float) Depense::query()
-                        ->where('service_scope', $scope)
-                        ->where('gare_id', $gare->id)
-                        ->whereDate('operation_date', $operationDate)
-                        ->sum('amount');
+                    if ($controlMode === 'cashier_transfer') {
+                        $confirmation = $gare->cashierConfirmations()
+                            ->where('service_scope', $scope)
+                            ->whereDate('operation_date', $operationDate)
+                            ->latest('id')
+                            ->first();
 
-                    $versements = (float) VersementBancaire::query()
-                        ->where('service_scope', $scope)
-                        ->where('gare_id', $gare->id)
-                        ->whereDate('operation_date', $operationDate)
-                        ->sum('amount');
+                        $versementsInter = (float) ($confirmation?->received_inter_total ?? 0);
+                        $versementsNational = (float) ($confirmation?->received_national_total ?? 0);
+                        $versementsTotal = round($versementsInter + $versementsNational, 2);
+                    } else {
+                        $versementsInter = (float) VersementBancaire::query()
+                            ->where('service_scope', $scope)
+                            ->where('gare_id', $gare->id)
+                            ->whereDate('operation_date', $operationDate)
+                            ->where('account_type', 'inter')
+                            ->sum('amount');
 
-                    $expected = round($recettes - $depenses, 2);
-                    $difference = round($versements - $expected, 2);
+                        $versementsNational = (float) VersementBancaire::query()
+                            ->where('service_scope', $scope)
+                            ->where('gare_id', $gare->id)
+                            ->whereDate('operation_date', $operationDate)
+                            ->where(function ($query) {
+                                $query->where('account_type', 'national')
+                                    ->orWhereNull('account_type');
+                            })
+                            ->sum('amount');
+
+                        $versementsTotal = round($versementsInter + $versementsNational, 2);
+                    }
+
+                    $expectedTotal = (float) $metrics['expected_total'];
+                    $difference = round($versementsTotal - $expectedTotal, 2);
+                    $differenceInter = round($versementsInter - (float) $metrics['expected_inter'], 2);
+                    $differenceNational = round($versementsNational - (float) $metrics['expected_national'], 2);
 
                     $existing = VerificationCheck::query()
                         ->where('service_scope', $scope)
@@ -58,8 +80,10 @@ class VerificationService
                         ->whereDate('operation_date', $operationDate)
                         ->first();
 
-                    $status = abs($difference) < 0.01 ? 'conforme' : ($existing?->status ?: 'ecart_detecte');
-                    if ($status === 'conforme' && abs($difference) >= 0.01) {
+                    $status = (abs($difference) < 0.01 && abs($differenceInter) < 0.01 && abs($differenceNational) < 0.01)
+                        ? 'conforme'
+                        : ($existing?->status ?: 'ecart_detecte');
+                    if ($status === 'conforme' && (abs($difference) >= 0.01 || abs($differenceInter) >= 0.01 || abs($differenceNational) >= 0.01)) {
                         $status = 'ecart_detecte';
                     }
 
@@ -70,16 +94,30 @@ class VerificationService
                             'operation_date' => $operationDate,
                         ],
                         [
-                            'recettes_total' => $recettes,
-                            'depenses_total' => $depenses,
-                            'versements_total' => $versements,
-                            'expected_versement' => $expected,
+                            'recettes_total' => $metrics['recette_total'],
+                            'recettes_inter_total' => $metrics['recette_inter'],
+                            'recettes_national_total' => $metrics['recette_national'],
+                            'depenses_total' => $metrics['depense_total'],
+                            'depenses_inter_total' => $metrics['depense_inter'],
+                            'depenses_national_total' => $metrics['depense_national'],
+                            'versements_total' => $versementsTotal,
+                            'versements_inter_total' => $versementsInter,
+                            'versements_national_total' => $versementsNational,
+                            'expected_versement' => $metrics['expected_total'],
+                            'expected_inter_versement' => $metrics['expected_inter'],
+                            'expected_national_versement' => $metrics['expected_national'],
                             'difference' => $difference,
+                            'difference_inter' => $differenceInter,
+                            'difference_national' => $differenceNational,
                             'status' => $status,
+                            'control_mode' => $controlMode,
                         ]
                     )->load('gare', 'reviewer');
                 });
 
+            $virtualCashierChecks = $this->buildVirtualCashierChecksForDate($scope, $operationDate);
+
+            $scopeChecks = $physicalChecks->merge($virtualCashierChecks);
             $this->notifySupervisors($scopeChecks, $module);
             $checks = $checks->merge($scopeChecks);
         }
@@ -105,7 +143,7 @@ class VerificationService
             'reviewed_at' => now(),
         ]);
 
-        $this->activity->log($user, 'verification_confirmed', $check, 'Différence de vérification confirmée.', [
+        $this->activity->log($user, 'verification_confirmed', $check, 'Difference de verification confirmee.', [
             'before' => $before,
             'after' => $check->fresh()->only(['status', 'review_note', 'reviewed_by', 'reviewed_at']),
             'gare_id' => $check->gare_id,
@@ -134,14 +172,14 @@ class VerificationService
                 ->whereDate('operation_date', $check->operation_date)
                 ->update([
                     'force_unlocked_until' => $until,
-                    'unlock_reason' => $note ?: 'Ajustement autorisé depuis le module Vérification',
+                    'unlock_reason' => $note ?: 'Ajustement autorise depuis le module Verification',
                     'unlocked_by' => $user->id,
                 ]);
         }
 
         $this->notifyOperatorsForAdjustment($check, $until, $note);
 
-        $this->activity->log($user, 'verification_adjustment_opened', $check, 'Ouverture d’un ajustement depuis le module Vérification.', [
+        $this->activity->log($user, 'verification_adjustment_opened', $check, 'Ouverture d un ajustement depuis le module Verification.', [
             'before' => $before,
             'after' => $check->fresh()->only(['status', 'review_note', 'reviewed_by', 'reviewed_at', 'modifications_enabled_until']),
             'gare_id' => $check->gare_id,
@@ -150,9 +188,79 @@ class VerificationService
         return $check->refresh();
     }
 
+    protected function buildVirtualCashierChecksForDate(string $scope, string $operationDate): Collection
+    {
+        $cashierIds = Gare::query()
+            ->where('is_active', true)
+            ->where('is_virtual', false)
+            ->where('versement_mode', 'cashier')
+            ->whereNotNull('cashier_user_id')
+            ->pluck('cashier_user_id')
+            ->unique()
+            ->values();
+
+        return $cashierIds->map(function (int $cashierId) use ($scope, $operationDate) {
+            $cashier = User::query()->find($cashierId);
+            if (! $cashier || ! $cashier->canActAsCashierForScope($scope)) {
+                return null;
+            }
+
+            $virtualGare = $this->virtualGares->ensureForScope($cashier, $scope);
+            $metrics = $this->cashierFlow->cashierExpectedForVirtualGare($cashier, $virtualGare, $scope, $operationDate);
+
+            $difference = round($metrics['versement_total'] - $metrics['expected_total'], 2);
+            $differenceInter = round($metrics['versement_inter'] - $metrics['expected_inter'], 2);
+            $differenceNational = round($metrics['versement_national'] - $metrics['expected_national'], 2);
+
+            $existing = VerificationCheck::query()
+                ->where('service_scope', $scope)
+                ->where('gare_id', $virtualGare->id)
+                ->whereDate('operation_date', $operationDate)
+                ->first();
+
+            $status = (abs($difference) < 0.01 && abs($differenceInter) < 0.01 && abs($differenceNational) < 0.01)
+                ? 'conforme'
+                : ($existing?->status ?: 'ecart_detecte');
+            if ($status === 'conforme' && (abs($difference) >= 0.01 || abs($differenceInter) >= 0.01 || abs($differenceNational) >= 0.01)) {
+                $status = 'ecart_detecte';
+            }
+
+            return VerificationCheck::updateOrCreate(
+                [
+                    'service_scope' => $scope,
+                    'gare_id' => $virtualGare->id,
+                    'operation_date' => $operationDate,
+                ],
+                [
+                    'recettes_total' => $metrics['recette_total'],
+                    'recettes_inter_total' => $metrics['recette_inter'],
+                    'recettes_national_total' => $metrics['recette_national'],
+                    'depenses_total' => $metrics['depense_total'],
+                    'depenses_inter_total' => $metrics['depense_inter'],
+                    'depenses_national_total' => $metrics['depense_national'],
+                    'versements_total' => $metrics['versement_total'],
+                    'versements_inter_total' => $metrics['versement_inter'],
+                    'versements_national_total' => $metrics['versement_national'],
+                    'expected_versement' => $metrics['expected_total'],
+                    'expected_inter_versement' => $metrics['expected_inter'],
+                    'expected_national_versement' => $metrics['expected_national'],
+                    'difference' => $difference,
+                    'difference_inter' => $differenceInter,
+                    'difference_national' => $differenceNational,
+                    'status' => $status,
+                    'control_mode' => 'cashier_virtual',
+                ]
+            )->load('gare', 'reviewer');
+        })->filter()->values();
+    }
+
     protected function notifySupervisors(Collection $checks, ServiceModule $module): void
     {
-        $anomalies = $checks->filter(fn (VerificationCheck $check) => abs((float) $check->difference) >= 0.01);
+        $anomalies = $checks->filter(function (VerificationCheck $check) {
+            return abs((float) $check->difference) >= 0.01
+                || abs((float) $check->difference_inter) >= 0.01
+                || abs((float) $check->difference_national) >= 0.01;
+        });
 
         if ($anomalies->isEmpty()) {
             return;
@@ -172,15 +280,15 @@ class VerificationService
                         'source_key' => 'verification-check:'.$check->id.':'.$user->id,
                     ],
                     [
-                        'subject' => 'Écart détecté sur la vérification',
+                        'subject' => 'Ecart detecte sur la verification',
                         'content' => sprintf(
-                            '[%s] %s présente un écart de %s FCFA pour le %s. Versements : %s FCFA | Recettes - Dépenses : %s FCFA.',
+                            '[%s] %s presente un ecart total de %s FCFA pour le %s (Inter: %s, National: %s).',
                             $module->shortLabel(),
                             $check->gare?->name ?? 'Gare',
                             number_format(abs((float) $check->difference), 0, ',', ' '),
                             $check->operation_date?->format('d/m/Y'),
-                            number_format((float) $check->versements_total, 0, ',', ' '),
-                            number_format((float) $check->expected_versement, 0, ',', ' ')
+                            number_format(abs((float) $check->difference_inter), 0, ',', ' '),
+                            number_format(abs((float) $check->difference_national), 0, ',', ' ')
                         ),
                         'status' => 'generated',
                         'control_date' => now('Africa/Abidjan')->toDateString(),
@@ -190,8 +298,8 @@ class VerificationService
                         'payload' => [
                             'verification_check_id' => $check->id,
                             'difference' => (float) $check->difference,
-                            'expected_versement' => (float) $check->expected_versement,
-                            'versements_total' => (float) $check->versements_total,
+                            'difference_inter' => (float) $check->difference_inter,
+                            'difference_national' => (float) $check->difference_national,
                             'module' => $module->value,
                         ],
                     ]
@@ -234,9 +342,9 @@ class VerificationService
                     'source_key' => 'verification-adjustment:'.$check->id.':'.$user->id,
                 ],
                 [
-                    'subject' => 'Ajustement autorisé suite à une vérification',
+                    'subject' => 'Ajustement autorise suite a une verification',
                     'content' => sprintf(
-                        'Un ajustement est autorisé pour %s (%s) jusqu’au %s afin de corriger un écart de %s FCFA.%s',
+                        'Un ajustement est autorise pour %s (%s) jusqu au %s afin de corriger un ecart total de %s FCFA.%s',
                         $gare->name,
                         $scope === 'courrier' ? 'Service courrier' : 'Gestion des gares',
                         $until->format('d/m/Y H:i'),
@@ -251,6 +359,8 @@ class VerificationService
                     'payload' => [
                         'verification_check_id' => $check->id,
                         'difference' => (float) $check->difference,
+                        'difference_inter' => (float) $check->difference_inter,
+                        'difference_national' => (float) $check->difference_national,
                         'enabled_until' => $until->format(DATE_ATOM),
                     ],
                 ]

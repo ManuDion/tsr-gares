@@ -2,7 +2,7 @@
 
 @section('title', 'Versements bancaires')
 @section('heading', ($module?->value ?? 'gares') === 'courrier' ? 'Versements courrier' : 'Gestion des versements bancaires')
-@section('subheading', auth()->user()->canViewAllGares() ? 'Suivi des dépôts bancaires et des bordereaux justificatifs' : 'Liste des versements de votre périmètre')
+@section('subheading', auth()->user()->canViewAllGares() ? 'Suivi des depots bancaires et des bordereaux justificatifs' : 'Liste des versements de votre perimetre')
 
 @section('actions')
     @can('create', App\Models\VersementBancaire::class)
@@ -25,7 +25,7 @@
                     </select>
                 </div>
                 <div>
-                    <label>Date début</label>
+                    <label>Date debut</label>
                     <input type="date" name="start_date" value="{{ request('start_date') }}">
                 </div>
                 <div>
@@ -34,7 +34,7 @@
                 </div>
                 <div class="align-end gap-sm">
                     <button class="btn btn-outline" type="submit"><span class="icon">{!! app_icon('filter') !!}</span> Filtrer</button>
-                    <a class="btn btn-outline" href="{{ route('exports.controls', request()->query()) }}">Exporter contrôles</a>
+                    <a class="btn btn-outline" href="{{ route('exports.controls', request()->query()) }}">Exporter controles</a>
                 </div>
             </form>
         </div>
@@ -44,12 +44,13 @@
         <table>
             <thead>
                 <tr>
-                    <th>Date opération</th>
+                    <th>Date operation</th>
                     <th>Date recette</th>
                     <th>Gare</th>
+                    <th>Compte</th>
                     <th>Banque</th>
                     <th><span class="th-stack">Montant<small>en FCFA</small></span></th>
-                    <th>Référence</th>
+                    <th>Reference</th>
                     <th>Bordereau</th>
                     <th>Action</th>
                 </tr>
@@ -58,11 +59,12 @@
                 @forelse($versements as $versement)
                     <tr>
                         <td>{{ $versement->operation_date?->format('d/m/Y') }}</td>
-                        <td>{{ $versement->receipt_date?->format('d/m/Y') ?: '—' }}</td>
+                        <td>{{ $versement->receipt_date?->format('d/m/Y') ?: '-' }}</td>
                         <td>{{ $versement->gare->name }}</td>
-                        <td>{{ $versement->bank_name ?: '—' }}</td>
+                        <td>{{ ($versement->account_type ?? 'national') === 'inter' ? 'Inter' : 'National' }}</td>
+                        <td>{{ $versement->bank_name ?: '-' }}</td>
                         <td class="amount-cell">{{ number_format($versement->amount, 0, ',', ' ') }}</td>
-                        <td>{{ $versement->reference ?: '—' }}</td>
+                        <td>{{ $versement->reference ?: '-' }}</td>
                         <td>
                             @forelse($versement->justificatives as $piece)
                                 <div class="doc-links">
@@ -70,11 +72,11 @@
                                         <span class="icon">{!! app_icon('eye') !!}</span> Lire
                                     </a>
                                     <a class="btn btn-sm btn-outline" href="{{ route('justificatifs.download', $piece) }}">
-                                        <span class="icon">{!! app_icon('download') !!}</span> Télécharger
+                                        <span class="icon">{!! app_icon('download') !!}</span> Telecharger
                                     </a>
                                 </div>
                             @empty
-                                —
+                                -
                             @endforelse
                         </td>
                         <td class="actions-cell">
@@ -84,12 +86,12 @@
                                     <span class="sr-only">Modifier</span>
                                 </a>
                             @else
-                                —
+                                -
                             @endcan
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="8">Aucun versement trouvé.</td></tr>
+                    <tr><td colspan="9">Aucun versement trouve.</td></tr>
                 @endforelse
             </tbody>
         </table>
@@ -97,3 +99,4 @@
 
     {{ $versements->links('partials.pagination') }}
 @endsection
+

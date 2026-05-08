@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\ServiceModule;
 use App\Enums\UserRole;
+use App\Models\CashierReceiptConfirmation;
 use App\Models\DailyControl;
 use App\Models\Gare;
 use App\Models\NotificationHistory;
@@ -24,9 +25,31 @@ class DailyControlService
                 ->where('is_active', true)
                 ->get()
                 ->map(function (Gare $gare) use ($concernedDate, $scope) {
-                    $hasRecette = $gare->recettes()->where('service_scope', $scope)->whereDate('operation_date', $concernedDate)->exists();
-                    $hasDepense = $gare->depenses()->where('service_scope', $scope)->whereDate('operation_date', $concernedDate)->exists();
-                    $hasVersement = $gare->versementsBancaires()->where('service_scope', $scope)->whereDate('operation_date', $concernedDate)->exists();
+                    $hasCashierValidation = false;
+                    if ($gare->is_virtual) {
+                        $hasRecette = CashierReceiptConfirmation::query()
+                            ->where('service_scope', $scope)
+                            ->where('cashier_id', $gare->virtual_owner_user_id)
+                            ->whereDate('operation_date', $concernedDate)
+                            ->where('is_verified', true)
+                            ->exists();
+                        $hasDepense = $gare->depenses()->where('service_scope', $scope)->whereDate('operation_date', $concernedDate)->exists();
+                        $hasVersement = $gare->versementsBancaires()->where('service_scope', $scope)->whereDate('operation_date', $concernedDate)->exists();
+                    } else {
+                        $hasRecette = $gare->recettes()->where('service_scope', $scope)->whereDate('operation_date', $concernedDate)->exists();
+                        $hasDepense = $gare->depenses()->where('service_scope', $scope)->whereDate('operation_date', $concernedDate)->exists();
+                        $hasCashierValidation = $gare->cashierConfirmations()
+                            ->where('service_scope', $scope)
+                            ->whereDate('operation_date', $concernedDate)
+                            ->where('is_verified', true)
+                            ->exists();
+                        $hasVersement = $gare->versement_mode === 'cashier'
+                            ? true
+                            : $gare->versementsBancaires()
+                                ->where('service_scope', $scope)
+                                ->whereDate('operation_date', $concernedDate)
+                                ->exists();
+                    }
 
                     $missing = [];
                     if (! $hasRecette) {
@@ -35,8 +58,16 @@ class DailyControlService
                     if (! $hasDepense) {
                         $missing[] = 'depense';
                     }
-                    if (! $hasVersement) {
+                    if ($gare->versement_mode === 'cashier') {
+                        if (! $hasCashierValidation) {
+                            $missing[] = 'validation_caissier';
+                        }
+                    } elseif (! $hasVersement) {
                         $missing[] = 'versement_bancaire';
+                    }
+
+                    if ($gare->is_virtual && ! $hasRecette && ! $hasDepense && ! $hasVersement) {
+                        $missing = [];
                     }
 
                     return DailyControl::updateOrCreate(
@@ -153,7 +184,12 @@ class DailyControlService
                             $module->shortLabel(),
                             $gare->name,
                             now()->parse($concernedDate)->format('d/m/Y'),
-                            collect($control->missing_operations ?? [])->map(fn ($item) => str_replace('_', ' ', $item))->implode(', ')
+                            collect($control->missing_operations ?? [])->map(function ($item) {
+                                return match ($item) {
+                                    'validation_caissier' => 'validation caissier',
+                                    default => str_replace('_', ' ', $item),
+                                };
+                            })->implode(', ')
                         ),
                         'status' => 'generated',
                         'control_date' => now('Africa/Abidjan')->toDateString(),

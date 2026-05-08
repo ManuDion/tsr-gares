@@ -53,7 +53,6 @@
             @endphp
             <div class="timeline">
                 @forelse($filteredHistories as $history)
-recette->histories as $history)
                     <div class="timeline-item timeline-item-detailed">
                         <strong>{{ $history->modifier->name ?? 'Système' }}</strong>
                         <small>{{ $history->created_at?->format('d/m/Y H:i') }}</small>

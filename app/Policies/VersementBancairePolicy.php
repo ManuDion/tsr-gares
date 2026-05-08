@@ -9,7 +9,7 @@ class VersementBancairePolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->hasGlobalVisibility() || $user->canAccessGaresModule() || $user->canAccessCourrierModule();
+        return $user->hasGlobalVisibility() || $user->canAccessFinancialScope('gares') || $user->canAccessFinancialScope('courrier');
     }
 
     public function view(User $user, VersementBancaire $versement): bool
@@ -19,7 +19,7 @@ class VersementBancairePolicy
 
     public function create(User $user): bool
     {
-        return $this->viewAny($user);
+        return $user->canCreateFinancialEntry('gares') || $user->canCreateFinancialEntry('courrier');
     }
 
     public function update(User $user, VersementBancaire $versement): bool

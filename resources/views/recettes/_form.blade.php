@@ -1,10 +1,18 @@
 @php
     $selectedGare = collect($gares)->firstWhere('id', (int) old('gare_id', $recette->gare_id ?? 0));
-    $selectedGareLabel = $selectedGare ? ($selectedGare->name.' — '.$selectedGare->city) : null;
+    $selectedGareLabel = $selectedGare ? ($selectedGare->name.' - '.$selectedGare->city) : null;
+    $scope = (($module?->value ?? 'gares') === 'courrier') ? 'courrier' : 'gares';
+    $garesActivityModes = collect($gares)->mapWithKeys(fn ($gare) => [(string) $gare->id => $gare->activity_mode ?? 'mixed'])->all();
+    $chefActivityMode = auth()->user()->primaryGare?->activity_mode ?? 'mixed';
 @endphp
 
-<div class="form-grid recette-breakdown-form" data-recette-calculator>
-    @unless(auth()->user()->isChefDeGare())
+<div
+    class="form-grid recette-breakdown-form"
+    data-recette-calculator
+    data-gare-activity-modes='@json($garesActivityModes)'
+    data-chef-activity-mode="{{ $chefActivityMode }}"
+>
+    @unless(auth()->user()->canActAsChefForScope($scope))
         <x-gare-picker
             :gares="$gares"
             datalistId="recette-gares"
@@ -13,13 +21,13 @@
         />
     @else
         <div>
-            <label>Gare affectée</label>
+            <label>Gare affectee</label>
             <input type="text" value="{{ auth()->user()->primaryGare?->name }}" disabled>
         </div>
     @endunless
 
     <div>
-        <label>Date opération</label>
+        <label>Date operation</label>
         <input type="date" name="operation_date" value="{{ old('operation_date', optional($recette->operation_date ?? null)->format('Y-m-d') ?? now()->toDateString()) }}" required>
     </div>
 
@@ -27,27 +35,38 @@
         <div class="breakdown-grid">
             <div>
                 <label>Ventes tickets inter</label>
-                <input type="number" step="0.01" min="0" name="ticket_inter_amount" value="{{ old('ticket_inter_amount', $recette->ticket_inter_amount ?? 0) }}" data-recette-part required>
+                <input type="number" step="0.01" min="0" name="ticket_inter_amount" value="{{ old('ticket_inter_amount', $recette->ticket_inter_amount ?? 0) }}" data-recette-part="ticket_inter" required>
             </div>
             <div>
                 <label>Ventes tickets national</label>
-                <input type="number" step="0.01" min="0" name="ticket_national_amount" value="{{ old('ticket_national_amount', $recette->ticket_national_amount ?? 0) }}" data-recette-part required>
+                <input type="number" step="0.01" min="0" name="ticket_national_amount" value="{{ old('ticket_national_amount', $recette->ticket_national_amount ?? 0) }}" data-recette-part="ticket_national" data-recette-national-input required>
             </div>
             <div>
                 <label>Transport bagages inter</label>
-                <input type="number" step="0.01" min="0" name="bagage_inter_amount" value="{{ old('bagage_inter_amount', $recette->bagage_inter_amount ?? 0) }}" data-recette-part required>
+                <input type="number" step="0.01" min="0" name="bagage_inter_amount" value="{{ old('bagage_inter_amount', $recette->bagage_inter_amount ?? 0) }}" data-recette-part="bagage_inter" required>
             </div>
             <div>
                 <label>Transport bagages national</label>
-                <input type="number" step="0.01" min="0" name="bagage_national_amount" value="{{ old('bagage_national_amount', $recette->bagage_national_amount ?? 0) }}" data-recette-part required>
+                <input type="number" step="0.01" min="0" name="bagage_national_amount" value="{{ old('bagage_national_amount', $recette->bagage_national_amount ?? 0) }}" data-recette-part="bagage_national" data-recette-national-input required>
             </div>
         </div>
+        <small data-inter-only-hint hidden>Cette gare est en mode inter uniquement. Les montants nationaux sont bloques a 0.</small>
     </div>
 
     <div>
-        <label>Montant total calculé</label>
+        <label>Recette inter (ticket inter + bagage inter)</label>
+        <input type="number" step="0.01" min="0" value="{{ old('recette_inter_amount', isset($recette) ? ($recette->ticket_inter_amount + $recette->bagage_inter_amount) : 0) }}" data-recette-inter readonly>
+    </div>
+
+    <div>
+        <label>Recette nationale (ticket national + bagage national)</label>
+        <input type="number" step="0.01" min="0" value="{{ old('recette_national_amount', isset($recette) ? ($recette->ticket_national_amount + $recette->bagage_national_amount) : 0) }}" data-recette-national readonly>
+    </div>
+
+    <div>
+        <label>Montant total calcule</label>
         <input type="number" step="0.01" min="0" name="amount" value="{{ old('amount', $recette->amount ?? 0) }}" data-recette-total readonly required>
-        <small>Ce montant est calculé automatiquement à partir des 4 types de recette.</small>
+        <small>Le montant total est calcule automatiquement.</small>
     </div>
 
     <div class="col-span-2">
@@ -57,17 +76,15 @@
     <div>
         <label>Nom du fichier justificatif</label>
         <input type="text" name="justificatif_name" value="{{ old('justificatif_name') }}" placeholder="Ex. Recette gare Abidjan 15-07-2025">
-        <small>Optionnel. Si renseigné, ce nom sera utilisé lors du téléchargement.</small>
     </div>
     <div>
         <label>Fichier justificatif</label>
-        <input type="file" name="justificatif" accept=".pdf,.jpg,.jpeg,.png,image/*,application/pdf">
-        <small>Vous pouvez joindre un justificatif de recette pour lecture ou téléchargement ultérieur.</small>
+        <input type="file" name="justificatif" accept=".pdf,.jpg,.jpeg,.png,image/*,application/pdf" required>
     </div>
     @isset($recette)
         <div class="col-span-2">
             <label>Commentaire historique</label>
-            <input type="text" name="history_comment" value="{{ old('history_comment') }}" placeholder="Ex. Correction du montant après vérification">
+            <input type="text" name="history_comment" value="{{ old('history_comment') }}" placeholder="Ex. Correction apres verification">
         </div>
     @endisset
 </div>
@@ -78,15 +95,77 @@
             document.querySelectorAll('[data-recette-calculator]').forEach(function (wrapper) {
                 const parts = Array.from(wrapper.querySelectorAll('[data-recette-part]'));
                 const total = wrapper.querySelector('[data-recette-total]');
+                const interOutput = wrapper.querySelector('[data-recette-inter]');
+                const nationalOutput = wrapper.querySelector('[data-recette-national]');
+                const nationalInputs = Array.from(wrapper.querySelectorAll('[data-recette-national-input]'));
+                const interOnlyHint = wrapper.querySelector('[data-inter-only-hint]');
+                const gareActivityModes = JSON.parse(wrapper.getAttribute('data-gare-activity-modes') || '{}');
+                const chefActivityMode = wrapper.getAttribute('data-chef-activity-mode') || 'mixed';
+
+                function selectedGareId() {
+                    const hiddenInput = wrapper.querySelector('input[data-gare-id]');
+                    return hiddenInput ? String(hiddenInput.value || '') : '';
+                }
+
+                function isInterOnly() {
+                    const hasPicker = !!wrapper.querySelector('input[data-gare-id]');
+                    if (!hasPicker) {
+                        return chefActivityMode === 'inter_only';
+                    }
+
+                    const id = selectedGareId();
+                    if (!id || !gareActivityModes[id]) {
+                        return false;
+                    }
+
+                    return gareActivityModes[id] === 'inter_only';
+                }
+
+                function syncInterOnlyMode() {
+                    const interOnly = isInterOnly();
+                    nationalInputs.forEach(function (input) {
+                        if (interOnly) {
+                            input.value = '0';
+                        }
+                        input.readOnly = interOnly;
+                    });
+                    if (interOnlyHint) {
+                        interOnlyHint.hidden = !interOnly;
+                    }
+                }
+
+                function valueFor(key) {
+                    const input = wrapper.querySelector('[data-recette-part="' + key + '"]');
+                    return parseFloat(input ? (input.value || '0') : '0') || 0;
+                }
 
                 function updateTotal() {
-                    const sum = parts.reduce((carry, input) => carry + (parseFloat(input.value || '0') || 0), 0);
+                    syncInterOnlyMode();
+                    const inter = valueFor('ticket_inter') + valueFor('bagage_inter');
+                    const national = valueFor('ticket_national') + valueFor('bagage_national');
+                    const sum = inter + national;
                     total.value = sum.toFixed(2);
+                    if (interOutput) interOutput.value = inter.toFixed(2);
+                    if (nationalOutput) nationalOutput.value = national.toFixed(2);
                 }
 
                 parts.forEach(function (input) {
                     input.addEventListener('input', updateTotal);
                 });
+                const gareLabelInput = wrapper.querySelector('input[data-gare-label]');
+                if (gareLabelInput) {
+                    gareLabelInput.addEventListener('change', function () {
+                        window.setTimeout(updateTotal, 0);
+                    });
+                    gareLabelInput.addEventListener('input', function () {
+                        window.setTimeout(updateTotal, 0);
+                    });
+                }
+                const gareHiddenInput = wrapper.querySelector('input[data-gare-id]');
+                if (gareHiddenInput) {
+                    gareHiddenInput.addEventListener('change', updateTotal);
+                    gareHiddenInput.addEventListener('input', updateTotal);
+                }
 
                 updateTotal();
             });

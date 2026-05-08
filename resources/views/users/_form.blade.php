@@ -2,6 +2,10 @@
     $selectedModule = (string) old('module', isset($user) ? ($user->assignedModule()?->value ?? '') : '');
     $selectedRole = old('role', isset($user) ? $user->role?->value : null);
     $selectedZoneGares = old('zone_gares', isset($user) ? $user->gares->pluck('id')->map(fn ($id) => (string) $id)->all() : []);
+    $selectedModules = old('modules', isset($user) ? $user->moduleMemberships() : []);
+    if ($selectedModule !== '' && ! in_array($selectedModule, $selectedModules, true)) {
+        $selectedModules[] = $selectedModule;
+    }
 @endphp
 
 <div class="form-grid">
@@ -56,6 +60,23 @@
                 </label>
             @endforeach
         </div>
+        <small>Le module principal pilote le role principal et l'espace ouvert par defaut.</small>
+    </div>
+
+    <div class="col-span-2">
+        <label>Services rattaches (max 2)</label>
+        <div class="checkbox-grid">
+            @foreach($moduleOptions as $module)
+                <label class="checkbox-card">
+                    <input type="checkbox" name="modules[]" value="{{ $module['value'] }}" @checked(in_array($module['value'], $selectedModules, true))>
+                    <span>
+                        <strong>{{ $module['short_label'] }}</strong>
+                        <small>{{ $module['label'] }}</small>
+                    </span>
+                </label>
+            @endforeach
+        </div>
+        <small>Exemple: un meme utilisateur peut etre rattache aux services Gares et Courrier.</small>
     </div>
 
     <div>

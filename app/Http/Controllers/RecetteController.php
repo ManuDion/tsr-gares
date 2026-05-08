@@ -9,6 +9,7 @@ use App\Support\ModuleContext;
 use App\Models\PieceJustificative;
 use App\Models\Recette;
 use App\Models\RecetteHistory;
+use App\Models\Gare;
 use App\Services\AccessScopeService;
 use App\Services\ActivityLogService;
 use App\Support\UploadedFileName;
@@ -77,12 +78,15 @@ class RecetteController extends Controller
     {
         $this->authorize('create', Recette::class);
         $user = $request->user();
-        $data = $this->normalizeRecetteData($request->validated());
+        $data = $request->validated();
 
                 $module = ModuleContext::fromRequest($request, $user);
         $serviceScope = ModuleContext::financialScope($module);
 
-        $data['gare_id'] = $this->access->resolveGareIdForCreation($user, $request->integer('gare_id'), $serviceScope);
+        $gareId = $this->access->resolveGareIdForCreation($user, $request->integer('gare_id'), $serviceScope);
+        $gare = Gare::query()->find($gareId);
+        $data = $this->normalizeRecetteData($data, $gare);
+        $data['gare_id'] = $gareId;
         $data['service_scope'] = $serviceScope;
         $data['created_by'] = $user->id;
         $data['updated_by'] = $user->id;
@@ -141,15 +145,20 @@ class RecetteController extends Controller
             'gare_id',
         ]);
 
-        $data = $this->normalizeRecetteData($request->validated());
+        $data = $request->validated();
         $data['updated_by'] = $request->user()->id;
         $data['reference'] = null;
 
                 $module = ($recette->service_scope ?? 'gares') === 'courrier' ? \App\Enums\ServiceModule::Courrier : \App\Enums\ServiceModule::Gares;
 
-        if (! $request->user()->isChefDeGare() && ! $request->user()->isAgentCourrierGare()) {
-            $data['gare_id'] = $request->integer('gare_id', $recette->gare_id);
+        $targetGareId = $recette->gare_id;
+        if (! $request->user()->canActAsChefForScope((string) ($recette->service_scope ?? 'gares'))) {
+            $targetGareId = $request->integer('gare_id', $recette->gare_id);
+            $data['gare_id'] = $targetGareId;
         }
+
+        $targetGare = Gare::query()->find($targetGareId);
+        $data = $this->normalizeRecetteData($data, $targetGare);
 
         $recette->update($data);
 
@@ -214,12 +223,16 @@ class RecetteController extends Controller
         return back()->with('status', 'Recette déverrouillée pour 24h.');
     }
 
-    protected function normalizeRecetteData(array $data): array
+    protected function normalizeRecetteData(array $data, ?Gare $gare = null): array
     {
         $data['ticket_inter_amount'] = (float) ($data['ticket_inter_amount'] ?? 0);
-        $data['ticket_national_amount'] = (float) ($data['ticket_national_amount'] ?? 0);
+        $data['ticket_national_amount'] = $gare?->isInterOnly()
+            ? 0.0
+            : (float) ($data['ticket_national_amount'] ?? 0);
         $data['bagage_inter_amount'] = (float) ($data['bagage_inter_amount'] ?? 0);
-        $data['bagage_national_amount'] = (float) ($data['bagage_national_amount'] ?? 0);
+        $data['bagage_national_amount'] = $gare?->isInterOnly()
+            ? 0.0
+            : (float) ($data['bagage_national_amount'] ?? 0);
         $data['amount'] = $data['ticket_inter_amount']
             + $data['ticket_national_amount']
             + $data['bagage_inter_amount']

@@ -8,7 +8,12 @@ class StoreDepenseRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->canCreateFinancialEntry() ?? false;
+        $scope = $this->input('module') === 'courrier' ? 'courrier' : 'gares';
+
+        $user = $this->user();
+
+        return $user?->canAccessFinancialScope($scope)
+            && ($user?->canActAsChefForScope($scope) || $user?->canActAsCashierForScope($scope));
     }
 
     protected function prepareForValidation(): void
@@ -37,7 +42,7 @@ class StoreDepenseRequest extends FormRequest
             'entries.*.description' => ['nullable', 'string', 'max:500'],
             'entries.*.justificatif_name' => ['nullable', 'string', 'max:120'],
             'entries.*.justificatif' => [
-                'nullable',
+                'required',
                 'file',
                 'mimes:pdf,jpg,jpeg,png',
                 'max:'.(int) env('JUSTIFICATIF_MAX_SIZE_KB', 5120),
@@ -50,6 +55,7 @@ class StoreDepenseRequest extends FormRequest
         return [
             'entries.required' => 'Ajoutez au moins une dépense.',
             'entries.max' => 'Le maximum est de 5 dépenses par enregistrement.',
+            'entries.*.justificatif.required' => 'Le justificatif est obligatoire pour chaque dépense.',
         ];
     }
 }

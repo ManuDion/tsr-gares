@@ -13,7 +13,8 @@ class OperationDaySheet implements FromArray, WithTitle
         protected Builder $query,
         protected string $type,
         protected Carbon $date
-    ) {}
+    ) {
+    }
 
     public function array(): array
     {
@@ -23,30 +24,35 @@ class OperationDaySheet implements FromArray, WithTitle
 
         $rows = $items->map(function ($item) {
             if ($this->type === 'recettes') {
+                $recetteInter = ($item->ticket_inter_amount ?? 0) + ($item->bagage_inter_amount ?? 0);
+                $recetteNational = ($item->ticket_national_amount ?? 0) + ($item->bagage_national_amount ?? 0);
+
                 return [
                     'Date' => optional($item->operation_date)->format('Y-m-d'),
-                    'Gare' => $item->gare->name ?? '—',
+                    'Gare' => $item->gare->name ?? '-',
                     'Tickets inter' => $item->ticket_inter_amount ?? 0,
                     'Tickets national' => $item->ticket_national_amount ?? 0,
                     'Bagages inter' => $item->bagage_inter_amount ?? 0,
                     'Bagages national' => $item->bagage_national_amount ?? 0,
+                    'Recette inter' => $recetteInter,
+                    'Recette nationale' => $recetteNational,
                     'Montant total' => $item->amount,
-                    'Libellé' => $item->description ?? '—',
+                    'Libelle' => $item->description ?? '-',
                 ];
             }
 
             return [
                 'Date' => optional($item->operation_date)->format('Y-m-d'),
-                'Gare' => $item->gare->name ?? '—',
+                'Gare' => $item->gare->name ?? '-',
                 'Montant' => $item->amount,
-                'Référence' => $item->reference ?? '—',
-                'Libellé' => $item->description ?? ($item->motif ?? '—'),
+                'Reference' => $item->reference ?? '-',
+                'Libelle' => $item->description ?? ($item->motif ?? '-'),
             ];
         })->values()->all();
 
         $header = $this->type === 'recettes'
-            ? ['Date', 'Gare', 'Tickets inter', 'Tickets national', 'Bagages inter', 'Bagages national', 'Montant total', 'Libellé']
-            : ['Date', 'Gare', 'Montant', 'Référence', 'Libellé'];
+            ? ['Date', 'Gare', 'Tickets inter', 'Tickets national', 'Bagages inter', 'Bagages national', 'Recette inter', 'Recette nationale', 'Montant total', 'Libelle']
+            : ['Date', 'Gare', 'Montant', 'Reference', 'Libelle'];
 
         return [
             ['Type', ucfirst($this->type)],
@@ -62,3 +68,4 @@ class OperationDaySheet implements FromArray, WithTitle
         return $this->date->format('Y-m-d');
     }
 }
+

@@ -23,6 +23,8 @@ class StoreUserRequest extends FormRequest
             'email' => ['required', 'email', 'max:180', 'unique:users,email'],
             'password' => ['required', Password::min(8)],
             'module' => ['nullable', Rule::in(array_map(fn (ServiceModule $module) => $module->value, ServiceModule::cases()))],
+            'modules' => ['nullable', 'array', 'max:2'],
+            'modules.*' => ['string', Rule::in(array_map(fn (ServiceModule $module) => $module->value, ServiceModule::cases()))],
             'role' => ['required', Rule::in(array_map(fn (UserRole $role) => $role->value, UserRole::cases()))],
             'gare_id' => ['nullable', 'integer', 'exists:gares,id'],
             'zone_gares' => ['nullable', 'array'],
@@ -37,6 +39,11 @@ class StoreUserRequest extends FormRequest
         $validator->after(function ($validator) {
             $role = UserRole::fromLegacyAware((string) $this->input('role'));
             $module = ServiceModule::tryFrom((string) ($this->input('module') ?? ''));
+            $modules = collect($this->input('modules', []))->filter()->unique()->values();
+
+            if ($module && ! $modules->contains($module->value)) {
+                $modules->prepend($module->value);
+            }
 
             if (! $module && ! $role->isUniversalSupervisor()) {
                 $validator->errors()->add('module', 'Veuillez selectionner un service pour ce role.');
@@ -49,8 +56,14 @@ class StoreUserRequest extends FormRequest
                 if (! in_array($role->value, $allowedRoleValues, true)) {
                     $validator->errors()->add('role', 'Le role choisi ne correspond pas au service selectionne.');
                 }
-            } elseif (! $role->isUniversalSupervisor()) {
-                $validator->errors()->add('role', 'Seuls les roles Administrateur et Responsable peuvent etre crees sans service.');
+            }
+
+            if ($modules->count() > 2) {
+                $validator->errors()->add('modules', 'Un utilisateur peut etre rattache a deux services maximum.');
+            }
+
+            if ($modules->contains(ServiceModule::Documents->value) && $modules->contains(ServiceModule::Rh->value)) {
+                $validator->errors()->add('modules', 'La combinaison Documents + RH n\'est pas autorisee pour ce flux.');
             }
 
             if ($role->isUniversalSupervisor()) {
