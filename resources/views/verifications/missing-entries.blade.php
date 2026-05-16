@@ -1,12 +1,12 @@
 @extends('layouts.app')
 
-@section('title', 'Ecritures manquantes')
-@section('heading', 'Fiche des ecritures manquantes')
-@section('subheading', 'Liste journaliere des gares avec ecritures non finalisees')
+@section('title', 'Écritures manquantes')
+@section('heading', 'Fiche des écritures manquantes')
+@section('subheading', 'Liste journalière des gares avec écritures non finalisées')
 
 @section('actions')
     <a class="btn btn-outline" href="{{ route('verifications.index', ['module' => $module->value, 'operation_date' => $operationDate]) }}">
-        Retour verification
+        Retour vérification
     </a>
 @endsection
 
@@ -15,7 +15,7 @@
         <form method="GET" class="filters-grid">
             <input type="hidden" name="module" value="{{ $module->value }}">
             <div>
-                <label>Date operation</label>
+                <label>Date opération</label>
                 <input type="date" name="operation_date" value="{{ $operationDate }}">
             </div>
             <div class="align-end gap-sm">
@@ -35,10 +35,10 @@
                 <tr>
                     <th>Gare</th>
                     <th>Recette</th>
-                    <th>Depense</th>
+                    <th>Dépense</th>
                     <th>Versement Coris</th>
                     <th>Versement Ecobank</th>
-                    <th>Numero de telephone</th>
+                    <th>Numéro de téléphone</th>
                 </tr>
             </thead>
             <tbody>
@@ -81,10 +81,11 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="6">Aucune ecriture manquante pour cette date.</td>
+                        <td colspan="6">Aucune écriture manquante pour cette date.</td>
                     </tr>
                 @endforelse
             </tbody>
         </table>
     </div>
 @endsection
+

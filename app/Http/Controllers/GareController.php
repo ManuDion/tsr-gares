@@ -28,6 +28,12 @@ class GareController extends Controller
                         ->orWhere('city', 'like', '%'.$request->string('search').'%')
                         ->orWhere('code', 'like', '%'.$request->string('search').'%');
                 });
+            })
+            ->when($request->filled('status'), function ($query) use ($request) {
+                $status = $request->string('status')->toString();
+                if (in_array($status, ['0', '1'], true)) {
+                    $query->where('is_active', $status === '1');
+                }
             });
 
         if (! $request->user()->canViewAllGares()) {

@@ -17,7 +17,16 @@
                 <label>Recherche</label>
                 <input type="text" name="search" value="{{ request('search') }}" placeholder="Code, ville ou nom">
             </div>
+            <div>
+                <label>Statut</label>
+                <select name="status">
+                    <option value="">Toutes</option>
+                    <option value="1" @selected(request('status') === '1')>Activées</option>
+                    <option value="0" @selected(request('status') === '0')>Désactivées</option>
+                </select>
+            </div>
             <div class="align-end">
+                <a class="btn btn-outline" href="{{ route('gares.index') }}">Réinitialiser</a>
                 <button class="btn btn-outline" type="submit"><span class="icon">{!! app_icon('filter') !!}</span> Filtrer</button>
             </div>
         </form>

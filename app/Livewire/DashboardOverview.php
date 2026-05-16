@@ -366,6 +366,11 @@ class DashboardOverview extends Component
             ->limit(5)
             ->get();
 
+        $activeGaresCount = Gare::query()
+            ->where('is_active', true)
+            ->whereIn('id', $gareIds)
+            ->count();
+
         return [
             'mode' => 'financial',
             'module' => $module,
@@ -381,6 +386,7 @@ class DashboardOverview extends Component
             'period_label' => $user->canViewAllGares($serviceScope)
                 ? $periodLabel
                 : $periodLabel,
+            'active_gares_count' => $activeGaresCount,
             'recettes_total' => (float) $recettes->sum('amount'),
             'depenses_total' => (float) $depenses->sum('amount'),
             'versements_total' => (float) $versements->sum('amount'),
@@ -468,12 +474,19 @@ class DashboardOverview extends Component
     protected function resolvedGareIds(?string $scope = null): array
     {
         $user = auth()->user();
+        $allowedIds = $user->accessibleGareIds($scope);
+        $activeAllowedIds = Gare::query()
+            ->where('is_active', true)
+            ->whereIn('id', $allowedIds)
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
 
         if ($this->gare_id) {
-            return array_values(array_intersect($user->accessibleGareIds($scope), [$this->gare_id]));
+            return array_values(array_intersect($activeAllowedIds, [(int) $this->gare_id]));
         }
 
-        return $user->accessibleGareIds($scope);
+        return $activeAllowedIds;
     }
 
     protected function resolvedPeriod(?string $scope = null): array

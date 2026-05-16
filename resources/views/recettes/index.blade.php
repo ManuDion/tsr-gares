@@ -17,7 +17,7 @@
     @endphp
     @if(auth()->user()->canViewAllGares($module->financialScope()) || $isVerificateur)
         <div class="panel">
-            <form method="GET" class="filters-grid">
+            <form method="GET" class="filters-grid recettes-filters">
                 <input type="hidden" name="module" value="{{ $module->value }}">
                 <div>
                     <label>Gare</label>
@@ -63,7 +63,7 @@
         </div>
     @endif
 
-    <div class="table-wrapper recettes-table">
+    <div class="table-wrapper table-compact recettes-table">
         <table>
             <thead>
                 <tr>
@@ -78,9 +78,9 @@
             <tbody>
                 @forelse($recettes as $recette)
                     <tr>
-                        <td>{{ $recette->operation_date?->format('d/m/Y') }}</td>
-                        <td>{{ $recette->gare->name }}</td>
-                        <td>
+                        <td data-label="Date">{{ $recette->operation_date?->format('d/m/Y') }}</td>
+                        <td data-label="Gare" title="{{ $recette->gare->name }}"><span class="cell-truncate">{{ $recette->gare->name }}</span></td>
+                        <td data-label="Composition recettes">
                             @if($isCourrier)
                                 <div class="breakdown-summary">
                                     <span>RC : {{ number_format($recette->amount, 0, '', ' ') }}</span>
@@ -94,7 +94,7 @@
                                 </div>
                             @endif
                         </td>
-                        <td>
+                        <td data-label="Justificatif">
                             @forelse($recette->justificatives as $piece)
                                 <div class="doc-links">
                                     <a class="btn btn-sm btn-outline" href="{{ route('justificatifs.preview', $piece) }}" data-internal-file-preview data-file-title="{{ $piece->original_name ?? 'Justificatif recette' }}" onclick="return window.openInternalFileViewer(this);">
@@ -110,8 +110,8 @@
                                 -
                             @endforelse
                         </td>
-                        <td>{{ $recette->creator->name ?? '-' }}</td>
-                        <td class="actions-cell">
+                        <td data-label="Saisi par" title="{{ $recette->creator->name ?? '-' }}"><span class="cell-truncate">{{ $recette->creator->name ?? '-' }}</span></td>
+                        <td class="actions-cell" data-label="Actions">
                             @can('update', $recette)
                                 <a class="btn btn-sm btn-outline" href="{{ route('recettes.edit', $recette) }}">
                                     <span class="icon">{!! app_icon('edit') !!}</span>

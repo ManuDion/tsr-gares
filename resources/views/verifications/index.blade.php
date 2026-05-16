@@ -6,7 +6,7 @@
 
 @section('content')
     <div class="panel">
-        <form method="GET" class="filters-grid">
+        <form method="GET" class="filters-grid verification-filters">
             <input type="hidden" name="module" value="{{ $module->value }}">
             <div>
                 <label>Date opération</label>
@@ -82,16 +82,41 @@
                         $badgeClass = $isOk ? 'badge-success' : 'badge-danger';
                     @endphp
                     <tr>
-                        <td><strong>{{ $check->gare?->name ?? '-' }}</strong></td>
-                        <td>{{ $check->operation_date?->format('d/m/Y') }}</td>
-                        <td class="amount-cell">{{ number_format($check->recettes_inter_total, 0, '', ' ') }} / {{ number_format($check->recettes_national_total, 0, '', ' ') }}</td>
-                        <td class="amount-cell">{{ number_format($check->depenses_inter_total, 0, '', ' ') }} / {{ number_format($check->depenses_national_total, 0, '', ' ') }}</td>
-                        <td class="amount-cell">{{ number_format($check->expected_inter_versement, 0, '', ' ') }} / {{ number_format($check->expected_national_versement, 0, '', ' ') }}</td>
-                        <td class="amount-cell">{{ number_format($check->versements_inter_total, 0, '', ' ') }} / {{ number_format($check->versements_national_total, 0, '', ' ') }}</td>
-                        <td class="amount-cell">
+                        <td data-label="Gare"><strong>{{ $check->gare?->name ?? '-' }}</strong></td>
+                        <td data-label="Date">{{ $check->operation_date?->format('d/m/Y') }}</td>
+                        <td class="amount-cell" data-label="Recettes (I/N)">
+                            <span class="verification-pair">
+                                <span>{{ number_format($check->recettes_inter_total, 0, '', ' ') }}</span>
+                                <span class="pair-sep">/</span>
+                                <span>{{ number_format($check->recettes_national_total, 0, '', ' ') }}</span>
+                            </span>
+                        </td>
+                        <td class="amount-cell" data-label="Dépenses (I/N)">
+                            <span class="verification-pair">
+                                <span>{{ number_format($check->depenses_inter_total, 0, '', ' ') }}</span>
+                                <span class="pair-sep">/</span>
+                                <span>{{ number_format($check->depenses_national_total, 0, '', ' ') }}</span>
+                            </span>
+                        </td>
+                        <td class="amount-cell" data-label="Attendu (I/N)">
+                            <span class="verification-pair">
+                                <span>{{ number_format($check->expected_inter_versement, 0, '', ' ') }}</span>
+                                <span class="pair-sep">/</span>
+                                <span>{{ number_format($check->expected_national_versement, 0, '', ' ') }}</span>
+                            </span>
+                        </td>
+                        <td class="amount-cell" data-label="Versements (I/N)">
+                            <span class="verification-pair">
+                                <span>{{ number_format($check->versements_inter_total, 0, '', ' ') }}</span>
+                                <span class="pair-sep">/</span>
+                                <span>{{ number_format($check->versements_national_total, 0, '', ' ') }}</span>
+                            </span>
+                        </td>
+                        <td class="amount-cell" data-label="Écart (I/N)">
                             <span class="badge {{ $badgeClass }}">{{ number_format($difference, 0, '', ' ') }}</span>
                             <div class="text-muted compact-note">
-                                I: {{ number_format($differenceInter, 0, '', ' ') }} | N: {{ number_format($differenceNational, 0, '', ' ') }}
+                                <span class="verification-split">I: {{ number_format($differenceInter, 0, '', ' ') }}</span>
+                                <span class="verification-split">N: {{ number_format($differenceNational, 0, '', ' ') }}</span>
                             </div>
                             @if($check->reviewer)
                                 <div class="text-muted compact-note verification-review-meta">
@@ -101,7 +126,7 @@
                                 </div>
                             @endif
                         </td>
-                        <td class="verification-actions">
+                        <td class="verification-actions" data-label="Actions">
                             @if($isOk)
                                 <span class="text-muted">Aucune action</span>
                             @else
@@ -135,3 +160,4 @@
 
     {{ $checks->links('partials.pagination') }}
 @endsection
+

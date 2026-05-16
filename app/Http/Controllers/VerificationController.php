@@ -35,6 +35,7 @@ class VerificationController extends Controller
             ->with(['gare', 'reviewer'])
             ->where('service_scope', $serviceScope)
             ->whereDate('operation_date', $operationDate)
+            ->whereHas('gare', fn ($q) => $q->where('is_active', true))
             ->when(! $request->user()->canViewAllGares($serviceScope), fn ($q) => $q->whereIn('gare_id', $request->user()->accessibleGareIds($serviceScope)))
             ->when($request->filled('gare_id'), fn ($q) => $q->where('gare_id', (int) $request->integer('gare_id')))
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')->toString()))
@@ -134,3 +135,4 @@ class VerificationController extends Controller
         return back()->with('status', "{$deleted} vérification(s) supprimée(s).");
     }
 }
+

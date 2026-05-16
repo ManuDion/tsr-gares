@@ -134,16 +134,20 @@ class DailyControlService
                     'source_key' => 'daily-control:'.$module->value.':'.$concernedDate.':'.$supervisor->id,
                 ],
                 [
-                    'subject' => $userAnomalies->isEmpty() ? 'Controle journalier conforme' : 'Alerte de non-saisie',
+                    'subject' => $userAnomalies->isEmpty() ? 'Contrôle journalier conforme' : 'Alerte de non-saisie',
                     'content' => $userAnomalies->isEmpty()
-                        ? sprintf('[%s] Toutes les gares actives ont renseigne leurs operations du %s.', $module->shortLabel(), $concernedDate)
-                        : sprintf('[%s] Une ou plusieurs gares n\'ont pas finalise leurs saisies du %s.', $module->shortLabel(), $concernedDate),
+                        ? sprintf('[%s] Toutes les gares actives ont renseigné leurs opérations du %s.', $module->shortLabel(), $concernedDate)
+                        : sprintf('[%s] Une ou plusieurs gares n\'ont pas finalisé leurs saisies du %s.', $module->shortLabel(), $concernedDate),
                     'status' => 'generated',
                     'control_date' => now('Africa/Abidjan')->toDateString(),
                     'concerned_date' => $concernedDate,
                     'gares' => $gares,
                     'operations' => array_merge($operations, [$module->value]),
-                    'payload' => ['anomaly_count' => $userAnomalies->count(), 'module' => $module->value],
+                    'payload' => [
+                        'anomaly_count' => $userAnomalies->count(),
+                        'module' => $module->value,
+                        'gare_ids' => $userAnomalies->pluck('gare_id')->map(fn ($id) => (int) $id)->unique()->values()->all(),
+                    ],
                 ]
             );
         }
@@ -166,7 +170,7 @@ class DailyControlService
     {
         foreach ($anomalies as $control) {
             $gare = $control->gare;
-            if (! $gare) {
+            if (! $gare || ! $gare->is_active) {
                 continue;
             }
 
@@ -217,12 +221,15 @@ class DailyControlService
                         'concerned_date' => $concernedDate,
                         'gares' => [$gare->name],
                         'operations' => array_merge($control->missing_operations ?? [], [$module->value]),
-                        'payload' => ['module' => $module->value],
+                        'payload' => [
+                            'module' => $module->value,
+                            'daily_control_id' => (int) $control->id,
+                            'gare_id' => (int) $gare->id,
+                        ],
                     ]
                 );
             }
         }
     }
 }
-
 

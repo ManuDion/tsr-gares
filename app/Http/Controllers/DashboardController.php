@@ -34,12 +34,13 @@ class DashboardController extends Controller
         }
 
         [$heading, $subheading] = match ($module) {
-            ServiceModule::Gares => ['Dashboard — Gestion des gares', 'Pilotage opérationnel et financier du service de gestion des gares.'],
-            ServiceModule::Documents => ['Dashboard — Gestion des documents', 'Suivi documentaire, échéances réglementaires et conformité.'],
-            ServiceModule::Courrier => ['Dashboard — Service courrier', 'Pilotage du service courrier par gare et par caissier courrier.'],
-            ServiceModule::Rh => ['Dashboard — Ressources Humaines', 'Vue d’ensemble du personnel, des dossiers et des comptes à activer.'],
+            ServiceModule::Gares => ['Dashboard - Gestion des gares', 'Pilotage opérationnel et financier du service de gestion des gares.'],
+            ServiceModule::Documents => ['Dashboard - Gestion des documents', 'Suivi documentaire, échéances réglementaires et conformité.'],
+            ServiceModule::Courrier => ['Dashboard - Service courrier', 'Pilotage du service courrier par gare et par caissier courrier.'],
+            ServiceModule::Rh => ['Dashboard - Ressources humaines', 'Vue d’ensemble du personnel, des dossiers et des comptes à activer.'],
         };
 
         return view('dashboard.index', compact('heading', 'subheading', 'module'));
     }
 }
+

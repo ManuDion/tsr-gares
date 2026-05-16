@@ -7,3 +7,4 @@
 @section('content')
     <livewire:dashboard-overview :module="$module->value" :key="'dashboard-'.$module->value" />
 @endsection
+

@@ -183,12 +183,13 @@
                 @endif
             </div>
 
-            <div class="stats-grid">
+            <div class="stats-grid {{ $useEntryCounts ? '' : 'dashboard-kpi-grid' }}">
                 @if($useEntryCounts)
                     <x-stat-card title="Recettes enregistrees" :value="$metrics['recettes_count']" meta="Nombre d'enregistrements - {{ $metrics['period_label'] }}" icon="wallet" />
                     <x-stat-card title="Depenses enregistrees" :value="$metrics['depenses_count']" meta="Nombre d'enregistrements - {{ $metrics['period_label'] }}" icon="receipt" />
                     <x-stat-card title="Versements enregistres" :value="$metrics['versements_count']" meta="Nombre d'enregistrements - {{ $metrics['period_label'] }}" icon="bank" />
                 @else
+                    <x-stat-card title="Gares actives" :value="$metrics['active_gares_count']" meta="{{ $serviceTitle }} - {{ $metrics['period_label'] }}" icon="users" />
                     <x-stat-card title="Total recettes" :value="$fmt($metrics['recettes_total'])" meta="{{ $serviceTitle }} - {{ $metrics['period_label'] }}" icon="wallet" />
                     <x-stat-card title="Total depenses" :value="$fmt($metrics['depenses_total'])" meta="{{ $serviceTitle }} - {{ $metrics['period_label'] }}" icon="receipt" />
                     <x-stat-card title="Total versements" :value="$fmt($metrics['versements_total'])" meta="{{ $serviceTitle }} - {{ $metrics['period_label'] }}" icon="bank" />

@@ -312,6 +312,10 @@ class VerificationService
             }
 
             foreach ($userAnomalies as $check) {
+                if (! $check->gare || ! $check->gare->is_active) {
+                    continue;
+                }
+
                 NotificationHistory::updateOrCreate(
                     [
                         'user_id' => $user->id,
@@ -336,6 +340,7 @@ class VerificationService
                         'operations' => ['verification', $module->value],
                         'payload' => [
                             'verification_check_id' => $check->id,
+                            'gare_id' => (int) $check->gare_id,
                             'difference' => (float) $check->difference,
                             'difference_inter' => (float) $check->difference_inter,
                             'difference_national' => (float) $check->difference_national,
@@ -363,7 +368,7 @@ class VerificationService
     protected function notifyOperatorsForAdjustment(VerificationCheck $check, \DateTimeInterface $until, ?string $note = null): void
     {
         $gare = $check->gare ?? Gare::find($check->gare_id);
-        if (! $gare) {
+        if (! $gare || ! $gare->is_active) {
             return;
         }
 
@@ -410,6 +415,7 @@ class VerificationService
                     'operations' => ['verification', 'ajustement', $scope],
                     'payload' => [
                         'verification_check_id' => $check->id,
+                        'gare_id' => (int) $gare->id,
                         'difference' => (float) $check->difference,
                         'difference_inter' => (float) $check->difference_inter,
                         'difference_national' => (float) $check->difference_national,

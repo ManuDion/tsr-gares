@@ -24,7 +24,7 @@
         </form>
     </div>
 
-    <div class="table-wrapper">
+    <div class="table-wrapper table-compact users-table">
         <table>
             <thead>
                 <tr>
@@ -34,26 +34,22 @@
                     <th>Rôle</th>
                     <th>Service</th>
                     <th>Statut</th>
-                    <th>Gare principale</th>
-                    <th>Gares affectées</th>
                     <th></th>
                 </tr>
             </thead>
             <tbody>
                 @forelse($users as $user)
                     <tr>
-                        <td>{{ $user->name }}</td>
+                        <td title="{{ $user->name }}"><span class="cell-truncate">{{ $user->name }}</span></td>
                         <td>{{ $user->phone ?? '—' }}</td>
-                        <td>{{ $user->email }}</td>
-                        <td>{{ $user->roleLabel() }}</td>
-                        <td>{{ $user->department?->moduleLabel() ?? '—' }}</td>
+                        <td title="{{ $user->email }}"><span class="cell-truncate">{{ $user->email }}</span></td>
+                        <td title="{{ $user->roleLabel() }}"><span class="cell-truncate">{{ $user->roleLabel() }}</span></td>
+                        <td title="{{ $user->department?->moduleLabel() ?? '—' }}"><span class="cell-truncate">{{ $user->department?->moduleLabel() ?? '—' }}</span></td>
                         <td>
                             <span class="badge {{ $user->is_active ? 'badge-success' : 'badge-danger' }}">
                                 {{ $user->is_active ? 'Actif' : 'Inactif' }}
                             </span>
                         </td>
-                        <td>{{ $user->primaryGare->name ?? '—' }}</td>
-                        <td>{{ $user->gares->pluck('name')->implode(', ') ?: '—' }}</td>
                         <td class="actions-cell">
                             <a class="btn btn-sm btn-outline" href="{{ route('users.edit', ['user' => $user, 'module' => request('module', 'gares')]) }}">
                                 <span class="icon">{!! app_icon('edit') !!}</span>
@@ -72,7 +68,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="9">Aucun utilisateur trouvé.</td></tr>
+                    <tr><td colspan="7">Aucun utilisateur trouvé.</td></tr>
                 @endforelse
             </tbody>
         </table>
@@ -80,3 +76,4 @@
 
     {{ $users->links('partials.pagination') }}
 @endsection
+

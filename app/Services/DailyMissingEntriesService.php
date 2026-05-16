@@ -23,7 +23,7 @@ class DailyMissingEntriesService
             ->with('gare')
             ->where('service_scope', $scope)
             ->whereDate('concerned_date', $operationDate)
-            ->whereHas('gare', fn ($query) => $query->where('is_virtual', false))
+            ->whereHas('gare', fn ($query) => $query->where('is_virtual', false)->where('is_active', true))
             ->when(! $viewer->canViewAllGares($scope), fn ($query) => $query->whereIn('gare_id', $viewer->accessibleGareIds($scope)))
             ->orderBy('gare_id')
             ->get();

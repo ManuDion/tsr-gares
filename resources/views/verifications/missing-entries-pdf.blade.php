@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fiche ecritures manquantes</title>
+    <title>Fiche écritures manquantes</title>
     <style>
         body { font-family: DejaVu Sans, Arial, sans-serif; color: #1f2937; margin: 18px; font-size: 12px; }
         h1 { margin: 0 0 4px; font-size: 20px; }
@@ -19,7 +19,7 @@
     </style>
 </head>
 <body>
-    <h1>Fiche des ecritures manquantes</h1>
+    <h1>Fiche des écritures manquantes</h1>
     <p>Module: {{ $module->shortLabel() }} | Date: {{ \Carbon\Carbon::parse($operationDate)->format('d/m/Y') }}</p>
 
     <table>
@@ -27,10 +27,10 @@
             <tr>
                 <th>Gare</th>
                 <th>Recette</th>
-                <th>Depense</th>
+                <th>Dépense</th>
                 <th>Versement Coris</th>
                 <th>Versement Ecobank</th>
-                <th>Numero de telephone</th>
+                <th>Numéro de téléphone</th>
             </tr>
         </thead>
         <tbody>
@@ -49,10 +49,11 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="6">Aucune ecriture manquante pour cette date.</td>
+                    <td colspan="6">Aucune écriture manquante pour cette date.</td>
                 </tr>
             @endforelse
         </tbody>
     </table>
 </body>
 </html>
+

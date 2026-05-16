@@ -17,7 +17,7 @@
 
     @if(auth()->user()->canViewAllGares($module->financialScope()) || $isVerificateur)
         <div class="panel">
-            <form method="GET" class="filters-grid">
+            <form method="GET" class="filters-grid versements-filters">
                 <input type="hidden" name="module" value="{{ $module->value }}">
                 <div>
                     <label>Gare</label>
@@ -63,7 +63,7 @@
         </div>
     @endif
 
-    <div class="table-wrapper versements-table">
+    <div class="table-wrapper table-compact versements-table">
         <table>
             <thead>
                 <tr>
@@ -79,12 +79,12 @@
             <tbody>
                 @forelse($versements as $versement)
                     <tr>
-                        <td>{{ $versement->operation_date?->format('d/m/Y') }}</td>
-                        <td>{{ $versement->receipt_date?->format('d/m/Y') ?: '-' }}</td>
-                        <td>{{ $versement->gare->name }}</td>
-                        <td>{{ $versement->bank_name ?: '-' }}</td>
-                        <td class="amount-cell">{{ number_format($versement->amount, 0, '', ' ') }}</td>
-                        <td>
+                        <td data-label="Date operation">{{ $versement->operation_date?->format('d/m/Y') }}</td>
+                        <td data-label="Date recette">{{ $versement->receipt_date?->format('d/m/Y') ?: '-' }}</td>
+                        <td data-label="Gare" title="{{ $versement->gare->name }}"><span class="cell-truncate">{{ $versement->gare->name }}</span></td>
+                        <td data-label="Banque" title="{{ $versement->bank_name ?: '-' }}"><span class="cell-truncate">{{ $versement->bank_name ?: '-' }}</span></td>
+                        <td class="amount-cell amount-nowrap" data-label="Montant en FCFA">{{ number_format($versement->amount, 0, '', ' ') }}</td>
+                        <td data-label="Bordereau">
                             @forelse($versement->justificatives as $piece)
                                 <div class="doc-links">
                                     <a class="btn btn-sm btn-outline" href="{{ route('justificatifs.preview', $piece) }}" data-internal-file-preview data-file-title="{{ $piece->original_name ?? 'Bordereau versement' }}" onclick="return window.openInternalFileViewer(this);">
@@ -100,7 +100,7 @@
                                 -
                             @endforelse
                         </td>
-                        <td class="actions-cell">
+                        <td class="actions-cell" data-label="Action">
                             @can('update', $versement)
                                 <a class="btn btn-sm btn-outline" href="{{ route('versements.edit', $versement) }}">
                                     <span class="icon">{!! app_icon('edit') !!}</span>
