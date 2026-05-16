@@ -31,12 +31,12 @@ class CashierReceiptConfirmation extends Model
     {
         return [
             'operation_date' => 'date',
-            'expected_total' => 'decimal:2',
-            'expected_inter_total' => 'decimal:2',
-            'expected_national_total' => 'decimal:2',
-            'received_total' => 'decimal:2',
-            'received_inter_total' => 'decimal:2',
-            'received_national_total' => 'decimal:2',
+            'expected_total' => 'integer',
+            'expected_inter_total' => 'integer',
+            'expected_national_total' => 'integer',
+            'received_total' => 'integer',
+            'received_inter_total' => 'integer',
+            'received_national_total' => 'integer',
             'is_verified' => 'boolean',
             'verified_at' => 'datetime',
         ];
@@ -57,4 +57,3 @@ class CashierReceiptConfirmation extends Model
         return $this->belongsTo(User::class, 'verified_by');
     }
 }
-

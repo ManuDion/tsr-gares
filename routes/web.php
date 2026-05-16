@@ -7,8 +7,10 @@ use App\Http\Controllers\Auth\PasswordPersonalizationController;
 use App\Http\Controllers\ConversationController;
 use App\Http\Controllers\CashierReceiptController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DailyMissingEntriesController;
 use App\Http\Controllers\DepenseController;
 use App\Http\Controllers\ExportController;
+use App\Http\Controllers\BankRoutingOverrideController;
 use App\Http\Controllers\GareController;
 use App\Http\Controllers\JustificatifController;
 use App\Http\Controllers\NotificationHistoryController;
@@ -55,6 +57,13 @@ Route::middleware('auth')->group(function () {
         Route::delete('/verifications/purge-period', [VerificationController::class, 'purgePeriod'])->name('verifications.purge-period');
         Route::post('/verifications/{verification}/confirm', [VerificationController::class, 'confirm'])->name('verifications.confirm');
         Route::post('/verifications/{verification}/enable-adjustments', [VerificationController::class, 'enableAdjustments'])->name('verifications.enable-adjustments');
+        Route::get('/verifications/ecritures-manquantes', [DailyMissingEntriesController::class, 'index'])->name('verifications.missing-entries');
+        Route::get('/verifications/ecritures-manquantes/pdf', [DailyMissingEntriesController::class, 'exportPdf'])->name('verifications.missing-entries.pdf');
+        Route::get('/parametrage-banque', [BankRoutingOverrideController::class, 'index'])->name('bank-routing-overrides.index');
+        Route::post('/parametrage-banque', [BankRoutingOverrideController::class, 'store'])->name('bank-routing-overrides.store');
+        Route::post('/parametrage-banque/{override}/disable', [BankRoutingOverrideController::class, 'disable'])->name('bank-routing-overrides.disable');
+        Route::post('/parametrage-banque/disable-all', [BankRoutingOverrideController::class, 'disableAll'])->name('bank-routing-overrides.disable-all');
+        Route::delete('/parametrage-banque/{override}', [BankRoutingOverrideController::class, 'destroy'])->name('bank-routing-overrides.destroy');
 
         Route::get('/receptions-caissier', [CashierReceiptController::class, 'index'])->name('cashier-receipts.index');
         Route::post('/receptions-caissier', [CashierReceiptController::class, 'store'])->name('cashier-receipts.store');
@@ -64,6 +73,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/chat', [ConversationController::class, 'store'])->name('chat.store');
         Route::get('/chat/{conversation}', [ConversationController::class, 'show'])->name('chat.show');
         Route::post('/chat/{conversation}/messages', [ConversationController::class, 'storeMessage'])->name('chat.messages.store');
+        Route::get('/chat/messages/{message}/audio', [ConversationController::class, 'audio'])->name('chat.messages.audio');
 
         Route::get('/documents-administratifs', [AdministrativeDocumentController::class, 'index'])->name('administrative-documents.index');
         Route::get('/documents-administratifs/create', [AdministrativeDocumentController::class, 'create'])->name('administrative-documents.create');

@@ -61,5 +61,5 @@
         </table>
     </div>
 
-    {{ $gares->links() }}
+    {{ $gares->links('partials.pagination') }}
 @endsection

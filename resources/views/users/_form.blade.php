@@ -1,8 +1,15 @@
 @php
-    $selectedModule = (string) old('module', isset($user) ? ($user->assignedModule()?->value ?? '') : '');
+    $forcedModule = $forcedModule ?? null;
+    $allowNoModuleOption = $allowNoModuleOption ?? true;
+    $selectedModule = (string) old('module', isset($user) ? ($user->assignedModule()?->value ?? '') : ($forcedModule ?? ''));
+    if ($forcedModule && $selectedModule !== $forcedModule) {
+        $selectedModule = $forcedModule;
+    }
     $selectedRole = old('role', isset($user) ? $user->role?->value : null);
     $selectedZoneGares = old('zone_gares', isset($user) ? $user->gares->pluck('id')->map(fn ($id) => (string) $id)->all() : []);
     $selectedModules = old('modules', isset($user) ? $user->moduleMemberships() : []);
+    $allowMultiGareEntry = old('allow_multi_gare_entry', isset($user) ? (bool) $user->allow_multi_gare_entry : false);
+    $cashierCollectionMode = old('cashier_collection_mode', isset($user) ? $user->cashierCollectionMode() : \App\Models\User::CASHIER_COLLECTION_BOTH);
     if ($selectedModule !== '' && ! in_array($selectedModule, $selectedModules, true)) {
         $selectedModules[] = $selectedModule;
     }
@@ -42,17 +49,25 @@
     <div class="col-span-2">
         <label>Service / module principal</label>
         <div class="radio-grid radio-grid-services">
-            <label class="radio-card">
-                <input type="radio" name="module" value="" data-user-module @checked($selectedModule === '')>
-                <span>
-                    <strong>Aucun service</strong>
-                    <small>Supervision globale. Reserve aux roles Administrateur et Responsable.</small>
-                </span>
-            </label>
+            @if($allowNoModuleOption)
+                <label class="radio-card">
+                    <input type="radio" name="module" value="" data-user-module @checked($selectedModule === '')>
+                    <span>
+                        <strong>Aucun service</strong>
+                        <small>Supervision globale. Reserve aux roles Administrateur et Responsable.</small>
+                    </span>
+                </label>
+            @endif
 
             @foreach($moduleOptions as $module)
                 <label class="radio-card">
-                    <input type="radio" name="module" value="{{ $module['value'] }}" data-user-module @checked($selectedModule === $module['value'])>
+                    <input
+                        type="radio"
+                        name="module"
+                        value="{{ $module['value'] }}"
+                        data-user-module
+                        @checked($selectedModule === $module['value'])
+                        @disabled($forcedModule && $forcedModule !== $module['value'])>
                     <span>
                         <strong>{{ $module['label'] }}</strong>
                         <small>{{ $module['description'] }}</small>
@@ -61,6 +76,9 @@
             @endforeach
         </div>
         <small>Le module principal pilote le role principal et l'espace ouvert par defaut.</small>
+        @if($forcedModule)
+            <input type="hidden" name="module" value="{{ $forcedModule }}">
+        @endif
     </div>
 
     <div class="col-span-2">
@@ -68,7 +86,12 @@
         <div class="checkbox-grid">
             @foreach($moduleOptions as $module)
                 <label class="checkbox-card">
-                    <input type="checkbox" name="modules[]" value="{{ $module['value'] }}" @checked(in_array($module['value'], $selectedModules, true))>
+                    <input
+                        type="checkbox"
+                        name="modules[]"
+                        value="{{ $module['value'] }}"
+                        @checked(in_array($module['value'], $selectedModules, true) || ($forcedModule && $forcedModule === $module['value']))
+                        @disabled($forcedModule && $forcedModule !== $module['value'])>
                     <span>
                         <strong>{{ $module['short_label'] }}</strong>
                         <small>{{ $module['label'] }}</small>
@@ -77,6 +100,9 @@
             @endforeach
         </div>
         <small>Exemple: un meme utilisateur peut etre rattache aux services Gares et Courrier.</small>
+        @if($forcedModule)
+            <input type="hidden" name="modules[]" value="{{ $forcedModule }}">
+        @endif
     </div>
 
     <div>
@@ -89,7 +115,7 @@
             data-role-options='@json($roleOptionsByModule)'>
         </select>
         <small>La liste des roles s'adapte automatiquement au service choisi. Sans service, seuls Administrateur et Responsable sont proposes.</small>
-        <div class="badge badge-info" data-supervision-label hidden style="margin-top:.5rem;">
+        <div class="badge badge-info supervision-badge" data-supervision-label hidden>
             <span data-supervision-label-text></span>
         </div>
     </div>
@@ -137,6 +163,24 @@
                 @endforeach
             </div>
         </div>
+    </div>
+
+    <div data-cashier-collection-section class="col-span-2" hidden>
+        <label>Type de recettes a recuperer (caissier)</label>
+        <select name="cashier_collection_mode" data-cashier-collection-mode>
+            <option value="both" @selected($cashierCollectionMode === 'both')>Recettes nationales et internationales</option>
+            <option value="national_only" @selected($cashierCollectionMode === 'national_only')>Recettes nationales uniquement</option>
+            <option value="inter_only" @selected($cashierCollectionMode === 'inter_only')>Recettes internationales uniquement</option>
+        </select>
+        <small>Ce parametre limite les montants proposes au caissier lors de la validation des receptions.</small>
+    </div>
+
+    <div class="col-span-2">
+        <label class="checkbox-line">
+            <input type="checkbox" name="allow_multi_gare_entry" value="1" data-allow-multi-gare-entry @checked($allowMultiGareEntry)>
+            <span>Autoriser la saisie sur plusieurs gares pour cet utilisateur</span>
+        </label>
+        <small>Activez cette option pour les profils specifiques qui doivent enregistrer des operations sur plusieurs gares.</small>
     </div>
 
     <div class="col-span-2">

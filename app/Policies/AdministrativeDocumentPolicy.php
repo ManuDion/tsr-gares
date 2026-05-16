@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Enums\ServiceModule;
 use App\Models\AdministrativeDocument;
 use App\Models\User;
 
@@ -9,7 +10,7 @@ class AdministrativeDocumentPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->isAdmin() || $user->isResponsable() || $user->isControleur();
+        return $user->canAdministerModule(ServiceModule::Documents) || $user->isControleur();
     }
 
     public function view(User $user, AdministrativeDocument $document): bool
@@ -29,6 +30,6 @@ class AdministrativeDocumentPolicy
 
     public function delete(User $user, AdministrativeDocument $document): bool
     {
-        return $user->isAdmin() || $user->isControleur();
+        return $user->canAdministerModule(ServiceModule::Documents) || $user->isControleur();
     }
 }

@@ -43,6 +43,60 @@
             const template = repeater.querySelector('#depense-entry-template');
             const maxItems = parseInt(repeater.getAttribute('data-max-items') || '5', 10);
 
+            function sanitizeIntegerField(input) {
+                if (!input) return;
+                const raw = String(input.value || '');
+                const digits = raw.replace(/[^\d]/g, '');
+                if (digits === '') {
+                    input.value = '';
+                    return;
+                }
+                input.value = String(parseInt(digits, 10));
+            }
+
+            function propagateFirstGareToEntries() {
+                const entries = Array.from(wrapper.querySelectorAll('[data-depense-entry]'));
+                if (entries.length <= 1) return;
+
+                const firstEntry = entries[0];
+                const firstLabel = firstEntry.querySelector('input[data-gare-label]');
+                const firstHidden = firstEntry.querySelector('input[data-gare-id]');
+
+                if (!firstLabel || !firstHidden || !firstHidden.value) {
+                    return;
+                }
+
+                entries.slice(1).forEach(function (entry) {
+                    const gareLabel = entry.querySelector('input[data-gare-label]');
+                    const gareHidden = entry.querySelector('input[data-gare-id]');
+
+                    if (!gareLabel || !gareHidden) return;
+                    gareLabel.value = firstLabel.value;
+                    gareHidden.value = firstHidden.value;
+                });
+            }
+
+            function bindFirstGarePropagation() {
+                function shouldPropagateFromTarget(target) {
+                    if (!target || !target.matches('input[data-gare-label], input[data-gare-id]')) return false;
+                    const entry = target.closest('[data-depense-entry]');
+                    if (!entry) return false;
+                    const firstEntry = wrapper.querySelector('[data-depense-entry]');
+
+                    return entry === firstEntry;
+                }
+
+                wrapper.addEventListener('change', function (event) {
+                    if (!shouldPropagateFromTarget(event.target)) return;
+                    window.setTimeout(propagateFirstGareToEntries, 0);
+                });
+
+                wrapper.addEventListener('input', function (event) {
+                    if (!shouldPropagateFromTarget(event.target)) return;
+                    window.setTimeout(propagateFirstGareToEntries, 0);
+                });
+            }
+
             function refreshState() {
                 const items = wrapper.querySelectorAll('[data-depense-entry]');
                 items.forEach(function (item, idx) {
@@ -68,6 +122,7 @@
                 const html = template.innerHTML.replace(/__INDEX__/g, nextIndex);
                 wrapper.insertAdjacentHTML('beforeend', html);
                 repeater.setAttribute('data-next-index', String(nextIndex + 1));
+                propagateFirstGareToEntries();
                 refreshState();
             });
 
@@ -78,10 +133,33 @@
                 const entry = button.closest('[data-depense-entry]');
                 if (entry) {
                     entry.remove();
+                    propagateFirstGareToEntries();
                     refreshState();
                 }
             });
 
+            wrapper.addEventListener('input', function (event) {
+                const input = event.target.closest('[data-depense-entry-amount]');
+                if (!input) return;
+                sanitizeIntegerField(input);
+            });
+
+            wrapper.addEventListener('focusin', function (event) {
+                const input = event.target.closest('[data-depense-entry-amount]');
+                if (!input) return;
+                if ((input.value || '').trim() === '0') {
+                    input.value = '';
+                }
+            });
+
+            wrapper.addEventListener('focusout', function (event) {
+                const input = event.target.closest('[data-depense-entry-amount]');
+                if (!input) return;
+                sanitizeIntegerField(input);
+            });
+
+            bindFirstGarePropagation();
+            propagateFirstGareToEntries();
             refreshState();
         });
     </script>

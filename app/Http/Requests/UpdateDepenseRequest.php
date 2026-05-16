@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Support\JustificatifFileRules;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateDepenseRequest extends FormRequest
@@ -11,30 +12,43 @@ class UpdateDepenseRequest extends FormRequest
         return $this->user() !== null;
     }
 
+    protected function prepareForValidation(): void
+    {
+        if ($this->hasFile('justificatif') && ! $this->hasFile('justificatifs')) {
+            $this->files->set('justificatifs', [$this->file('justificatif')]);
+        }
+
+        if ($this->exists('amount')) {
+            $value = (string) $this->input('amount');
+            $normalized = preg_replace('/[^\d]/', '', $value ?? '');
+            $this->merge([
+                'amount' => $normalized === '' ? null : (int) $normalized,
+            ]);
+        }
+    }
+
     public function rules(): array
     {
         return [
             'gare_id' => ['nullable', 'integer', 'exists:gares,id'],
             'operation_date' => ['required', 'date'],
-            'amount' => ['required', 'numeric', 'min:0'],
+            'amount' => ['required', 'integer', 'min:0'],
             'motif' => ['required', 'string', 'max:150'],
             'reference' => ['nullable', 'string', 'max:100'],
             'description' => ['nullable', 'string', 'max:500'],
             'justificatif_name' => ['nullable', 'string', 'max:120'],
             'history_comment' => ['nullable', 'string', 'max:255'],
-            'justificatif' => [
-                'required',
-                'file',
-                'mimes:pdf,jpg,jpeg,png',
-                'max:'.(int) env('JUSTIFICATIF_MAX_SIZE_KB', 5120),
-            ],
+            'justificatifs' => ['nullable', 'array', 'min:1', 'max:10'],
+            'justificatifs.*' => JustificatifFileRules::single(false),
         ];
     }
 
     public function messages(): array
     {
         return [
-            'justificatif.required' => 'Le justificatif est obligatoire pour modifier une dépense.',
+            'justificatifs.*.file' => 'Le justificatif doit etre un fichier valide.',
+            'justificatifs.max' => 'Vous pouvez joindre au maximum 10 photos/fichiers justificatifs par depense.',
+            'justificatifs.*.uploaded' => 'Le televersement du justificatif a echoue. Veuillez reessayer.',
         ];
     }
 }

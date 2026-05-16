@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\ServiceModule;
+use App\Models\Gare;
 use App\Models\VerificationCheck;
 use App\Services\VerificationService;
 use App\Support\ModuleContext;
@@ -34,15 +35,26 @@ class VerificationController extends Controller
             ->with(['gare', 'reviewer'])
             ->where('service_scope', $serviceScope)
             ->whereDate('operation_date', $operationDate)
-            ->when(! $request->user()->canViewAllGares(), fn ($q) => $q->whereIn('gare_id', $request->user()->accessibleGareIds($serviceScope)))
+            ->when(! $request->user()->canViewAllGares($serviceScope), fn ($q) => $q->whereIn('gare_id', $request->user()->accessibleGareIds($serviceScope)))
+            ->when($request->filled('gare_id'), fn ($q) => $q->where('gare_id', (int) $request->integer('gare_id')))
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')->toString()))
             ->orderByDesc('difference')
             ->orderBy('gare_id')
             ->paginate(20)
             ->withQueryString();
 
+        $gares = Gare::query()
+            ->where('is_active', true)
+            ->when(
+                ! $request->user()->canViewAllGares($serviceScope),
+                fn ($q) => $q->whereIn('id', $request->user()->accessibleGareIds($serviceScope))
+            )
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
         return view('verifications.index', [
             'checks' => $checks,
+            'gares' => $gares,
             'operationDate' => $operationDate,
             'module' => $module,
             'statuses' => [
@@ -73,29 +85,45 @@ class VerificationController extends Controller
     public function enableAdjustments(Request $request, VerificationCheck $verification): RedirectResponse
     {
         $this->authorize('update', $verification);
+        abort_unless($request->user()->canUnlockFinancialScope($verification->service_scope), 403);
+
+        $validated = $request->validate([
+            'review_note' => ['nullable', 'string', 'max:500'],
+            'unlock_duration' => ['required', 'integer', 'min:1', 'max:10000'],
+            'unlock_unit' => ['required', 'in:minutes,hours,days'],
+        ]);
+
+        $duration = (int) ($validated['unlock_duration'] ?? 24);
+        $unit = (string) ($validated['unlock_unit'] ?? 'hours');
+        $unitLabel = match ($unit) {
+            'minutes' => 'minute(s)',
+            'days' => 'jour(s)',
+            default => 'heure(s)',
+        };
 
         $this->service->enableAdjustments(
             $verification,
             $request->user(),
-            $request->string('review_note')->toString() ?: null
+            isset($validated['review_note']) ? (trim((string) $validated['review_note']) ?: null) : null,
+            $duration,
+            $unit
         );
 
         $module = ($verification->service_scope ?? 'gares') === 'courrier' ? ServiceModule::Courrier : ServiceModule::Gares;
 
         return redirect()->route('verifications.index', ['module' => $module->value, 'operation_date' => optional($verification->operation_date)->toDateString()])
-            ->with('status', 'Les ajustements ont été ouverts pour la gare concernée.');
+            ->with('status', "Les ajustements ont été ouverts pour {$duration} {$unitLabel}.");
     }
 
     public function purgePeriod(Request $request): RedirectResponse
     {
-        abort_unless($request->user()->isAdmin(), 403);
+        $module = ModuleContext::fromRequest($request, $request->user());
+        abort_unless($request->user()->canAdministerModule($module), 403);
 
         $data = $request->validate([
             'start_date' => ['required', 'date'],
             'end_date' => ['required', 'date', 'after_or_equal:start_date'],
         ]);
-
-        $module = ModuleContext::fromRequest($request, $request->user());
         $serviceScope = $module->supportsFinancialFlows() ? ModuleContext::financialScope($module) : 'gares';
 
         $deleted = VerificationCheck::query()

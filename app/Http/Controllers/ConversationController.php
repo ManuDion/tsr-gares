@@ -3,13 +3,16 @@
 namespace App\Http\Controllers;
 
 use App\Enums\ServiceModule;
+use App\Models\ChatMessage;
 use App\Models\Conversation;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class ConversationController extends Controller
 {
@@ -193,18 +196,79 @@ class ConversationController extends Controller
         $this->authorize('view', $conversation);
 
         $data = $request->validate([
-            'content' => ['required', 'string', 'max:4000'],
+            'content' => ['nullable', 'string', 'max:4000'],
+            'audio' => [
+                'nullable',
+                'file',
+                'mimes:webm,mp3,wav,ogg,m4a,aac,mp4',
+                'mimetypes:audio/webm,video/webm,audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/ogg,audio/mp4,audio/x-m4a,audio/aac',
+                'max:10240',
+            ],
+        ], [
+            'audio.file' => 'Le message audio doit etre un fichier valide.',
+            'audio.mimes' => 'Format audio non supporte. Utilisez webm, mp3, wav, ogg, m4a ou aac.',
+            'audio.mimetypes' => 'Format audio non supporte. Veuillez reessayer avec un enregistrement webm.',
+            'audio.max' => 'Le message audio est trop volumineux (max 10 Mo).',
+            'audio.uploaded' => "Le televersement du message audio a echoue. Veuillez reessayer.",
         ]);
 
-        $conversation->messages()->create([
+        $content = trim((string) ($data['content'] ?? ''));
+        $audioFile = $request->file('audio');
+        if ($content === '' && ! $audioFile) {
+            return back()->withErrors([
+                'content' => 'Veuillez saisir un message ou enregistrer un audio.',
+            ]);
+        }
+
+        $payload = [
             'user_id' => $request->user()->id,
-            'content' => $data['content'],
-        ]);
+            'content' => $content,
+            'message_type' => $audioFile ? 'audio' : 'text',
+        ];
+
+        if ($audioFile) {
+            $disk = env('CHAT_MEDIA_PRIVATE_DISK', env('JUSTIFICATIF_PRIVATE_DISK', 'private'));
+            $path = $audioFile->store('chat/audio/'.now()->format('Y/m'), $disk);
+
+            $payload['audio_disk'] = $disk;
+            $payload['audio_path'] = $path;
+            $payload['audio_mime_type'] = $audioFile->getMimeType() ?: 'audio/webm';
+            $payload['audio_size'] = $audioFile->getSize();
+        }
+
+        $conversation->messages()->create($payload);
 
         $conversation->update(['last_message_at' => now()]);
         $conversation->participants()->updateExistingPivot($request->user()->id, ['last_read_at' => now()]);
 
         return back()->with('status', 'Message envoye.');
+    }
+
+    public function audio(Request $request, ChatMessage $message): BinaryFileResponse
+    {
+        $conversation = $message->conversation;
+        abort_unless($conversation, 404);
+
+        if ($conversation->conversation_type === 'general') {
+            $this->ensureGeneralConversationAccess($request->user());
+        }
+
+        if (in_array($conversation->conversation_type, ['service_internal', 'inter_service'], true)) {
+            $this->ensureServiceConversationAccess($request->user(), $conversation);
+        }
+
+        $this->authorize('view', $conversation);
+        abort_unless($message->isAudio(), 404);
+        abort_unless($message->audio_disk && $message->audio_path, 404);
+        abort_unless(Storage::disk($message->audio_disk)->exists($message->audio_path), 404);
+
+        return response()->file(
+            Storage::disk($message->audio_disk)->path($message->audio_path),
+            [
+                'Content-Type' => $message->audio_mime_type ?: 'audio/webm',
+                'Content-Disposition' => 'inline; filename="message-audio-'.$message->id.'.webm"',
+            ]
+        );
     }
 
     public function pruneInactiveConversations(): int

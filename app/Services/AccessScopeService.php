@@ -19,7 +19,7 @@ class AccessScopeService
             $query->where($query->getModel()->getTable().'.service_scope', $serviceScope);
         }
 
-        if ($user->canViewAllGares()) {
+        if ($user->canViewAllGares($serviceScope)) {
             return $query;
         }
 
@@ -29,8 +29,14 @@ class AccessScopeService
     public function availableGares(User $user, ?string $serviceScope = null)
     {
         $query = Gare::query()->where('is_active', true)->where('is_virtual', false)->orderBy('name');
+        if ($serviceScope === 'courrier') {
+            $query->where(function ($inner) {
+                $inner->whereNull('activity_mode')
+                    ->orWhere('activity_mode', '!=', 'inter_only');
+            });
+        }
 
-        if ($user->canViewAllGares()) {
+        if ($user->canViewAllGares($serviceScope)) {
             return $query->get();
         }
 
@@ -44,30 +50,50 @@ class AccessScopeService
     public function resolveGareIdForCreation(User $user, ?int $requestedGareId, ?string $serviceScope = null): int
     {
         $serviceScope = $serviceScope ?: $user->defaultModule()->financialScope();
+        $resolvedGareId = null;
 
         if ($user->canActAsChefForScope((string) $serviceScope)) {
-            if (! $user->gare_id) {
-                throw ValidationException::withMessages([
-                    'gare_id' => "Aucune gare n'est affectée à cet utilisateur.",
-                ]);
+            if ($user->canUseMultiGareEntry()) {
+                if (! $requestedGareId || ! $user->hasAccessToGare($requestedGareId, $serviceScope)) {
+                    throw ValidationException::withMessages([
+                        'gare_id' => 'La gare selectionnee est invalide pour votre profil.',
+                    ]);
+                }
+
+                $resolvedGareId = (int) $requestedGareId;
+            } else {
+                if (! $user->gare_id) {
+                    throw ValidationException::withMessages([
+                        'gare_id' => "Aucune gare n'est affectee a cet utilisateur.",
+                    ]);
+                }
+
+                $resolvedGareId = (int) $user->gare_id;
             }
-
-            return $user->gare_id;
-        }
-
-        if ($user->canActAsCashierForScope((string) $serviceScope)) {
+        } elseif ($user->canActAsCashierForScope((string) $serviceScope)) {
             if (! $requestedGareId || ! $user->hasAccessToGare($requestedGareId, $serviceScope)) {
                 throw ValidationException::withMessages([
-                    'gare_id' => 'La gare sélectionnée est invalide pour votre profil.',
+                    'gare_id' => 'La gare selectionnee est invalide pour votre profil.',
                 ]);
             }
 
-            return $requestedGareId;
+            $resolvedGareId = (int) $requestedGareId;
+        } else {
+            throw ValidationException::withMessages([
+                'role' => "Votre role n'autorise pas la saisie sur ce module.",
+            ]);
         }
 
-        throw ValidationException::withMessages([
-            'role' => "Votre rôle n'autorise pas la saisie sur ce module.",
-        ]);
+        if ($serviceScope === 'courrier') {
+            $gare = Gare::query()->find($resolvedGareId);
+            if ($gare?->isInterOnly()) {
+                throw ValidationException::withMessages([
+                    'gare_id' => 'Cette gare est en mode inter uniquement. Elle ne peut pas etre rattachee au service courrier.',
+                ]);
+            }
+        }
+
+        return $resolvedGareId;
     }
 
     protected function hasServiceScopeColumn(Builder $query): bool

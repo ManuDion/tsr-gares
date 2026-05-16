@@ -42,13 +42,13 @@ class NotificationHistoryController extends Controller
 
     public function purgePeriod(Request $request): RedirectResponse
     {
-        abort_unless($request->user()->isAdmin(), 403);
+        $module = ModuleContext::fromRequest($request, $request->user());
+        abort_unless($request->user()->canAdministerModule($module), 403);
 
         $data = $request->validate([
             'start_date' => ['required', 'date'],
             'end_date' => ['required', 'date', 'after_or_equal:start_date'],
         ]);
-        $module = ModuleContext::fromRequest($request, $request->user());
 
         $deleted = NotificationHistory::query()
             ->forModule($module)

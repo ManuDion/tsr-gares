@@ -21,7 +21,7 @@
                 <input type="text" value="{{ $virtualGare?->name ?? 'Compte caissier' }}" disabled>
                 <small>Affectee automatiquement a votre caisse.</small>
             </div>
-        @elseif(auth()->user()->canActAsChefForScope($scope))
+        @elseif(auth()->user()->canActAsChefForScope($scope) && ! auth()->user()->canUseMultiGareEntry())
             <div>
                 <label>Gare affectee</label>
                 <input type="hidden" name="entries[{{ $index }}][gare_id]" value="{{ auth()->user()->gare_id }}">
@@ -43,7 +43,11 @@
         </div>
         <div>
             <label>Montant</label>
-            <input type="number" step="0.01" min="0" name="entries[{{ $index }}][amount]" value="{{ old($oldPrefix.'.amount', data_get($entry, 'amount')) }}" required>
+            @php
+                $entryAmount = old($oldPrefix.'.amount', data_get($entry, 'amount'));
+                $entryAmount = is_numeric($entryAmount) ? (int) round((float) $entryAmount, 0) : $entryAmount;
+            @endphp
+            <input type="text" inputmode="numeric" pattern="[0-9]*" name="entries[{{ $index }}][amount]" value="{{ (string) $entryAmount === '0' ? '' : $entryAmount }}" data-depense-entry-amount data-clear-zero required>
         </div>
         <div>
             <label>Motif</label>
@@ -62,8 +66,8 @@
             <input type="text" name="entries[{{ $index }}][justificatif_name]" value="{{ old($oldPrefix.'.justificatif_name', data_get($entry, 'justificatif_name')) }}" placeholder="Ex. Depense billetage {{ is_numeric($index) ? ((int) $index + 1) : '' }}">
         </div>
         <div>
-            <label>Justificatif (max {{ $maxSizeKb }} Ko)</label>
-            <input type="file" name="entries[{{ $index }}][justificatif]" accept=".pdf,.jpg,.jpeg,.png" required>
+            <label>Justificatifs (max 10, {{ $maxSizeKb }} Ko par fichier)</label>
+            <input type="file" name="entries[{{ $index }}][justificatifs][]" accept="image/*,.heic,.heif,.webp,.jpg,.jpeg,.png,.pdf,application/pdf" multiple required>
         </div>
     </div>
 </div>

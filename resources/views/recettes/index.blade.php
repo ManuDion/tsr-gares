@@ -2,7 +2,7 @@
 
 @section('title', 'Recettes')
 @section('heading', ($module?->value ?? 'gares') === 'courrier' ? 'Recettes courrier' : 'Gestion des recettes')
-@section('subheading', ($module?->value ?? 'gares') === 'courrier' ? 'Recettes du service courrier par gare et par periode' : (auth()->user()->canViewAllGares() ? 'Saisie, consultation, modification et export' : 'Recettes visibles et modifiables dans votre perimetre'))
+@section('subheading', ($module?->value ?? 'gares') === 'courrier' ? 'Recettes du service courrier par gare et par periode' : (auth()->user()->canViewAllGares($module->financialScope()) ? 'Saisie, consultation, modification et export' : 'Recettes visibles et modifiables dans votre perimetre'))
 
 @section('actions')
     @can('create', App\Models\Recette::class)
@@ -11,7 +11,11 @@
 @endsection
 
 @section('content')
-    @if(auth()->user()->canViewAllGares())
+    @php
+        $isCourrier = ($module?->value ?? 'gares') === 'courrier';
+        $isVerificateur = auth()->user()->isVerificateur();
+    @endphp
+    @if(auth()->user()->canViewAllGares($module->financialScope()) || $isVerificateur)
         <div class="panel">
             <form method="GET" class="filters-grid">
                 <input type="hidden" name="module" value="{{ $module->value }}">
@@ -32,6 +36,25 @@
                     <label>Date fin</label>
                     <input type="date" name="end_date" value="{{ request('end_date') }}">
                 </div>
+                @if($isVerificateur)
+                    <div>
+                        <label>Saisi par</label>
+                        <input type="text" name="creator_name" value="{{ request('creator_name') }}" placeholder="Nom utilisateur">
+                    </div>
+                    <div>
+                        <label>Numero de telephone</label>
+                        <input type="text" name="creator_phone" value="{{ request('creator_phone') }}" placeholder="Ex. 0700000000">
+                    </div>
+                    <div>
+                        <label>Modification</label>
+                        <select name="modification_state">
+                            <option value="">Tous</option>
+                            <option value="unlock_active" @selected(request('modification_state') === 'unlock_active')>Deverrouillage actif</option>
+                            <option value="unlock_expired" @selected(request('modification_state') === 'unlock_expired')>Deverrouillage expire</option>
+                            <option value="locked" @selected(request('modification_state') === 'locked')>Aucun deverrouillage</option>
+                        </select>
+                    </div>
+                @endif
                 <div class="align-end gap-sm">
                     <button class="btn btn-outline" type="submit">Filtrer</button>
                     <a class="btn btn-outline" href="{{ route('exports.recettes', array_merge(request()->query(), ['module' => $module->value])) }}">Exporter Excel</a>
@@ -40,19 +63,16 @@
         </div>
     @endif
 
-    <div class="table-wrapper">
+    <div class="table-wrapper recettes-table">
         <table>
             <thead>
                 <tr>
                     <th>Date</th>
                     <th>Gare</th>
-                    <th><span class="th-stack">Montant<small>en FCFA</small></span></th>
-                    <th>Recette inter</th>
-                    <th>Recette nationale</th>
-                    <th>Composition</th>
+                    <th>Composition<br>recettes</th>
                     <th>Justificatif</th>
                     <th>Saisi par</th>
-                    <th></th>
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -60,26 +80,31 @@
                     <tr>
                         <td>{{ $recette->operation_date?->format('d/m/Y') }}</td>
                         <td>{{ $recette->gare->name }}</td>
-                        <td class="amount-cell">{{ number_format($recette->amount, 0, ',', ' ') }}</td>
-                        <td class="amount-cell">{{ number_format(($recette->ticket_inter_amount + $recette->bagage_inter_amount), 0, ',', ' ') }}</td>
-                        <td class="amount-cell">{{ number_format(($recette->ticket_national_amount + $recette->bagage_national_amount), 0, ',', ' ') }}</td>
                         <td>
-                            <div class="breakdown-summary">
-                                <span>TI : {{ number_format($recette->ticket_inter_amount, 0, ',', ' ') }}</span>
-                                <span>TN : {{ number_format($recette->ticket_national_amount, 0, ',', ' ') }}</span>
-                                <span>BI : {{ number_format($recette->bagage_inter_amount, 0, ',', ' ') }}</span>
-                                <span>BN : {{ number_format($recette->bagage_national_amount, 0, ',', ' ') }}</span>
-                            </div>
+                            @if($isCourrier)
+                                <div class="breakdown-summary">
+                                    <span>RC : {{ number_format($recette->amount, 0, '', ' ') }}</span>
+                                </div>
+                            @else
+                                <div class="breakdown-summary">
+                                    <span>TI : {{ number_format($recette->ticket_inter_amount, 0, '', ' ') }}</span>
+                                    <span>TN : {{ number_format($recette->ticket_national_amount, 0, '', ' ') }}</span>
+                                    <span>BI : {{ number_format($recette->bagage_inter_amount, 0, '', ' ') }}</span>
+                                    <span>BN : {{ number_format($recette->bagage_national_amount, 0, '', ' ') }}</span>
+                                </div>
+                            @endif
                         </td>
                         <td>
                             @forelse($recette->justificatives as $piece)
                                 <div class="doc-links">
-                                    <a class="btn btn-sm btn-outline" href="{{ route('justificatifs.preview', $piece) }}" target="_blank">
+                                    <a class="btn btn-sm btn-outline" href="{{ route('justificatifs.preview', $piece) }}" data-internal-file-preview data-file-title="{{ $piece->original_name ?? 'Justificatif recette' }}" onclick="return window.openInternalFileViewer(this);">
                                         <span class="icon">{!! app_icon('eye') !!}</span> Lire
                                     </a>
-                                    <a class="btn btn-sm btn-outline" href="{{ route('justificatifs.download', $piece) }}">
-                                        <span class="icon">{!! app_icon('download') !!}</span> Telecharger
-                                    </a>
+                                    @if(auth()->user()->hasGlobalVisibility())
+                                        <a class="btn btn-sm btn-outline" href="{{ route('justificatifs.download', $piece) }}">
+                                            <span class="icon">{!! app_icon('download') !!}</span> Telecharger
+                                        </a>
+                                    @endif
                                 </div>
                             @empty
                                 -
@@ -98,7 +123,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="9">Aucune recette trouvee.</td></tr>
+                    <tr><td colspan="6">Aucune recette trouvee.</td></tr>
                 @endforelse
             </tbody>
         </table>

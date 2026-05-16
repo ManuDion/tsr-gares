@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Support\JustificatifFileRules;
 use Illuminate\Foundation\Http\FormRequest;
 
 class AnalyzeVersementBordereauRequest extends FormRequest
@@ -14,12 +15,14 @@ class AnalyzeVersementBordereauRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'bordereau' => [
-                'required',
-                'file',
-                'mimes:pdf,jpg,jpeg,png',
-                'max:'.(int) env('JUSTIFICATIF_MAX_SIZE_KB', 5120),
-            ],
+            'bordereau' => JustificatifFileRules::single(true),
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'bordereau.uploaded' => 'Le televersement du bordereau a echoue. Veuillez reessayer.',
         ];
     }
 }

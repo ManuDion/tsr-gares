@@ -18,6 +18,6 @@ class VerificationCheckPolicy
             return false;
         }
 
-        return $user->canViewAllGares() || $user->hasAccessToGare($check->gare_id, $check->service_scope);
+        return $user->canViewAllGares($check->service_scope) || $user->hasAccessToGare($check->gare_id, $check->service_scope);
     }
 }

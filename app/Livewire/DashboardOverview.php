@@ -13,6 +13,7 @@ use App\Models\NotificationHistory;
 use App\Models\Recette;
 use App\Models\VersementBancaire;
 use App\Support\ModuleContext;
+use Carbon\CarbonInterface;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -23,6 +24,7 @@ class DashboardOverview extends Component
 {
     public string $start_date = '';
     public string $end_date = '';
+    public string $period = 'month';
     public ?int $gare_id = null;
     public string $module = 'gares';
 
@@ -35,15 +37,10 @@ class DashboardOverview extends Component
         $user = auth()->user();
 
         if ($resolvedModule->supportsFinancialFlows()) {
-            if ($user->canViewAllGares()) {
-                $this->start_date = $now->copy()->subDays(7)->toDateString();
-                $this->end_date = $now->toDateString();
-            } else {
-                $this->start_date = $now->copy()->startOfMonth()->toDateString();
-                $this->end_date = $now->toDateString();
-                if ($user->isChefDeGare() || $user->isAgentCourrierGare()) {
-                    $this->gare_id = $user->gare_id;
-                }
+            $this->period = $user->canViewAllGares($resolvedModule->financialScope()) ? 'week' : 'month';
+            $this->syncPeriodRange($now);
+            if ($user->isChefDeGare() || $user->isAgentCourrierGare()) {
+                $this->gare_id = $user->gare_id;
             }
         }
     }
@@ -51,14 +48,90 @@ class DashboardOverview extends Component
     public function applyFilters(): void
     {
         $module = ServiceModule::from($this->module);
-        if (! auth()->user()->canViewAllGares() && $module->supportsFinancialFlows()) {
-            $now = now('Africa/Abidjan');
-            $this->start_date = $now->copy()->startOfMonth()->toDateString();
-            $this->end_date = $now->toDateString();
-            if (auth()->user()->isChefDeGare() || auth()->user()->isAgentCourrierGare()) {
-                $this->gare_id = auth()->user()->gare_id;
-            }
+        if ($module->supportsFinancialFlows()) {
+            $this->syncPeriodRange();
         }
+    }
+
+    public function updatedPeriod(): void
+    {
+        $this->syncPeriodRange();
+    }
+
+    protected function syncPeriodRange($now = null): void
+    {
+        $now = $now ?: now('Africa/Abidjan');
+
+        [$start, $end] = match ($this->period) {
+            'today' => [$now->copy()->toDateString(), $now->copy()->toDateString()],
+            'week' => [$now->copy()->subDays(6)->toDateString(), $now->copy()->toDateString()],
+            default => [$now->copy()->startOfMonth()->toDateString(), $now->copy()->toDateString()],
+        };
+
+        $this->start_date = $start;
+        $this->end_date = $end;
+    }
+
+    protected function periodLabel(): string
+    {
+        return match ($this->period) {
+            'today' => "Aujourd'hui",
+            'week' => 'Semaine en cours',
+            default => 'Mois en cours',
+        };
+    }
+
+    protected function periodCode(): string
+    {
+        return match ($this->period) {
+            'today' => 'today',
+            'week' => 'week',
+            default => 'month',
+        };
+    }
+
+    protected function weeklyRangesForPeriod(CarbonInterface $base): array
+    {
+        return match ($this->periodCode()) {
+            'today' => [[
+                'label' => "Aujourd'hui",
+                'start' => $base->copy(),
+                'end' => $base->copy(),
+            ]],
+            'week' => collect(range(0, 6))
+                ->map(function (int $offset) use ($base) {
+                    $day = $base->copy()->subDays(6 - $offset);
+
+                    return [
+                        'label' => $this->frenchWeekdayLabel($day),
+                        'start' => $day->copy(),
+                        'end' => $day->copy(),
+                    ];
+                })
+                ->values()
+                ->all(),
+            default => [
+                ['label' => 'S1', 'start' => $base->copy()->startOfMonth(), 'end' => $base->copy()->startOfMonth()->day(7)],
+                ['label' => 'S2', 'start' => $base->copy()->startOfMonth()->day(8), 'end' => $base->copy()->startOfMonth()->day(14)],
+                ['label' => 'S3', 'start' => $base->copy()->startOfMonth()->day(15), 'end' => $base->copy()->startOfMonth()->day(21)],
+                ['label' => 'S4', 'start' => $base->copy()->startOfMonth()->day(22), 'end' => $base->copy()->endOfMonth()],
+            ],
+        };
+    }
+
+    protected function frenchWeekdayLabel(CarbonInterface $day): string
+    {
+        $labels = [
+            1 => 'Lun',
+            2 => 'Mar',
+            3 => 'Mer',
+            4 => 'Jeu',
+            5 => 'Ven',
+            6 => 'Sam',
+            7 => 'Dim',
+        ];
+
+        return ($labels[$day->dayOfWeekIso] ?? $day->format('D')).' '.$day->format('d/m');
     }
 
     #[Computed]
@@ -70,7 +143,7 @@ class DashboardOverview extends Component
 
         $query = Gare::query()->where('is_active', true)->orderBy('name');
 
-        if (! $user->canViewAllGares()) {
+        if (! $user->canViewAllGares($scope)) {
             $query->whereIn('id', $user->accessibleGareIds($scope));
         }
 
@@ -95,11 +168,15 @@ class DashboardOverview extends Component
         $serviceScope = $module->financialScope() ?? 'gares';
         $isCourrier = $serviceScope === 'courrier';
         [$startDate, $endDate] = $this->resolvedPeriod($serviceScope);
+        $isVerificateur = $user->isVerificateur();
+        $accessibleGareCount = count($user->accessibleGareIds($serviceScope));
         $gareIds = $this->resolvedGareIds($serviceScope);
         $selectedGareId = $this->gare_id ? (int) $this->gare_id : null;
-        $showGlobalSections = $user->canViewAllGares() && ! $selectedGareId;
+        $showGlobalSections = $user->canViewAllGares($serviceScope) && ! $selectedGareId && ! $isVerificateur;
+        $showGareFilter = $user->canViewAllGares($serviceScope) || $isVerificateur || $accessibleGareCount > 1;
         $monthStart = now('Africa/Abidjan')->startOfMonth();
         $monthEnd = now('Africa/Abidjan')->endOfMonth();
+        $periodLabel = $this->periodLabel();
 
         $recettes = Recette::query()
             ->where('service_scope', $serviceScope)
@@ -117,7 +194,7 @@ class DashboardOverview extends Component
             ->whereIn('gare_id', $gareIds);
 
         $controls = collect();
-        if ($user->canViewAllGares()) {
+        if ($user->canViewAllGares($serviceScope)) {
             $controls = DailyControl::query()
                 ->where('service_scope', $serviceScope)
                 ->whereBetween('concerned_date', [$startDate, $endDate])
@@ -169,23 +246,30 @@ class DashboardOverview extends Component
             ];
         })->values();
 
-        $weeklyWindows = [
-            ['label' => 'S1', 'start' => $monthStart->copy(), 'end' => $monthStart->copy()->day(7)],
-            ['label' => 'S2', 'start' => $monthStart->copy()->day(8), 'end' => $monthStart->copy()->day(14)],
-            ['label' => 'S3', 'start' => $monthStart->copy()->day(15), 'end' => $monthStart->copy()->day(21)],
-            ['label' => 'S4', 'start' => $monthStart->copy()->day(22), 'end' => $monthEnd->copy()],
-        ];
+        $weeklyWindows = $this->weeklyRangesForPeriod(now('Africa/Abidjan'));
 
-        $weeklyComparison = collect($weeklyWindows)->map(function (array $window) use ($serviceScope, $gareIds) {
+        $weeklyComparison = collect($weeklyWindows)->map(function (array $window) use ($serviceScope, $gareIds, $isCourrier) {
             $period = [$window['start']->toDateString(), $window['end']->toDateString()];
+            $recettesQuery = Recette::query()
+                ->where('service_scope', $serviceScope)
+                ->whereBetween('operation_date', $period)
+                ->whereIn('gare_id', $gareIds);
+
+            $recettesInter = $isCourrier
+                ? 0.0
+                : (float) $recettesQuery->clone()->selectRaw('COALESCE(SUM(ticket_inter_amount + bagage_inter_amount), 0) as total')->value('total');
+            $recettesNational = $isCourrier
+                ? 0.0
+                : (float) $recettesQuery->clone()->selectRaw('COALESCE(SUM(ticket_national_amount + bagage_national_amount), 0) as total')->value('total');
+            $recettesTotal = $isCourrier
+                ? (float) $recettesQuery->clone()->sum('amount')
+                : $recettesInter + $recettesNational;
 
             return [
                 'label' => $window['label'],
-                'recettes' => (float) Recette::query()
-                    ->where('service_scope', $serviceScope)
-                    ->whereBetween('operation_date', $period)
-                    ->whereIn('gare_id', $gareIds)
-                    ->sum('amount'),
+                'recettes_inter' => $recettesInter,
+                'recettes_national' => $recettesNational,
+                'recettes_total' => $recettesTotal,
                 'depenses' => (float) Depense::query()
                     ->where('service_scope', $serviceScope)
                     ->whereBetween('operation_date', $period)
@@ -285,10 +369,18 @@ class DashboardOverview extends Component
         return [
             'mode' => 'financial',
             'module' => $module,
-            'user_can_view_all' => $user->canViewAllGares(),
-            'period_label' => $user->canViewAllGares()
-                ? 'Periode filtree'
-                : 'Mois en cours du '.now('Africa/Abidjan')->startOfMonth()->format('d/m/Y').' au '.now('Africa/Abidjan')->format('d/m/Y'),
+            'period' => $this->periodCode(),
+            'period_options' => [
+                ['value' => 'month', 'label' => 'Mois'],
+                ['value' => 'week', 'label' => 'Semaine'],
+                ['value' => 'today', 'label' => "Aujourd'hui"],
+            ],
+            'use_entry_counts' => $isVerificateur,
+            'show_gare_filter' => $showGareFilter,
+            'user_can_view_all' => $user->canViewAllGares($serviceScope),
+            'period_label' => $user->canViewAllGares($serviceScope)
+                ? $periodLabel
+                : $periodLabel,
             'recettes_total' => (float) $recettes->sum('amount'),
             'depenses_total' => (float) $depenses->sum('amount'),
             'versements_total' => (float) $versements->sum('amount'),
@@ -386,17 +478,6 @@ class DashboardOverview extends Component
 
     protected function resolvedPeriod(?string $scope = null): array
     {
-        $user = auth()->user();
-
-        if (! $user->canViewAllGares() && $scope) {
-            $now = now('Africa/Abidjan');
-
-            return [
-                $now->copy()->startOfMonth()->toDateString(),
-                $now->toDateString(),
-            ];
-        }
-
         return [$this->start_date, $this->end_date];
     }
 

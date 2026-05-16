@@ -2,13 +2,14 @@
 
 namespace App\Http\Requests;
 
+use App\Enums\ServiceModule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreGareRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->isAdmin() ?? false;
+        return $this->user()?->canAdministerModule(ServiceModule::Gares) ?? false;
     }
 
     public function rules(): array
@@ -21,7 +22,7 @@ class StoreGareRequest extends FormRequest
             'address' => ['nullable', 'string', 'max:255'],
             'versement_mode' => ['required', 'in:direct,cashier'],
             'cashier_user_id' => ['nullable', 'integer', 'exists:users,id'],
-            'activity_mode' => ['required', 'in:mixed,inter_only'],
+            'activity_mode' => ['required', 'in:mixed,inter_only,national_only'],
             'is_active' => ['nullable', 'boolean'],
         ];
     }

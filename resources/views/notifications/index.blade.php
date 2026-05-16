@@ -20,7 +20,7 @@
         ];
     @endphp
 
-    @if(auth()->user()->isAdmin())
+    @if(auth()->user()->canAdministerModule($module))
         <div class="panel">
             <form method="POST" action="{{ route('notifications.purge-period') }}" class="filters-grid" onsubmit="return confirm('Supprimer les historiques de notifications sur cette période ?');">
                 @csrf

@@ -10,7 +10,7 @@ class UploadedFileName
     public static function build(?string $desiredName, UploadedFile $file, ?string $fallbackOriginalName = null): string
     {
         $originalName = $fallbackOriginalName ?: $file->getClientOriginalName();
-        $extension = strtolower($file->getClientOriginalExtension() ?: pathinfo($originalName, PATHINFO_EXTENSION) ?: 'pdf');
+        $extension = strtolower(pathinfo($originalName, PATHINFO_EXTENSION) ?: $file->getClientOriginalExtension() ?: 'pdf');
 
         $stem = self::sanitizeStem($desiredName);
 

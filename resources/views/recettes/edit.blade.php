@@ -5,11 +5,17 @@
 @section('subheading', 'Historique et contrôle de la règle 48 heures')
 
 @section('actions')
-    @if(auth()->user()->isAdmin() || auth()->user()->isResponsable() || auth()->user()->isVerificateur())
-        <form method="POST" action="{{ route('recettes.unlock', ['recette' => $recette, 'module' => $module->value]) }}">
+    @if(auth()->user()->canUnlockFinancialScope($recette->service_scope))
+        <form method="POST" action="{{ route('recettes.unlock', ['recette' => $recette, 'module' => $module->value]) }}" class="form-inline unlock-controls">
             @csrf
-            <input type="hidden" name="unlock_reason" value="Déverrouillage manuel par superviseur">
-            <button class="btn btn-outline" type="submit">Déverrouiller 24h</button>
+            <input type="hidden" name="unlock_reason" value="Deverrouillage manuel par superviseur">
+            <input type="number" name="unlock_duration" min="1" step="1" value="{{ old('unlock_duration', 24) }}" class="unlock-duration" required>
+            <select name="unlock_unit" class="unlock-unit" required>
+                <option value="minutes" @selected(old('unlock_unit') === 'minutes')>Minutes</option>
+                <option value="hours" @selected(old('unlock_unit', 'hours') === 'hours')>Heures</option>
+                <option value="days" @selected(old('unlock_unit') === 'days')>Jours</option>
+            </select>
+            <button class="btn btn-outline" type="submit">Deverrouiller</button>
         </form>
     @endif
 @endsection
@@ -29,14 +35,16 @@
             </form>
 
             @if($recette->justificatives->isNotEmpty())
-                <div class="doc-links" style="margin-top: 1rem;">
+                <div class="doc-links doc-links-top">
                     @foreach($recette->justificatives as $piece)
-                        <a class="btn btn-sm btn-outline" href="{{ route('justificatifs.preview', $piece) }}" target="_blank">
+                        <a class="btn btn-sm btn-outline" href="{{ route('justificatifs.preview', $piece) }}" data-internal-file-preview data-file-title="{{ $piece->original_name ?? 'Justificatif recette' }}" onclick="return window.openInternalFileViewer(this);">
                             <span class="icon">{!! app_icon('eye') !!}</span> Lire le justificatif
                         </a>
-                        <a class="btn btn-sm btn-outline" href="{{ route('justificatifs.download', $piece) }}">
-                            <span class="icon">{!! app_icon('download') !!}</span> Télécharger
-                        </a>
+                        @if(auth()->user()->hasGlobalVisibility())
+                            <a class="btn btn-sm btn-outline" href="{{ route('justificatifs.download', $piece) }}">
+                                <span class="icon">{!! app_icon('download') !!}</span> Télécharger
+                            </a>
+                        @endif
                     @endforeach
                 </div>
             @endif
@@ -83,3 +91,4 @@
         </div>
     </div>
 @endsection
+

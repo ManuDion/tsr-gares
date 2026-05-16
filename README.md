@@ -12,6 +12,7 @@ Le progiciel est structure autour de 4 modules:
 - RH
 
 Les roles `admin` et `responsable` sont universels (vision globale).
+Des roles d'administrateur par service existent aussi avec un perimetre limite a leur service.
 Les autres roles sont limites a leur module metier.
 
 ## 2) Fonctionnalites principales
@@ -21,7 +22,10 @@ Les autres roles sont limites a leur module metier.
 - Saisie des recettes
 - Saisie des depenses (multi-lignes)
 - Saisie des versements avec justificatif
+- Parametrage de routage bancaire par periode (global ou cible par gare)
+- Ajout de plusieurs justificatifs (jusqu'a 10 photos/fichiers) pour chaque recette et chaque depense
 - Controle des ecarts / verifications
+- Etat des ecritures manquantes par date/gare avec export PDF
 - Dashboard financier
 - Exports
 
@@ -54,6 +58,19 @@ Les autres roles sont limites a leur module metier.
 - Administrateur (`admin`)
 - Responsable (`responsable`)
 
+### 3.1.b Administrateurs par service
+
+- Administrateur Gares (`admin_gares`)
+- Administrateur Courrier (`admin_courrier`)
+- Administrateur RH (`admin_rh`)
+- Administrateur Documents (`admin_documents`)
+
+Regle:
+
+- Un administrateur de service dispose des memes prerogatives qu'un administrateur, mais uniquement dans son service.
+- Il ne peut pas creer, modifier ou supprimer des utilisateurs hors de son service.
+- Il ne peut pas promouvoir un compte en role universel (`admin` / `responsable`).
+
 ### 3.2 Roles metier
 
 - Verificateur (`verificateur`) - supervise un module financier sur une ou plusieurs gares
@@ -69,6 +86,7 @@ Notes:
 
 - `caissiere` et `chef_de_zone` sont geres comme aliases historiques de `caissier_gare`.
 - Les roles `admin` et `responsable` peuvent etre crees sans module/service.
+- Les roles `admin_*` sont obligatoirement lies a leur service.
 
 ### 3.3 Creation utilisateur (formulaire)
 
@@ -79,6 +97,10 @@ Le formulaire supporte:
 - Affectation gare principale pour certains roles
 - Affectation multi-gares (dont verificateur)
 - Option "toutes les gares"
+- Parametrage caissier du type de recettes a recuperer:
+  - `national_only`
+  - `inter_only`
+  - `both`
 - Libelle visuel de supervision:
   - `Superviseur universel`
   - `Superviseur limite a X gare(s)`
@@ -101,6 +123,11 @@ Comportements:
 - Mode direct avec champ de recherche/filtre interlocuteur (auto-completion)
 - Reutilisation d'une conversation directe existante si deja presente
 - Pruning automatique des conversations directes inactives
+- Envoi de messages audio (type WhatsApp/Skype):
+  - enregistrement micro depuis l'ecran de conversation
+  - bouton micro unique (1 clic demarre, 1 clic arrete)
+  - option de selection manuelle de fichier audio retiree de l'interface
+  - lecture audio integree dans le fil de discussion
 
 ## 5) Dashboard et reporting
 
@@ -127,6 +154,45 @@ Quand une gare est selectionnee:
 
 - La recette courrier est traitee comme un type unique (non desagrege comme Gares)
 
+### 5.5 Deverrouillage de modification parametre
+
+- L'ancien deverrouillage fixe `24h` est remplace par un deverrouillage a duree choisie par l'initiateur.
+- Cette regle s'applique aux:
+  - recettes
+  - depenses
+  - versements
+  - autorisations d'ajustement depuis le module Verification
+- L'initiateur renseigne:
+  - une duree numerique
+  - une unite (`minutes`, `heures`, `jours`)
+- Le systeme calcule automatiquement la date/heure de fin du deverrouillage.
+
+### 5.6 Lecture interne des fichiers et telechargement
+
+- Les justificatifs et documents (PDF/image) sont consultes via un lecteur interne integre a l'application.
+- Le bouton `Lire` ouvre une fenetre de lecture interne (sans ouverture d'onglet externe).
+- Le telechargement est strictement limite aux roles universels:
+  - `admin`
+  - `responsable`
+- Les administrateurs de service (`admin_gares`, `admin_courrier`, `admin_rh`, `admin_documents`) ne peuvent pas telecharger les fichiers.
+- La restriction est appliquee:
+  - dans l'interface (bouton telechargement masque)
+  - au niveau serveur (controle d'autorisation)
+
+### 5.7 Regle montants FCFA (entiers)
+
+- Tous les montants financiers sont traites en entiers FCFA (pas de decimales).
+- En saisie, les caracteres non numeriques sont nettoyes.
+- En affichage, les montants restent sans virgule decimale.
+- En exports Excel/PDF, les montants sont harmonises en entier.
+
+### 5.8 Verifications avancees (qualite des donnees)
+
+- Contrainte d'unicite sur les recettes: `service_scope + gare_id + operation_date`
+- Contrainte d'unicite sur les versements: `service_scope + gare_id + operation_date + account_type`
+- Ecran `Ecritures manquantes` pour identifier les jours incomplets
+- Export PDF des ecritures manquantes pour partage terrain/controle
+
 ## 6) Notifications et historique systeme
 
 - Les notifications sont filtrees par module actif
@@ -145,16 +211,28 @@ Parcours actuel:
 ## 8) Base de donnees - points importants
 
 - `service_scope` sur flux financiers et verifications
+- `users.allow_multi_gare_entry` pour autoriser une saisie multi-gares
+- `users.cashier_collection_mode` pour limiter la collecte caissier (`both`, `inter_only`, `national_only`)
+- `bank_routing_overrides` pour forcer le compte bancaire (`national` / `inter`) par periode
+- `bank_routing_override_gare` pour cibler des gares precises sur un override bancaire
 - Tables socle RH: `employees`, `employee_assignments`, `employee_documents`, etc.
 - Chat:
   - `conversation_type` (`general`, `service_internal`, `direct`)
   - `service_module` sur conversations de service
+  - `chat_messages.message_type` (`text` ou `audio`)
+  - metadonnees audio sur les messages: `audio_disk`, `audio_path`, `audio_mime_type`, `audio_size`
 
 Migrations recentes a verifier:
 
 - `2026_05_10_090000_refonte_services_and_rh_foundation.php`
 - `2026_05_11_120000_add_conversation_type_to_conversations_table.php`
 - `2026_05_11_130000_add_service_module_to_conversations_table.php`
+- `2026_05_12_150000_add_unique_recette_per_day_per_gare_scope.php`
+- `2026_05_14_090000_add_allow_multi_gare_entry_to_users.php`
+- `2026_05_14_100000_add_unique_versement_per_day_per_bank_and_scope.php`
+- `2026_05_15_110000_create_bank_routing_override_gare_table.php`
+- `2026_05_16_090000_add_cashier_collection_mode_to_users.php`
+- `2026_05_16_120000_add_audio_support_to_chat_messages.php`
 
 ## 9) Installation locale
 
@@ -164,6 +242,7 @@ Migrations recentes a verifier:
 - Composer
 - MySQL ou MariaDB
 - Extensions PHP requises par Laravel
+- Pour l'export PDF de la fiche des ecritures manquantes: paquet `dompdf/dompdf` installe via Composer
 
 ### Etapes
 
@@ -233,11 +312,162 @@ php artisan migrate --force
 php artisan optimize
 ```
 
+## 11.1 Mise a niveau sans perte de donnees (MySQL existant)
+
+Si votre base contient deja des donnees en production, utilisez une mise a niveau progressive:
+
+1. Sauvegarde complete (dump SQL)
+2. Test de la mise a niveau en preproduction
+3. Execution du script SQL idempotent de mise a niveau
+4. Verification applicative
+5. Deploiement final
+
+Scripts SQL fournis dans le projet:
+
+- `docs/sql/mysql_upgrade_safe_2026_05_09.sql`
+- `docs/sql/mysql_upgrade_safe_2026_05_15.sql` (incremental)
+
+Ordre recommande:
+
+1. `mysql_upgrade_safe_2026_05_09.sql`
+2. `mysql_upgrade_safe_2026_05_15.sql`
+
+Exemple d'execution:
+
+```bash
+mysql -u VOTRE_USER -p VOTRE_BASE < docs/sql/mysql_upgrade_safe_2026_05_09.sql
+mysql -u VOTRE_USER -p VOTRE_BASE < docs/sql/mysql_upgrade_safe_2026_05_15.sql
+```
+
+Puis:
+
+```bash
+php artisan optimize:clear
+php artisan view:cache
+```
+
+Notes importantes:
+
+- Le script est idempotent (relancable sans destruction).
+- Les donnees existantes sont conservees.
+- Si des doublons existent deja dans `recettes` (meme `service_scope + gare_id + operation_date`), la contrainte unique n'est pas appliquee automatiquement et un message d'alerte est renvoye.
+- Si des doublons existent deja dans `versement_bancaires` (meme `service_scope + gare_id + operation_date + account_type`), la contrainte unique n'est pas appliquee automatiquement et un message d'alerte est renvoye.
+- Le controle metier "gare inter_only incompatible avec service courrier" est applique par l'application (validation metier), pas par contrainte SQL native.
+- En cas d'erreur MySQL `#1267 Illegal mix of collations`, assurez-vous d'utiliser les scripts SQL a jour (version courante du depot), puis relancez apres nettoyage des procedures temporaires:
+
+```sql
+DROP PROCEDURE IF EXISTS sp_add_column_if_missing;
+DROP PROCEDURE IF EXISTS sp_add_index_if_missing;
+DROP PROCEDURE IF EXISTS sp_add_fk_if_missing;
+DROP PROCEDURE IF EXISTS sp_drop_index_if_exists;
+```
+
+## 11.2 Procedure pas a pas (mise a jour en ligne sans ecraser les donnees)
+
+Exemple pour un serveur Linux/cPanel (adaptez les chemins si besoin):
+
+1. Activer le mode maintenance
+
+```bash
+cd ~/public_html
+php artisan down
+```
+
+2. Sauvegarder la base actuelle
+
+```bash
+mysqldump -u gestiont_user -p gestiont_bd_tsr > ~/backup_tsr_$(date +%F_%H%M).sql
+```
+
+3. Sauvegarder le fichier d'environnement
+
+```bash
+cp .env ~/env_backup_tsr_$(date +%F_%H%M)
+```
+
+4. Mettre a jour le code applicatif (git/panel/fichiers)
+
+- Remplacez les fichiers applicatifs par la nouvelle version.
+- Ne supprimez pas `.env` et ne videz pas la base.
+
+5. Installer/mettre a jour les dependances PHP
+
+```bash
+composer install --no-dev --optimize-autoloader
+```
+
+6. Executer les scripts SQL de mise a niveau
+
+```bash
+mysql -u VOTRE_USER -p VOTRE_BASE < docs/sql/mysql_upgrade_safe_2026_05_09.sql
+mysql -u VOTRE_USER -p VOTRE_BASE < docs/sql/mysql_upgrade_safe_2026_05_15.sql
+```
+
+7. Executer les migrations en production
+
+```bash
+php artisan migrate --force
+```
+
+8. Nettoyer et reconstruire les caches
+
+```bash
+php artisan optimize:clear
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+php artisan optimize
+```
+
+9. Verifier les droits (storage + bootstrap/cache)
+
+```bash
+chmod -R 775 storage bootstrap/cache
+```
+
+10. Relancer les workers si vous utilisez les files/queues
+
+```bash
+php artisan queue:restart
+```
+
+11. Desactiver le mode maintenance
+
+```bash
+php artisan up
+```
+
+12. Verification finale
+
+- Ouvrir l'application et tester:
+  - Recettes, Depenses, Versements
+  - Validation des sommes recues
+  - Verification
+  - Lecteur interne de justificatifs
+
+Important:
+
+- Cette procedure met a jour l'application sans ecraser les donnees existantes.
+- En cas de probleme, restaurez le dump SQL et le `.env` sauvegardes.
+
 ## 12) Changelog recent (mise a niveau)
 
 - Chat aligne sur 3 modalites: `general`, `service_internal`, `direct`
 - Ecran dedie `Nouvelle conversation`
 - Selection interlocuteur direct via filtre/auto-completion
+- Messages audio dans le chat:
+  - enregistrement micro integre
+  - bouton micro en mode toggle (demarrer/arreter)
+  - lecture audio dans la conversation
+- Parametrage bancaire:
+  - override du compte de versement (`national` / `inter`) par plage de dates
+  - ciblage optionnel d'un ensemble de gares pour un override
+- Verification:
+  - nouvel ecran `Ecritures manquantes`
+  - export PDF des ecritures manquantes
+- Integrite des donnees:
+  - unicite `recettes` par `service_scope + gare_id + operation_date`
+  - unicite `versement_bancaires` par `service_scope + gare_id + operation_date + account_type`
 - Notifications et historique systeme filtres par module
 - Dashboard Gares/Courrier: courbe evolutive jour par jour (1 a 31)
 - Comparatif hebdomadaire conserve (S1 a S4)
@@ -248,6 +478,21 @@ php artisan optimize
   - verificateur avec choix des gares
   - affichage `Superviseur universel` / `Superviseur limite a X gare(s)`
   - possibilite de creer `admin`/`responsable` sans service
+  - ajout des roles `admin_gares`, `admin_courrier`, `admin_rh`, `admin_documents`
+  - les administrateurs de service sont bloques sur leur propre perimetre
+  - les caissiers peuvent etre configures pour collecter uniquement les recettes nationales, uniquement internationales, ou les deux
+- Deverrouillage de modification:
+  - remplacement du mode fixe `24h`
+  - duree desormais definie a l'initiation (`minutes`, `heures` ou `jours`)
+  - meme logique appliquee aux autorisations d'ajustement dans Verification
+- Fichiers justificatifs et documents:
+  - lecture via lecteur interne integre a l'application
+  - telechargement reserve a `admin` et `responsable` uniquement
+  - administrateurs de service exclus du telechargement
+- Recettes et depenses:
+  - jusqu'a 10 photos/fichiers justificatifs par enregistrement
+- Harmonisation montants:
+  - montants financiers en entiers FCFA sur saisie, controle et export Excel/PDF
 
 ## 13) Limites actuelles et prochaines etapes
 

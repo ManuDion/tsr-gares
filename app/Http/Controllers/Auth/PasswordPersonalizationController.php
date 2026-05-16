@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\View\View;
@@ -39,6 +40,10 @@ class PasswordPersonalizationController extends Controller
             'must_change_password' => false,
         ]);
 
-        return redirect()->route('dashboard')->with('status', 'Votre mot de passe a été personnalisé avec succès.');
+        Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return redirect()->route('login')->with('status', 'Mot de passe mis a jour. Connectez-vous avec vos nouveaux identifiants.');
     }
 }

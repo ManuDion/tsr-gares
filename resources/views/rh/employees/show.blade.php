@@ -109,7 +109,7 @@
                                 <td>{{ $document->file_name }}</td>
                                 <td>{{ $document->expires_at?->format('d/m/Y') ?? '—' }}</td>
                                 <td class="actions-cell">
-                                    @if(auth()->user()->isAdmin() || auth()->user()->isResponsableRh())
+                                    @if(auth()->user()->canAdministerModule(\App\Enums\ServiceModule::Rh) || auth()->user()->isResponsableRh())
                                         <form method="POST" action="{{ route('rh.employees.documents.destroy', ['employee' => $employee, 'document' => $document, 'module' => 'rh']) }}" onsubmit="return confirm('Supprimer ce document ?')">
                                             @csrf
                                             @method('DELETE')
@@ -129,3 +129,4 @@
         </div>
     </div>
 @endsection
+

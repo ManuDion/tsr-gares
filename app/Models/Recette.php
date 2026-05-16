@@ -35,11 +35,11 @@ class Recette extends Model
     {
         return [
             'operation_date' => 'date',
-            'amount' => 'decimal:2',
-            'ticket_inter_amount' => 'decimal:2',
-            'ticket_national_amount' => 'decimal:2',
-            'bagage_inter_amount' => 'decimal:2',
-            'bagage_national_amount' => 'decimal:2',
+            'amount' => 'integer',
+            'ticket_inter_amount' => 'integer',
+            'ticket_national_amount' => 'integer',
+            'bagage_inter_amount' => 'integer',
+            'bagage_national_amount' => 'integer',
             'force_unlocked_until' => 'datetime',
         ];
     }
@@ -76,39 +76,62 @@ class Recette extends Model
 
     public function isEditableBy(User $user): bool
     {
-        if ($user->isAdmin() || $user->isResponsable()) {
+        if ($user->canAdministerFinancialScope($this->service_scope)) {
             return true;
         }
 
-        if (! $user->hasAccessToGare($this->gare_id, $this->service_scope)) {
+        $hasActiveUnlock = $this->force_unlocked_until instanceof CarbonInterface
+            && $this->force_unlocked_until->isFuture();
+        $hasDirectAccess = $user->hasAccessToGare($this->gare_id, $this->service_scope);
+
+        if (! $hasDirectAccess) {
+            return $hasActiveUnlock
+                && $user->canEditUnlockedVirtualGareEntry((int) $this->gare_id, $this->service_scope);
+        }
+
+        if ($this->created_at?->greaterThanOrEqualTo(now()->subHours(48))) {
+            return true;
+        }
+
+        if ($hasActiveUnlock) {
+            return true;
+        }
+
+        return $this->hasActiveVerificationAdjustment();
+    }
+
+    protected function hasActiveVerificationAdjustment(): bool
+    {
+        if (! $this->gare_id || ! $this->operation_date) {
             return false;
         }
 
-        if ($user->isVerificateur()) {
-            return true;
-        }
-
-        return $this->created_at?->greaterThanOrEqualTo(now()->subHours(48))
-            || ($this->force_unlocked_until instanceof CarbonInterface && $this->force_unlocked_until->isFuture());
+        return VerificationCheck::query()
+            ->where('service_scope', (string) ($this->service_scope ?? 'gares'))
+            ->where('gare_id', (int) $this->gare_id)
+            ->whereDate('operation_date', $this->operation_date)
+            ->whereNotNull('modifications_enabled_until')
+            ->where('modifications_enabled_until', '>', now())
+            ->exists();
     }
 
     public function recetteBreakdown(): array
     {
         return [
-            'ticket_inter_amount' => (float) $this->ticket_inter_amount,
-            'ticket_national_amount' => (float) $this->ticket_national_amount,
-            'bagage_inter_amount' => (float) $this->bagage_inter_amount,
-            'bagage_national_amount' => (float) $this->bagage_national_amount,
+            'ticket_inter_amount' => (int) $this->ticket_inter_amount,
+            'ticket_national_amount' => (int) $this->ticket_national_amount,
+            'bagage_inter_amount' => (int) $this->bagage_inter_amount,
+            'bagage_national_amount' => (int) $this->bagage_national_amount,
         ];
     }
 
-    public function interAmount(): float
+    public function interAmount(): int
     {
-        return round((float) $this->ticket_inter_amount + (float) $this->bagage_inter_amount, 2);
+        return (int) round((float) $this->ticket_inter_amount + (float) $this->bagage_inter_amount, 0);
     }
 
-    public function nationalAmount(): float
+    public function nationalAmount(): int
     {
-        return round((float) $this->ticket_national_amount + (float) $this->bagage_national_amount, 2);
+        return (int) round((float) $this->ticket_national_amount + (float) $this->bagage_national_amount, 0);
     }
 }

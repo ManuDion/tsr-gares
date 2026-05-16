@@ -1,6 +1,18 @@
-﻿@php
+@php
     $metrics = $this->metrics;
     $module = $metrics['module'] ?? null;
+    $fmt = fn ($value) => str_replace(' ', "\u{00A0}", number_format((float) $value, 0, '', ' '));
+    $weeklyTitle = match ($metrics['period'] ?? 'month') {
+        'today' => "Comparatif journalier (aujourd'hui)",
+        'week' => 'Comparatif quotidien des 7 derniers jours',
+        default => 'Comparatif hebdomadaire du mois en cours',
+    };
+    $weeklySub = match ($metrics['period'] ?? 'month') {
+        'today' => "Aujourd'hui",
+        'week' => 'J-6 a J',
+        default => 'Semaine S1 a S4',
+    };
+    $useEntryCounts = (bool) ($metrics['use_entry_counts'] ?? false);
 @endphp
 
 @if(($metrics['mode'] ?? 'financial') === 'controleur')
@@ -141,16 +153,24 @@
 
     <div class="stack-lg">
         <div class="panel hero-panel">
-            @if ($metrics['user_can_view_all'])
-                <div class="filters-grid">
-                    <div>
-                        <label for="start_date">Date debut</label>
-                        <input id="start_date" type="date" wire:model.live="start_date">
-                    </div>
-                    <div>
-                        <label for="end_date">Date fin</label>
-                        <input id="end_date" type="date" wire:model.live="end_date">
-                    </div>
+            <div class="filters-grid">
+                <div>
+                    <label for="period">Periode</label>
+                    <select id="period" wire:model.live="period">
+                        @foreach($metrics['period_options'] ?? [] as $option)
+                            <option value="{{ $option['value'] }}">{{ $option['label'] }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label for="start_date">Date debut</label>
+                    <input id="start_date" type="date" wire:model.live="start_date">
+                </div>
+                <div>
+                    <label for="end_date">Date fin</label>
+                    <input id="end_date" type="date" wire:model.live="end_date">
+                </div>
+                @if ($metrics['show_gare_filter'])
                     <div>
                         <label for="gare_id">Gare</label>
                         <select id="gare_id" wire:model.live="gare_id">
@@ -160,16 +180,76 @@
                             @endforeach
                         </select>
                     </div>
-                </div>
-            @endif
+                @endif
+            </div>
 
             <div class="stats-grid">
-                <x-stat-card title="Total recettes" :value="number_format($metrics['recettes_total'], 0, ',', ' ')" meta="{{ $serviceTitle }} · {{ $metrics['period_label'] }}" icon="wallet" />
-                <x-stat-card title="Total depenses" :value="number_format($metrics['depenses_total'], 0, ',', ' ')" meta="{{ $serviceTitle }} · {{ $metrics['period_label'] }}" icon="receipt" />
-                <x-stat-card title="Total versements" :value="number_format($metrics['versements_total'], 0, ',', ' ')" meta="{{ $serviceTitle }} · {{ $metrics['period_label'] }}" icon="bank" />
+                @if($useEntryCounts)
+                    <x-stat-card title="Recettes enregistrees" :value="$metrics['recettes_count']" meta="Nombre d'enregistrements - {{ $metrics['period_label'] }}" icon="wallet" />
+                    <x-stat-card title="Depenses enregistrees" :value="$metrics['depenses_count']" meta="Nombre d'enregistrements - {{ $metrics['period_label'] }}" icon="receipt" />
+                    <x-stat-card title="Versements enregistres" :value="$metrics['versements_count']" meta="Nombre d'enregistrements - {{ $metrics['period_label'] }}" icon="bank" />
+                @else
+                    <x-stat-card title="Total recettes" :value="$fmt($metrics['recettes_total'])" meta="{{ $serviceTitle }} - {{ $metrics['period_label'] }}" icon="wallet" />
+                    <x-stat-card title="Total depenses" :value="$fmt($metrics['depenses_total'])" meta="{{ $serviceTitle }} - {{ $metrics['period_label'] }}" icon="receipt" />
+                    <x-stat-card title="Total versements" :value="$fmt($metrics['versements_total'])" meta="{{ $serviceTitle }} - {{ $metrics['period_label'] }}" icon="bank" />
+                @endif
             </div>
         </div>
 
+        @if($useEntryCounts)
+            <div class="grid-2">
+                <div class="panel">
+                    <div class="panel-header">
+                        <div>
+                            <h2>Role du verificateur</h2>
+                            <p class="text-muted">Controle de conformite, de completude et d'exactitude des informations saisies.</p>
+                        </div>
+                    </div>
+                    <p class="text-muted">
+                        Utilisez les filtres ci-dessus pour concentrer la verification par periode et par gare.
+                    </p>
+                </div>
+                <div class="panel">
+                    <div class="panel-header">
+                        <div>
+                            <h2>Notifications metier</h2>
+                            <p class="text-muted">Messages lies au module actif</p>
+                        </div>
+                    </div>
+                    <div class="notification-list">
+                        @forelse ($metrics['recent_notifications'] as $notification)
+                            <article class="notification-item">
+                                <strong>{{ $notification->subject }}</strong>
+                                <p>{{ $notification->content }}</p>
+                                <small>{{ $notification->created_at?->format('d/m/Y H:i') }}</small>
+                            </article>
+                        @empty
+                            <p class="text-muted">Aucune notification recente.</p>
+                        @endforelse
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header">
+                    <div>
+                        <h2>Alertes metier</h2>
+                        <p class="text-muted">Non-saisies detectees sur la journee precedente</p>
+                    </div>
+                </div>
+                <div class="notification-list">
+                    @forelse($metrics['missing_yesterday'] as $control)
+                        <article class="notification-item">
+                            <strong>{{ $control->gare?->name }}</strong>
+                            <p>Operations manquantes : {{ collect($control->missing_operations ?? [])->map(fn($item) => $item === 'validation_caissier' ? 'validation caissier' : str_replace('_', ' ', $item))->implode(', ') }}</p>
+                            <small>{{ $control->concerned_date?->format('d/m/Y') }}</small>
+                        </article>
+                    @empty
+                        <p class="text-muted">Aucune alerte de non-saisie pour la veille.</p>
+                    @endforelse
+                </div>
+            </div>
+        @else
         <div class="grid-2">
             <div class="panel">
                 <div class="panel-header">
@@ -190,22 +270,22 @@
                             @if($isCourrier)
                                 <tr>
                                     <td>Recette courrier</td>
-                                    <td>{{ number_format($metrics['recette_breakdown_totals']->total_amount ?? 0, 0, ',', ' ') }}</td>
+                                    <td>{{ number_format($metrics['recette_breakdown_totals']->total_amount ?? 0, 0, '', ' ') }}</td>
                                 </tr>
                             @else
-                                <tr><td>Tickets inter</td><td>{{ number_format($metrics['recette_breakdown_totals']->ticket_inter_total ?? 0, 0, ',', ' ') }}</td></tr>
-                                <tr><td>Tickets national</td><td>{{ number_format($metrics['recette_breakdown_totals']->ticket_national_total ?? 0, 0, ',', ' ') }}</td></tr>
-                                <tr><td>Bagages inter</td><td>{{ number_format($metrics['recette_breakdown_totals']->bagage_inter_total ?? 0, 0, ',', ' ') }}</td></tr>
-                                <tr><td>Bagages national</td><td>{{ number_format($metrics['recette_breakdown_totals']->bagage_national_total ?? 0, 0, ',', ' ') }}</td></tr>
+                                <tr><td>Tickets inter</td><td>{{ number_format($metrics['recette_breakdown_totals']->ticket_inter_total ?? 0, 0, '', ' ') }}</td></tr>
+                                <tr><td>Tickets national</td><td>{{ number_format($metrics['recette_breakdown_totals']->ticket_national_total ?? 0, 0, '', ' ') }}</td></tr>
+                                <tr><td>Bagages inter</td><td>{{ number_format($metrics['recette_breakdown_totals']->bagage_inter_total ?? 0, 0, '', ' ') }}</td></tr>
+                                <tr><td>Bagages national</td><td>{{ number_format($metrics['recette_breakdown_totals']->bagage_national_total ?? 0, 0, '', ' ') }}</td></tr>
                                 <tr>
                                     <td><strong>Recette inter</strong></td>
-                                    <td><strong>{{ number_format(($metrics['recette_breakdown_totals']->ticket_inter_total ?? 0) + ($metrics['recette_breakdown_totals']->bagage_inter_total ?? 0), 0, ',', ' ') }}</strong></td>
+                                    <td><strong>{{ number_format(($metrics['recette_breakdown_totals']->ticket_inter_total ?? 0) + ($metrics['recette_breakdown_totals']->bagage_inter_total ?? 0), 0, '', ' ') }}</strong></td>
                                 </tr>
                                 <tr>
                                     <td><strong>Recette nationale</strong></td>
-                                    <td><strong>{{ number_format(($metrics['recette_breakdown_totals']->ticket_national_total ?? 0) + ($metrics['recette_breakdown_totals']->bagage_national_total ?? 0), 0, ',', ' ') }}</strong></td>
+                                    <td><strong>{{ number_format(($metrics['recette_breakdown_totals']->ticket_national_total ?? 0) + ($metrics['recette_breakdown_totals']->bagage_national_total ?? 0), 0, '', ' ') }}</strong></td>
                                 </tr>
-                                <tr><td><strong>Total recettes</strong></td><td><strong>{{ number_format($metrics['recette_breakdown_totals']->total_amount ?? 0, 0, ',', ' ') }}</strong></td></tr>
+                                <tr><td><strong>Total recettes</strong></td><td><strong>{{ number_format($metrics['recette_breakdown_totals']->total_amount ?? 0, 0, '', ' ') }}</strong></td></tr>
                             @endif
                         </tbody>
                     </table>
@@ -257,18 +337,24 @@
                     </div>
                 </div>
 
-                <div class="panel-header" style="margin-top: 1rem;">
+                <div class="panel-header panel-header-top">
                     <div>
-                        <h2>Comparatif hebdomadaire du mois en cours</h2>
-                        <p class="text-muted">Semaine S1 a S4</p>
+                        <h2>{{ $weeklyTitle }}</h2>
+                        <p class="text-muted">{{ $weeklySub }}</p>
                     </div>
                 </div>
-                <div class="table-wrapper table-plain">
+                <div class="table-wrapper table-plain weekly-comparison-table">
                     <table>
                         <thead>
                             <tr>
-                                <th>Semaine</th>
-                                <th>Recettes</th>
+                                <th>Periode</th>
+                                @if($isCourrier)
+                                    <th>Recettes courrier</th>
+                                @else
+                                    <th>Recette inter</th>
+                                    <th>Recette nationale</th>
+                                    <th>Recette totale</th>
+                                @endif
                                 <th>Depenses</th>
                                 <th>Versements</th>
                             </tr>
@@ -277,12 +363,18 @@
                             @forelse($metrics['weekly_comparison'] as $row)
                                 <tr>
                                     <td>{{ $row['label'] }}</td>
-                                    <td>{{ number_format($row['recettes'], 0, ',', ' ') }}</td>
-                                    <td>{{ number_format($row['depenses'], 0, ',', ' ') }}</td>
-                                    <td>{{ number_format($row['versements'], 0, ',', ' ') }}</td>
+                                    @if($isCourrier)
+                                        <td class="amount-nowrap">{{ $fmt($row['recettes_total']) }}</td>
+                                    @else
+                                        <td class="amount-nowrap">{{ $fmt($row['recettes_inter']) }}</td>
+                                        <td class="amount-nowrap">{{ $fmt($row['recettes_national']) }}</td>
+                                        <td class="amount-nowrap">{{ $fmt($row['recettes_total']) }}</td>
+                                    @endif
+                                    <td class="amount-nowrap">{{ $fmt($row['depenses']) }}</td>
+                                    <td class="amount-nowrap">{{ $fmt($row['versements']) }}</td>
                                 </tr>
                             @empty
-                                <tr><td colspan="4">Aucune donnee hebdomadaire.</td></tr>
+                                <tr><td colspan="{{ $isCourrier ? 4 : 6 }}">Aucune donnee hebdomadaire.</td></tr>
                             @endforelse
                         </tbody>
                     </table>
@@ -331,7 +423,7 @@
                                 @forelse($metrics['top_recettes'] as $row)
                                     <tr>
                                         <td>{{ $row->gare?->name }}</td>
-                                        <td>{{ number_format($row->total, 0, ',', ' ') }}</td>
+                                        <td>{{ number_format($row->total, 0, '', ' ') }}</td>
                                     </tr>
                                 @empty
                                     <tr><td colspan="2">Aucune donnee.</td></tr>
@@ -360,7 +452,7 @@
                                 @forelse($metrics['top_depenses'] as $row)
                                     <tr>
                                         <td>{{ $row->gare?->name }}</td>
-                                        <td>{{ number_format($row->total, 0, ',', ' ') }}</td>
+                                        <td>{{ number_format($row->total, 0, '', ' ') }}</td>
                                     </tr>
                                 @empty
                                     <tr><td colspan="2">Aucune donnee.</td></tr>
@@ -402,13 +494,13 @@
                                 <tr>
                                     <td>{{ $row->gare?->name }}</td>
                                     @if($isCourrier)
-                                        <td>{{ number_format($row->total_amount, 0, ',', ' ') }}</td>
+                                        <td>{{ number_format($row->total_amount, 0, '', ' ') }}</td>
                                     @else
-                                        <td>{{ number_format($row->ticket_inter_total, 0, ',', ' ') }}</td>
-                                        <td>{{ number_format($row->ticket_national_total, 0, ',', ' ') }}</td>
-                                        <td>{{ number_format($row->bagage_inter_total, 0, ',', ' ') }}</td>
-                                        <td>{{ number_format($row->bagage_national_total, 0, ',', ' ') }}</td>
-                                        <td>{{ number_format($row->total_amount, 0, ',', ' ') }}</td>
+                                        <td>{{ number_format($row->ticket_inter_total, 0, '', ' ') }}</td>
+                                        <td>{{ number_format($row->ticket_national_total, 0, '', ' ') }}</td>
+                                        <td>{{ number_format($row->bagage_inter_total, 0, '', ' ') }}</td>
+                                        <td>{{ number_format($row->bagage_national_total, 0, '', ' ') }}</td>
+                                        <td>{{ number_format($row->total_amount, 0, '', ' ') }}</td>
                                     @endif
                                 </tr>
                             @empty
@@ -418,6 +510,7 @@
                     </table>
                 </div>
             </div>
+        @endif
         @endif
     </div>
 @endif

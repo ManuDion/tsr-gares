@@ -106,39 +106,60 @@ class DailyControlService
 
     protected function notifySupervisors(Collection $anomalies, string $concernedDate, ServiceModule $module): void
     {
+        $scope = $module === ServiceModule::Courrier ? 'courrier' : 'gares';
+
         $supervisors = User::query()
-            ->whereIn('role', [UserRole::Admin->value, UserRole::Responsable->value])
             ->where('is_active', true)
-            ->get();
+            ->get()
+            ->filter(fn (User $user) => $user->canSuperviseFinancialScope($scope))
+            ->values();
 
         if ($supervisors->isEmpty()) {
             return;
         }
 
-        $gares = $anomalies->pluck('gare.name')->filter()->values()->all();
-        $operations = $anomalies->pluck('missing_operations')->flatten()->unique()->values()->all();
-
         foreach ($supervisors as $supervisor) {
+            $userAnomalies = $this->visibleAnomaliesForSupervisor($anomalies, $supervisor, $scope);
+            $gares = $userAnomalies->pluck('gare.name')->filter()->values()->all();
+            $operations = $userAnomalies->pluck('missing_operations')->flatten()->unique()->values()->all();
+
+            if ($supervisor->isVerificateur() && $userAnomalies->isEmpty()) {
+                continue;
+            }
+
             NotificationHistory::updateOrCreate(
                 [
                     'user_id' => $supervisor->id,
-                    'type' => $anomalies->isEmpty() ? 'daily_control_ok' : 'daily_control_alert',
+                    'type' => $userAnomalies->isEmpty() ? 'daily_control_ok' : 'daily_control_alert',
                     'source_key' => 'daily-control:'.$module->value.':'.$concernedDate.':'.$supervisor->id,
                 ],
                 [
-                    'subject' => $anomalies->isEmpty() ? 'Contrôle journalier conforme' : 'Alerte de non-saisie',
-                    'content' => $anomalies->isEmpty()
-                        ? sprintf('[%s] Toutes les gares actives ont renseigné leurs opérations du %s.', $module->shortLabel(), $concernedDate)
-                        : sprintf('[%s] Une ou plusieurs gares n\'ont pas finalisé leurs saisies du %s.', $module->shortLabel(), $concernedDate),
+                    'subject' => $userAnomalies->isEmpty() ? 'Controle journalier conforme' : 'Alerte de non-saisie',
+                    'content' => $userAnomalies->isEmpty()
+                        ? sprintf('[%s] Toutes les gares actives ont renseigne leurs operations du %s.', $module->shortLabel(), $concernedDate)
+                        : sprintf('[%s] Une ou plusieurs gares n\'ont pas finalise leurs saisies du %s.', $module->shortLabel(), $concernedDate),
                     'status' => 'generated',
                     'control_date' => now('Africa/Abidjan')->toDateString(),
                     'concerned_date' => $concernedDate,
                     'gares' => $gares,
                     'operations' => array_merge($operations, [$module->value]),
-                    'payload' => ['anomaly_count' => $anomalies->count(), 'module' => $module->value],
+                    'payload' => ['anomaly_count' => $userAnomalies->count(), 'module' => $module->value],
                 ]
             );
         }
+    }
+
+    protected function visibleAnomaliesForSupervisor(Collection $anomalies, User $supervisor, string $scope): Collection
+    {
+        if ($supervisor->canViewAllGares($scope)) {
+            return $anomalies;
+        }
+
+        $allowedGareIds = $supervisor->accessibleGareIds($scope);
+
+        return $anomalies
+            ->filter(fn (DailyControl $control) => in_array((int) $control->gare_id, $allowedGareIds, true))
+            ->values();
     }
 
     protected function notifyOperators(Collection $anomalies, string $concernedDate, string $scope, ServiceModule $module): void
@@ -203,3 +224,5 @@ class DailyControlService
         }
     }
 }
+
+

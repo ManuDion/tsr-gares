@@ -34,10 +34,10 @@ enum ServiceModule: string
     public function description(): string
     {
         return match ($this) {
-            self::Gares => 'Recettes, dépenses, versements, vérifications et supervision des gares.',
-            self::Documents => 'Suivi des documents administratifs, échéances et conformité.',
-            self::Courrier => 'Service courrier exploité dans les gares avec la même logique métier que le service de gestion des gares.',
-            self::Rh => 'Préparation du module Ressources Humaines pour le cycle administratif du personnel.',
+            self::Gares => 'Recettes, depenses, versements, verifications et supervision des gares.',
+            self::Documents => 'Suivi des documents administratifs, echeances et conformite.',
+            self::Courrier => 'Service courrier exploite dans les gares avec la meme logique metier que le service de gestion des gares.',
+            self::Rh => 'Preparation du module Ressources Humaines pour le cycle administratif du personnel.',
         };
     }
 
@@ -74,19 +74,23 @@ enum ServiceModule: string
 
         $specific = match ($this) {
             self::Gares => [
+                ['value' => UserRole::AdminGares->value, 'label' => UserRole::AdminGares->label()],
                 ['value' => UserRole::Verificateur->value, 'label' => UserRole::Verificateur->label()],
                 ['value' => UserRole::ChefDeGare->value, 'label' => UserRole::ChefDeGare->label()],
                 ['value' => UserRole::CaissierGare->value, 'label' => UserRole::CaissierGare->label()],
             ],
             self::Documents => [
+                ['value' => UserRole::AdminDocuments->value, 'label' => UserRole::AdminDocuments->label()],
                 ['value' => UserRole::Controleur->value, 'label' => UserRole::Controleur->label()],
             ],
             self::Courrier => [
+                ['value' => UserRole::AdminCourrier->value, 'label' => UserRole::AdminCourrier->label()],
                 ['value' => UserRole::Verificateur->value, 'label' => UserRole::Verificateur->label()],
                 ['value' => UserRole::AgentCourrierGare->value, 'label' => UserRole::AgentCourrierGare->label()],
                 ['value' => UserRole::CaissierCourrier->value, 'label' => UserRole::CaissierCourrier->label()],
             ],
             self::Rh => [
+                ['value' => UserRole::AdminRh->value, 'label' => UserRole::AdminRh->label()],
                 ['value' => UserRole::ResponsableRh->value, 'label' => UserRole::ResponsableRh->label()],
                 ['value' => UserRole::PersonnelTsr->value, 'label' => UserRole::PersonnelTsr->label()],
             ],

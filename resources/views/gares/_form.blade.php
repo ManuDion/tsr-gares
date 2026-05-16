@@ -33,8 +33,9 @@
         <select name="activity_mode">
             <option value="mixed" @selected($activityMode === 'mixed')>Inter et national</option>
             <option value="inter_only" @selected($activityMode === 'inter_only')>Inter uniquement</option>
+            <option value="national_only" @selected($activityMode === 'national_only')>National uniquement</option>
         </select>
-        <small>Inter uniquement: les champs nationaux sont bloques automatiquement.</small>
+        <small>Inter uniquement: les champs nationaux sont bloques. National uniquement: les champs inter sont bloques.</small>
     </div>
     <div data-cashier-field>
         <label>Caissier responsable</label>

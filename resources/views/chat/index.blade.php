@@ -24,6 +24,7 @@
         <div class="chat-list">
             @forelse($conversations as $conversation)
                 @php($latest = $conversation->messages->first())
+                @php($latestPreview = $latest?->isAudio() ? 'Message audio' : ($latest?->content ?? 'Aucun message pour le moment.'))
                 <a class="list-card" href="{{ route('chat.show', ['conversation' => $conversation, 'module' => request('module')]) }}">
                     <div class="list-card-header">
                         <h3>{{ $conversation->displayNameFor(auth()->user()) }}</h3>
@@ -35,7 +36,7 @@
                         {{ $conversation->typeLabel() }}
                         - {{ ($conversation->last_message_at ?: $conversation->created_at)?->format('d/m/Y H:i') ?? 'Sans message' }}
                     </div>
-                    <p>{{ \Illuminate\Support\Str::limit($latest?->content ?? 'Aucun message pour le moment.', 120) }}</p>
+                    <p>{{ \Illuminate\Support\Str::limit($latestPreview, 120) }}</p>
                 </a>
             @empty
                 <div class="empty-state">

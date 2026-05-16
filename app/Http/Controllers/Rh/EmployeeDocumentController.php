@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Rh;
 
+use App\Enums\ServiceModule;
 use App\Http\Controllers\Controller;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
@@ -47,7 +48,7 @@ class EmployeeDocumentController extends Controller
 
     public function destroy(Request $request, Employee $employee, EmployeeDocument $document): RedirectResponse
     {
-        abort_unless($request->user()->isAdmin() || $request->user()->isResponsableRh(), 403);
+        abort_unless($request->user()->canAdministerModule(ServiceModule::Rh) || $request->user()->isResponsableRh(), 403);
         abort_unless($document->employee_id === $employee->id, 404);
 
         \Storage::disk($document->disk)->delete($document->path);

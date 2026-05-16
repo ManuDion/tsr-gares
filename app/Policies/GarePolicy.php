@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Enums\ServiceModule;
 use App\Models\Gare;
 use App\Models\User;
 
@@ -19,16 +20,16 @@ class GarePolicy
 
     public function create(User $user): bool
     {
-        return $user->isAdmin() || $user->isResponsable();
+        return $user->canAdministerModule(ServiceModule::Gares);
     }
 
     public function update(User $user, Gare $gare): bool
     {
-        return $user->isAdmin() || $user->isResponsable();
+        return $user->canAdministerModule(ServiceModule::Gares);
     }
 
     public function delete(User $user, Gare $gare): bool
     {
-        return $user->isAdmin() || $user->isResponsable();
+        return $user->canAdministerModule(ServiceModule::Gares);
     }
 }

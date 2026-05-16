@@ -6,6 +6,10 @@ enum UserRole: string
 {
     case Admin = 'admin';
     case Responsable = 'responsable';
+    case AdminGares = 'admin_gares';
+    case AdminCourrier = 'admin_courrier';
+    case AdminRh = 'admin_rh';
+    case AdminDocuments = 'admin_documents';
     case Verificateur = 'verificateur';
 
     case ChefDeGare = 'chef_de_gare';
@@ -27,10 +31,14 @@ enum UserRole: string
         return match ($this) {
             self::Admin => 'Administrateur',
             self::Responsable => 'Responsable',
-            self::Verificateur => 'Vérificateur',
+            self::AdminGares => 'Administrateur Gares',
+            self::AdminCourrier => 'Administrateur Courrier',
+            self::AdminRh => 'Administrateur RH',
+            self::AdminDocuments => 'Administrateur Documents',
+            self::Verificateur => 'Verificateur',
             self::ChefDeGare => 'Chef de gare',
             self::CaissierGare, self::Caissiere, self::ChefDeZone => 'Caissier gare',
-            self::Controleur => 'Contrôleur',
+            self::Controleur => 'Controleur',
             self::AgentCourrierGare => 'Agent courrier gare',
             self::CaissierCourrier => 'Caissier courrier',
             self::ResponsableRh => 'Responsable RH',
@@ -42,6 +50,10 @@ enum UserRole: string
     {
         return match ($this) {
             self::Admin, self::Responsable, self::Verificateur => null,
+            self::AdminGares => ServiceModule::Gares,
+            self::AdminCourrier => ServiceModule::Courrier,
+            self::AdminRh => ServiceModule::Rh,
+            self::AdminDocuments => ServiceModule::Documents,
             self::ChefDeGare, self::CaissierGare, self::Caissiere, self::ChefDeZone => ServiceModule::Gares,
             self::Controleur => ServiceModule::Documents,
             self::AgentCourrierGare, self::CaissierCourrier => ServiceModule::Courrier,
@@ -62,6 +74,16 @@ enum UserRole: string
     public function isUniversalSupervisor(): bool
     {
         return in_array($this, [self::Admin, self::Responsable], true);
+    }
+
+    public function isServiceAdministrator(): bool
+    {
+        return in_array($this, [
+            self::AdminGares,
+            self::AdminCourrier,
+            self::AdminRh,
+            self::AdminDocuments,
+        ], true);
     }
 
     public static function fromLegacyAware(string $value): self

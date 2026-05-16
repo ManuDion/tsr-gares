@@ -15,8 +15,8 @@ class ActivityLogController extends Controller
 {
     public function index(Request $request): View
     {
-        abort_unless($request->user()->isAdmin() || $request->user()->isResponsable(), 403);
         $module = ModuleContext::fromRequest($request, $request->user());
+        abort_unless($request->user()->canAdministerModule($module), 403);
 
         $query = ActivityLog::query()
             ->with(['user', 'gare'])
@@ -55,6 +55,7 @@ class ActivityLogController extends Controller
             'depense_unlocked' => 'Dépense déverrouillée',
             'versement_updated' => 'Versement modifié',
             'versement_unlocked' => 'Versement déverrouillé',
+            'cashier_operations_unlocked' => 'Déverrouillage caissier',
             'versement_attachment_added' => 'Bordereau ajouté',
             'versement_analysis_success' => 'Lecture OCR réussie',
             'versement_analysis_failed' => 'Échec de lecture OCR',
@@ -82,7 +83,14 @@ class ActivityLogController extends Controller
 
     public function destroy(Request $request, ActivityLog $activityLog): RedirectResponse
     {
-        abort_unless($request->user()->isAdmin(), 403);
+        $module = ModuleContext::fromRequest($request, $request->user());
+        abort_unless($request->user()->canAdministerModule($module), 403);
+
+        $isAllowed = ActivityLog::query()
+            ->whereKey($activityLog->id)
+            ->tap(fn ($query) => $this->applyModuleFilter($query, $module))
+            ->exists();
+        abort_unless($isAllowed, 404);
 
         $activityLog->delete();
 
@@ -91,8 +99,8 @@ class ActivityLogController extends Controller
 
     public function show(Request $request, ActivityLog $activityLog): View
     {
-        abort_unless($request->user()->isAdmin() || $request->user()->isResponsable(), 403);
         $module = ModuleContext::fromRequest($request, $request->user());
+        abort_unless($request->user()->canAdministerModule($module), 403);
 
         $isAllowed = ActivityLog::query()
             ->whereKey($activityLog->id)
@@ -113,6 +121,7 @@ class ActivityLogController extends Controller
             'depense_unlocked' => 'Dépense déverrouillée',
             'versement_updated' => 'Versement modifié',
             'versement_unlocked' => 'Versement déverrouillé',
+            'cashier_operations_unlocked' => 'Déverrouillage caissier',
             'versement_attachment_added' => 'Bordereau ajouté',
             'versement_analysis_success' => 'Lecture OCR réussie',
             'versement_analysis_failed' => 'Échec de lecture OCR',

@@ -16,6 +16,10 @@ class User extends Authenticatable
     use HasFactory;
     use Notifiable;
 
+    public const CASHIER_COLLECTION_BOTH = 'both';
+    public const CASHIER_COLLECTION_INTER_ONLY = 'inter_only';
+    public const CASHIER_COLLECTION_NATIONAL_ONLY = 'national_only';
+
     protected $fillable = [
         'name',
         'phone',
@@ -23,6 +27,8 @@ class User extends Authenticatable
         'password',
         'role',
         'gare_id',
+        'allow_multi_gare_entry',
+        'cashier_collection_mode',
         'department_id',
         'is_active',
         'must_change_password',
@@ -40,6 +46,8 @@ class User extends Authenticatable
             'role' => UserRole::class,
             'is_active' => 'boolean',
             'must_change_password' => 'boolean',
+            'allow_multi_gare_entry' => 'boolean',
+            'cashier_collection_mode' => 'string',
             'email_verified_at' => 'datetime',
         ];
     }
@@ -74,9 +82,19 @@ class User extends Authenticatable
         return in_array($this->role, [UserRole::Admin, UserRole::Responsable], true);
     }
 
-    public function canViewAllGares(): bool
+    public function canViewAllGares(?string $scope = null): bool
     {
-        return $this->hasGlobalVisibility();
+        if ($this->hasGlobalVisibility()) {
+            return true;
+        }
+
+        $scope = $scope ?: $this->defaultModule()->financialScope();
+
+        return match ($scope) {
+            'gares' => $this->isServiceAdminForModule(ServiceModule::Gares),
+            'courrier' => $this->isServiceAdminForModule(ServiceModule::Courrier),
+            default => false,
+        };
     }
 
     public function departmentCode(): ?string
@@ -139,6 +157,10 @@ class User extends Authenticatable
             return true;
         }
 
+        if ($this->isServiceAdminForModule(ServiceModule::Gares)) {
+            return true;
+        }
+
         if ($this->isVerificateur()) {
             return $this->assignedModule() === ServiceModule::Gares;
         }
@@ -157,12 +179,16 @@ class User extends Authenticatable
             return true;
         }
 
-        return $this->role === UserRole::Controleur;
+        return $this->isServiceAdminForModule(ServiceModule::Documents) || $this->role === UserRole::Controleur;
     }
 
     public function canAccessCourrierModule(): bool
     {
         if ($this->hasGlobalVisibility()) {
+            return true;
+        }
+
+        if ($this->isServiceAdminForModule(ServiceModule::Courrier)) {
             return true;
         }
 
@@ -176,6 +202,10 @@ class User extends Authenticatable
     public function canAccessRhModule(): bool
     {
         if ($this->hasGlobalVisibility()) {
+            return true;
+        }
+
+        if ($this->isServiceAdminForModule(ServiceModule::Rh)) {
             return true;
         }
 
@@ -195,6 +225,40 @@ class User extends Authenticatable
     public function isVerificateur(): bool
     {
         return $this->role === UserRole::Verificateur;
+    }
+
+    public function isServiceAdmin(): bool
+    {
+        return $this->role?->isServiceAdministrator() ?? false;
+    }
+
+    public function isServiceAdminForModule(ServiceModule $module): bool
+    {
+        return match ($module) {
+            ServiceModule::Gares => $this->role === UserRole::AdminGares,
+            ServiceModule::Documents => $this->role === UserRole::AdminDocuments,
+            ServiceModule::Courrier => $this->role === UserRole::AdminCourrier,
+            ServiceModule::Rh => $this->role === UserRole::AdminRh,
+        };
+    }
+
+    public function canAdministerModule(ServiceModule $module): bool
+    {
+        return $this->hasGlobalVisibility() || $this->isServiceAdminForModule($module);
+    }
+
+    public function canManageUsersForModule(ServiceModule $module): bool
+    {
+        return $this->canAdministerModule($module);
+    }
+
+    public function belongsToModule(ServiceModule $module): bool
+    {
+        if ($this->assignedModule() === $module) {
+            return true;
+        }
+
+        return in_array($module->value, $this->moduleMemberships(), true);
     }
 
     public function isChefDeGare(): bool
@@ -248,18 +312,38 @@ class User extends Authenticatable
     {
         $scope = $scope ?: $this->defaultModule()->financialScope();
 
-        if ($this->isAdmin() || $this->isResponsable()) {
+        if ($this->canAdministerFinancialScope($scope)) {
             return true;
         }
 
         return $this->isVerificateur() && $this->canAccessFinancialScope($scope);
     }
 
+    public function canAdministerFinancialScope(?string $scope = null): bool
+    {
+        $scope = $scope ?: $this->defaultModule()->financialScope();
+
+        if ($this->hasGlobalVisibility()) {
+            return true;
+        }
+
+        return match ($scope) {
+            'gares' => $this->isServiceAdminForModule(ServiceModule::Gares),
+            'courrier' => $this->isServiceAdminForModule(ServiceModule::Courrier),
+            default => false,
+        };
+    }
+
+    public function canUnlockFinancialScope(?string $scope = null): bool
+    {
+        return $this->canAdministerFinancialScope($scope);
+    }
+
     public function accessibleGareIds(?string $scope = null): array
     {
         $scope = $scope ?: $this->defaultModule()->financialScope();
 
-        if ($this->canViewAllGares()) {
+        if ($this->canViewAllGares($scope)) {
             return Gare::query()->pluck('id')->all();
         }
 
@@ -268,7 +352,13 @@ class User extends Authenticatable
         if ($this->isVerificateur() && $this->canAccessFinancialScope($scope)) {
             $ids = $this->gares()->pluck('gares.id')->all();
         } elseif ($this->canActAsChefForScope($scope)) {
-            $ids = array_values(array_filter([$this->gare_id]));
+            $ids = $this->canUseMultiGareEntry()
+                ? array_values(array_unique(array_merge(
+                    array_values(array_filter([$this->gare_id])),
+                    $this->gares()->pluck('gares.id')->all()
+                )))
+                : array_values(array_filter([$this->gare_id]));
+            $ids = array_values(array_unique(array_merge($ids, $this->linkedCashierVirtualGareIdsForScope($scope))));
         } elseif ($this->canActAsCashierForScope($scope)) {
             $ids = $this->gares()->pluck('gares.id')->all();
         }
@@ -276,13 +366,93 @@ class User extends Authenticatable
         return array_values(array_unique(array_merge($ids, $this->virtualGareIdsForScope($scope))));
     }
 
+    public function linkedCashierVirtualGareIdsForScope(?string $scope = null): array
+    {
+        $scope = $scope ?: $this->defaultModule()->financialScope();
+        if (! $scope || ! $this->canActAsChefForScope($scope)) {
+            return [];
+        }
+
+        $physicalGareIds = $this->canUseMultiGareEntry()
+            ? array_values(array_unique(array_merge(
+                array_values(array_filter([$this->gare_id])),
+                $this->gares()->where('gares.is_virtual', false)->pluck('gares.id')->all()
+            )))
+            : array_values(array_filter([$this->gare_id]));
+
+        if ($physicalGareIds === []) {
+            return [];
+        }
+
+        $cashierIds = Gare::query()
+            ->whereIn('id', $physicalGareIds)
+            ->where('is_virtual', false)
+            ->where('versement_mode', 'cashier')
+            ->whereNotNull('cashier_user_id')
+            ->pluck('cashier_user_id')
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($cashierIds === []) {
+            return [];
+        }
+
+        return Gare::query()
+            ->where('is_virtual', true)
+            ->where('virtual_scope', $scope)
+            ->whereIn('virtual_owner_user_id', $cashierIds)
+            ->pluck('id')
+            ->all();
+    }
+
     public function hasAccessToGare(int $gareId, ?string $scope = null): bool
     {
-        if ($this->canViewAllGares()) {
+        if ($this->canViewAllGares($scope)) {
             return true;
         }
 
         return in_array($gareId, $this->accessibleGareIds($scope), true);
+    }
+
+    public function canEditUnlockedVirtualGareEntry(int $gareId, ?string $scope = null): bool
+    {
+        $scope = $scope ?: $this->defaultModule()->financialScope();
+        if (! $scope || ! $this->canActAsChefForScope($scope)) {
+            return false;
+        }
+
+        $virtualGare = Gare::query()
+            ->select(['id', 'is_virtual', 'virtual_owner_user_id', 'cashier_user_id', 'virtual_scope'])
+            ->find($gareId);
+
+        if (! $virtualGare || ! $virtualGare->is_virtual) {
+            return false;
+        }
+
+        if (($virtualGare->virtual_scope ?? $scope) !== $scope) {
+            return false;
+        }
+
+        $cashierId = (int) ($virtualGare->virtual_owner_user_id ?: $virtualGare->cashier_user_id ?: 0);
+        if ($cashierId <= 0) {
+            return false;
+        }
+
+        $chefPhysicalGareIds = array_values(array_unique(array_merge(
+            array_values(array_filter([$this->gare_id])),
+            $this->gares()->where('gares.is_virtual', false)->pluck('gares.id')->all()
+        )));
+
+        if ($chefPhysicalGareIds === []) {
+            return false;
+        }
+
+        return Gare::query()
+            ->whereIn('id', $chefPhysicalGareIds)
+            ->where('is_virtual', false)
+            ->where('cashier_user_id', $cashierId)
+            ->exists();
     }
 
     public function roleLabel(): string
@@ -354,5 +524,45 @@ class User extends Authenticatable
             ->where('virtual_scope', $scope)
             ->pluck('id')
             ->all();
+    }
+
+    public function canUseMultiGareEntry(): bool
+    {
+        return (bool) ($this->allow_multi_gare_entry ?? false);
+    }
+
+    public static function cashierCollectionModes(): array
+    {
+        return [
+            self::CASHIER_COLLECTION_BOTH,
+            self::CASHIER_COLLECTION_INTER_ONLY,
+            self::CASHIER_COLLECTION_NATIONAL_ONLY,
+        ];
+    }
+
+    public function cashierCollectionMode(): string
+    {
+        $mode = (string) ($this->cashier_collection_mode ?? self::CASHIER_COLLECTION_BOTH);
+        if (! in_array($mode, self::cashierCollectionModes(), true)) {
+            return self::CASHIER_COLLECTION_BOTH;
+        }
+
+        return $mode;
+    }
+
+    public function cashierCollectsInter(): bool
+    {
+        return in_array($this->cashierCollectionMode(), [
+            self::CASHIER_COLLECTION_BOTH,
+            self::CASHIER_COLLECTION_INTER_ONLY,
+        ], true);
+    }
+
+    public function cashierCollectsNational(): bool
+    {
+        return in_array($this->cashierCollectionMode(), [
+            self::CASHIER_COLLECTION_BOTH,
+            self::CASHIER_COLLECTION_NATIONAL_ONLY,
+        ], true);
     }
 }

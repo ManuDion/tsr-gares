@@ -20,7 +20,7 @@ class PerformanceReportController extends Controller
 
         $startDate = $request->date('start_date')?->toDateString() ?? now()->startOfMonth()->toDateString();
         $endDate = $request->date('end_date')?->toDateString() ?? now()->toDateString();
-        $allowedGares = $request->user()->canViewAllGares() ? null : $request->user()->accessibleGareIds($scope);
+        $allowedGares = $request->user()->canViewAllGares($scope) ? null : $request->user()->accessibleGareIds($scope);
 
         $topSaisie = Gare::query()
             ->when($allowedGares, fn ($q) => $q->whereIn('id', $allowedGares))

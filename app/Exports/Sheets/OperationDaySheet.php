@@ -24,19 +24,23 @@ class OperationDaySheet implements FromArray, WithTitle
 
         $rows = $items->map(function ($item) {
             if ($this->type === 'recettes') {
-                $recetteInter = ($item->ticket_inter_amount ?? 0) + ($item->bagage_inter_amount ?? 0);
-                $recetteNational = ($item->ticket_national_amount ?? 0) + ($item->bagage_national_amount ?? 0);
+                $ticketInter = $this->toIntegerAmount($item->ticket_inter_amount ?? 0);
+                $ticketNational = $this->toIntegerAmount($item->ticket_national_amount ?? 0);
+                $bagageInter = $this->toIntegerAmount($item->bagage_inter_amount ?? 0);
+                $bagageNational = $this->toIntegerAmount($item->bagage_national_amount ?? 0);
+                $recetteInter = $ticketInter + $bagageInter;
+                $recetteNational = $ticketNational + $bagageNational;
 
                 return [
                     'Date' => optional($item->operation_date)->format('Y-m-d'),
                     'Gare' => $item->gare->name ?? '-',
-                    'Tickets inter' => $item->ticket_inter_amount ?? 0,
-                    'Tickets national' => $item->ticket_national_amount ?? 0,
-                    'Bagages inter' => $item->bagage_inter_amount ?? 0,
-                    'Bagages national' => $item->bagage_national_amount ?? 0,
+                    'Tickets inter' => $ticketInter,
+                    'Tickets national' => $ticketNational,
+                    'Bagages inter' => $bagageInter,
+                    'Bagages national' => $bagageNational,
                     'Recette inter' => $recetteInter,
                     'Recette nationale' => $recetteNational,
-                    'Montant total' => $item->amount,
+                    'Montant total' => $this->toIntegerAmount($item->amount),
                     'Libelle' => $item->description ?? '-',
                 ];
             }
@@ -44,7 +48,7 @@ class OperationDaySheet implements FromArray, WithTitle
             return [
                 'Date' => optional($item->operation_date)->format('Y-m-d'),
                 'Gare' => $item->gare->name ?? '-',
-                'Montant' => $item->amount,
+                'Montant' => $this->toIntegerAmount($item->amount),
                 'Reference' => $item->reference ?? '-',
                 'Libelle' => $item->description ?? ($item->motif ?? '-'),
             ];
@@ -67,5 +71,9 @@ class OperationDaySheet implements FromArray, WithTitle
     {
         return $this->date->format('Y-m-d');
     }
-}
 
+    protected function toIntegerAmount(mixed $value): int
+    {
+        return (int) round((float) $value, 0);
+    }
+}

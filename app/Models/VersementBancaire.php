@@ -35,7 +35,7 @@ class VersementBancaire extends Model
         return [
             'operation_date' => 'date',
             'receipt_date' => 'date',
-            'amount' => 'decimal:2',
+            'amount' => 'integer',
             'account_type' => 'string',
             'force_unlocked_until' => 'datetime',
         ];
@@ -73,20 +73,43 @@ class VersementBancaire extends Model
 
     public function isEditableBy(User $user): bool
     {
-        if ($user->isAdmin() || $user->isResponsable()) {
+        if ($user->canAdministerFinancialScope($this->service_scope)) {
             return true;
         }
 
-        if (! $user->hasAccessToGare($this->gare_id, $this->service_scope)) {
+        $hasActiveUnlock = $this->force_unlocked_until instanceof CarbonInterface
+            && $this->force_unlocked_until->isFuture();
+        $hasDirectAccess = $user->hasAccessToGare($this->gare_id, $this->service_scope);
+
+        if (! $hasDirectAccess) {
+            return $hasActiveUnlock
+                && $user->canEditUnlockedVirtualGareEntry((int) $this->gare_id, $this->service_scope);
+        }
+
+        if ($this->created_at?->greaterThanOrEqualTo(now()->subHours(48))) {
+            return true;
+        }
+
+        if ($hasActiveUnlock) {
+            return true;
+        }
+
+        return $this->hasActiveVerificationAdjustment();
+    }
+
+    protected function hasActiveVerificationAdjustment(): bool
+    {
+        if (! $this->gare_id || ! $this->operation_date) {
             return false;
         }
 
-        if ($user->isVerificateur()) {
-            return true;
-        }
-
-        return $this->created_at?->greaterThanOrEqualTo(now()->subHours(48))
-            || ($this->force_unlocked_until instanceof CarbonInterface && $this->force_unlocked_until->isFuture());
+        return VerificationCheck::query()
+            ->where('service_scope', (string) ($this->service_scope ?? 'gares'))
+            ->where('gare_id', (int) $this->gare_id)
+            ->whereDate('operation_date', $this->operation_date)
+            ->whereNotNull('modifications_enabled_until')
+            ->where('modifications_enabled_until', '>', now())
+            ->exists();
     }
 
     public function isInterAccount(): bool

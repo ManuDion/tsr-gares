@@ -18,7 +18,8 @@ class VerificationService
     public function __construct(
         protected ActivityLogService $activity,
         protected CashierFlowService $cashierFlow,
-        protected CashierVirtualGareService $virtualGares
+        protected CashierVirtualGareService $virtualGares,
+        protected BankRoutingService $bankRouting
     ) {
     }
 
@@ -47,7 +48,7 @@ class VerificationService
 
                         $versementsInter = (float) ($confirmation?->received_inter_total ?? 0);
                         $versementsNational = (float) ($confirmation?->received_national_total ?? 0);
-                        $versementsTotal = round($versementsInter + $versementsNational, 2);
+                        $versementsTotal = round($versementsInter + $versementsNational, 0);
                     } else {
                         $versementsInter = (float) VersementBancaire::query()
                             ->where('service_scope', $scope)
@@ -66,13 +67,22 @@ class VerificationService
                             })
                             ->sum('amount');
 
-                        $versementsTotal = round($versementsInter + $versementsNational, 2);
+                        $versementsTotal = round($versementsInter + $versementsNational, 0);
                     }
 
-                    $expectedTotal = (float) $metrics['expected_total'];
-                    $difference = round($versementsTotal - $expectedTotal, 2);
-                    $differenceInter = round($versementsInter - (float) $metrics['expected_inter'], 2);
-                    $differenceNational = round($versementsNational - (float) $metrics['expected_national'], 2);
+                    $expectedByAccount = $this->bankRouting->expectedByAccount(
+                        $scope,
+                        $operationDate,
+                        (float) ($metrics['expected_inter'] ?? 0),
+                        (float) ($metrics['expected_national'] ?? 0),
+                        (int) $gare->id
+                    );
+                    $expectedInter = (float) ($expectedByAccount['expected_inter'] ?? 0);
+                    $expectedNational = (float) ($expectedByAccount['expected_national'] ?? 0);
+                    $expectedTotal = (float) ($expectedByAccount['expected_total'] ?? 0);
+                    $difference = round($versementsTotal - $expectedTotal, 0);
+                    $differenceInter = round($versementsInter - $expectedInter, 0);
+                    $differenceNational = round($versementsNational - $expectedNational, 0);
 
                     $existing = VerificationCheck::query()
                         ->where('service_scope', $scope)
@@ -80,10 +90,10 @@ class VerificationService
                         ->whereDate('operation_date', $operationDate)
                         ->first();
 
-                    $status = (abs($difference) < 0.01 && abs($differenceInter) < 0.01 && abs($differenceNational) < 0.01)
+                    $status = ((int) $difference === 0 && (int) $differenceInter === 0 && (int) $differenceNational === 0)
                         ? 'conforme'
                         : ($existing?->status ?: 'ecart_detecte');
-                    if ($status === 'conforme' && (abs($difference) >= 0.01 || abs($differenceInter) >= 0.01 || abs($differenceNational) >= 0.01)) {
+                    if ($status === 'conforme' && ((int) $difference !== 0 || (int) $differenceInter !== 0 || (int) $differenceNational !== 0)) {
                         $status = 'ecart_detecte';
                     }
 
@@ -103,9 +113,9 @@ class VerificationService
                             'versements_total' => $versementsTotal,
                             'versements_inter_total' => $versementsInter,
                             'versements_national_total' => $versementsNational,
-                            'expected_versement' => $metrics['expected_total'],
-                            'expected_inter_versement' => $metrics['expected_inter'],
-                            'expected_national_versement' => $metrics['expected_national'],
+                            'expected_versement' => $expectedTotal,
+                            'expected_inter_versement' => $expectedInter,
+                            'expected_national_versement' => $expectedNational,
                             'difference' => $difference,
                             'difference_inter' => $differenceInter,
                             'difference_national' => $differenceNational,
@@ -152,10 +162,20 @@ class VerificationService
         return $check->refresh();
     }
 
-    public function enableAdjustments(VerificationCheck $check, User $user, ?string $note = null): VerificationCheck
+    public function enableAdjustments(
+        VerificationCheck $check,
+        User $user,
+        ?string $note = null,
+        int $duration = 24,
+        string $unit = 'hours'
+    ): VerificationCheck
     {
         $before = $check->only(['status', 'review_note', 'reviewed_by', 'reviewed_at', 'modifications_enabled_until']);
-        $until = now()->addHours(24);
+        $until = match ($unit) {
+            'minutes' => now()->addMinutes($duration),
+            'days' => now()->addDays($duration),
+            default => now()->addHours($duration),
+        };
 
         $check->update([
             'status' => 'ajustement_ouvert',
@@ -208,9 +228,20 @@ class VerificationService
             $virtualGare = $this->virtualGares->ensureForScope($cashier, $scope);
             $metrics = $this->cashierFlow->cashierExpectedForVirtualGare($cashier, $virtualGare, $scope, $operationDate);
 
-            $difference = round($metrics['versement_total'] - $metrics['expected_total'], 2);
-            $differenceInter = round($metrics['versement_inter'] - $metrics['expected_inter'], 2);
-            $differenceNational = round($metrics['versement_national'] - $metrics['expected_national'], 2);
+            $expectedByAccount = $this->bankRouting->expectedByAccount(
+                $scope,
+                $operationDate,
+                (float) ($metrics['expected_inter'] ?? 0),
+                (float) ($metrics['expected_national'] ?? 0),
+                (int) $virtualGare->id
+            );
+            $expectedInter = (float) ($expectedByAccount['expected_inter'] ?? 0);
+            $expectedNational = (float) ($expectedByAccount['expected_national'] ?? 0);
+            $expectedTotal = (float) ($expectedByAccount['expected_total'] ?? 0);
+
+            $difference = round($metrics['versement_total'] - $expectedTotal, 0);
+            $differenceInter = round($metrics['versement_inter'] - $expectedInter, 0);
+            $differenceNational = round($metrics['versement_national'] - $expectedNational, 0);
 
             $existing = VerificationCheck::query()
                 ->where('service_scope', $scope)
@@ -218,10 +249,10 @@ class VerificationService
                 ->whereDate('operation_date', $operationDate)
                 ->first();
 
-            $status = (abs($difference) < 0.01 && abs($differenceInter) < 0.01 && abs($differenceNational) < 0.01)
+            $status = ((int) $difference === 0 && (int) $differenceInter === 0 && (int) $differenceNational === 0)
                 ? 'conforme'
                 : ($existing?->status ?: 'ecart_detecte');
-            if ($status === 'conforme' && (abs($difference) >= 0.01 || abs($differenceInter) >= 0.01 || abs($differenceNational) >= 0.01)) {
+            if ($status === 'conforme' && ((int) $difference !== 0 || (int) $differenceInter !== 0 || (int) $differenceNational !== 0)) {
                 $status = 'ecart_detecte';
             }
 
@@ -241,9 +272,9 @@ class VerificationService
                     'versements_total' => $metrics['versement_total'],
                     'versements_inter_total' => $metrics['versement_inter'],
                     'versements_national_total' => $metrics['versement_national'],
-                    'expected_versement' => $metrics['expected_total'],
-                    'expected_inter_versement' => $metrics['expected_inter'],
-                    'expected_national_versement' => $metrics['expected_national'],
+                    'expected_versement' => $expectedTotal,
+                    'expected_inter_versement' => $expectedInter,
+                    'expected_national_versement' => $expectedNational,
                     'difference' => $difference,
                     'difference_inter' => $differenceInter,
                     'difference_national' => $differenceNational,
@@ -256,10 +287,12 @@ class VerificationService
 
     protected function notifySupervisors(Collection $checks, ServiceModule $module): void
     {
+        $scope = $module === ServiceModule::Courrier ? 'courrier' : 'gares';
+
         $anomalies = $checks->filter(function (VerificationCheck $check) {
-            return abs((float) $check->difference) >= 0.01
-                || abs((float) $check->difference_inter) >= 0.01
-                || abs((float) $check->difference_national) >= 0.01;
+            return (int) $check->difference !== 0
+                || (int) $check->difference_inter !== 0
+                || (int) $check->difference_national !== 0;
         });
 
         if ($anomalies->isEmpty()) {
@@ -267,12 +300,18 @@ class VerificationService
         }
 
         $users = User::query()
-            ->whereIn('role', [UserRole::Admin->value, UserRole::Responsable->value])
             ->where('is_active', true)
-            ->get();
+            ->get()
+            ->filter(fn (User $user) => $user->canSuperviseFinancialScope($scope))
+            ->values();
 
-        foreach ($anomalies as $check) {
-            foreach ($users as $user) {
+        foreach ($users as $user) {
+            $userAnomalies = $this->visibleVerificationAnomaliesForSupervisor($anomalies, $user, $scope);
+            if ($userAnomalies->isEmpty()) {
+                continue;
+            }
+
+            foreach ($userAnomalies as $check) {
                 NotificationHistory::updateOrCreate(
                     [
                         'user_id' => $user->id,
@@ -306,6 +345,19 @@ class VerificationService
                 );
             }
         }
+    }
+
+    protected function visibleVerificationAnomaliesForSupervisor(Collection $anomalies, User $user, string $scope): Collection
+    {
+        if ($user->canViewAllGares($scope)) {
+            return $anomalies;
+        }
+
+        $allowedGareIds = $user->accessibleGareIds($scope);
+
+        return $anomalies
+            ->filter(fn (VerificationCheck $check) => in_array((int) $check->gare_id, $allowedGareIds, true))
+            ->values();
     }
 
     protected function notifyOperatorsForAdjustment(VerificationCheck $check, \DateTimeInterface $until, ?string $note = null): void
@@ -368,3 +420,4 @@ class VerificationService
         }
     }
 }
+

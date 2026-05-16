@@ -8,21 +8,34 @@ class UserPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->isAdmin() || $user->isResponsable();
+        return $user->hasGlobalVisibility() || $user->isServiceAdmin();
     }
 
     public function create(User $user): bool
     {
-        return $user->isAdmin();
+        return $user->hasGlobalVisibility() || $user->isServiceAdmin();
     }
 
     public function update(User $user, User $model): bool
     {
-        return $user->isAdmin() || $user->isResponsable();
+        if ($user->hasGlobalVisibility()) {
+            return true;
+        }
+
+        $module = $user->assignedModule();
+        if (! $module || ! $user->isServiceAdminForModule($module)) {
+            return false;
+        }
+
+        if ($model->hasGlobalVisibility()) {
+            return false;
+        }
+
+        return $model->belongsToModule($module);
     }
 
     public function delete(User $user, User $model): bool
     {
-        return $user->isAdmin() || $user->isResponsable();
+        return $this->update($user, $model);
     }
 }

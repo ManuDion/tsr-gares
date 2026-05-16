@@ -41,21 +41,21 @@ class VerificationCheck extends Model
     {
         return [
             'operation_date' => 'date',
-            'recettes_total' => 'decimal:2',
-            'recettes_inter_total' => 'decimal:2',
-            'recettes_national_total' => 'decimal:2',
-            'depenses_total' => 'decimal:2',
-            'depenses_inter_total' => 'decimal:2',
-            'depenses_national_total' => 'decimal:2',
-            'versements_total' => 'decimal:2',
-            'versements_inter_total' => 'decimal:2',
-            'versements_national_total' => 'decimal:2',
-            'expected_versement' => 'decimal:2',
-            'expected_inter_versement' => 'decimal:2',
-            'expected_national_versement' => 'decimal:2',
-            'difference' => 'decimal:2',
-            'difference_inter' => 'decimal:2',
-            'difference_national' => 'decimal:2',
+            'recettes_total' => 'integer',
+            'recettes_inter_total' => 'integer',
+            'recettes_national_total' => 'integer',
+            'depenses_total' => 'integer',
+            'depenses_inter_total' => 'integer',
+            'depenses_national_total' => 'integer',
+            'versements_total' => 'integer',
+            'versements_inter_total' => 'integer',
+            'versements_national_total' => 'integer',
+            'expected_versement' => 'integer',
+            'expected_inter_versement' => 'integer',
+            'expected_national_versement' => 'integer',
+            'difference' => 'integer',
+            'difference_inter' => 'integer',
+            'difference_national' => 'integer',
             'modifications_enabled_until' => 'datetime',
             'reviewed_at' => 'datetime',
         ];
@@ -73,6 +73,6 @@ class VerificationCheck extends Model
 
     public function isBalanced(): bool
     {
-        return (float) $this->difference === 0.0;
+        return (int) $this->difference === 0;
     }
 }

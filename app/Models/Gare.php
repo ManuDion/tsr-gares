@@ -80,4 +80,9 @@ class Gare extends Model
     {
         return ($this->activity_mode ?? 'mixed') === 'inter_only';
     }
+
+    public function isNationalOnly(): bool
+    {
+        return ($this->activity_mode ?? 'mixed') === 'national_only';
+    }
 }

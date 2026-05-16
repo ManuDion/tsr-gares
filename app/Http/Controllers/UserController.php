@@ -12,6 +12,7 @@ use App\Models\Gare;
 use App\Models\User;
 use App\Services\ActivityLogService;
 use App\Services\CashierVirtualGareService;
+use App\Support\ModuleContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -27,10 +28,26 @@ class UserController extends Controller
     public function index(Request $request): View
     {
         $this->authorize('viewAny', User::class);
+        $actor = $request->user();
+        $module = ModuleContext::fromRequest($request, $actor);
 
         $users = User::query()
             ->with(['primaryGare', 'gares', 'department'])
             ->with('serviceModules')
+            ->when(! $actor->hasGlobalVisibility(), function ($query) use ($actor, $module) {
+                if (! $actor->canManageUsersForModule($module)) {
+                    $query->whereRaw('1 = 0');
+
+                    return;
+                }
+
+                $departmentCodes = $this->departmentCodesForModule($module);
+
+                $query->where(function ($inner) use ($module, $departmentCodes) {
+                    $inner->whereHas('serviceModules', fn ($modules) => $modules->where('module', $module->value))
+                        ->orWhereHas('department', fn ($department) => $department->whereIn('code', $departmentCodes));
+                });
+            })
             ->when($request->filled('search'), function ($query) use ($request) {
                 $search = $request->string('search')->toString();
 
@@ -46,16 +63,20 @@ class UserController extends Controller
 
         return view('users.index', [
             'users' => $users,
+            'module' => $module,
         ]);
     }
 
     public function create(): View
     {
         $this->authorize('create', User::class);
+        $actor = auth()->user();
 
         return view('users.create', [
-            'moduleOptions' => ServiceModule::options(),
-            'roleOptionsByModule' => $this->roleOptionsByModule(),
+            'moduleOptions' => $this->moduleOptionsForActor($actor),
+            'roleOptionsByModule' => $this->roleOptionsByModule($actor),
+            'allowNoModuleOption' => ! $actor->isServiceAdmin(),
+            'forcedModule' => $actor->isServiceAdmin() ? $actor->assignedModule()?->value : null,
             'gares' => Gare::query()->where('is_active', true)->where('is_virtual', false)->orderBy('name')->get(),
         ]);
     }
@@ -67,9 +88,10 @@ class UserController extends Controller
         $data = $request->validated();
         $module = ServiceModule::tryFrom((string) ($data['module'] ?? ''));
         $role = UserRole::fromLegacyAware($data['role']);
-        $zoneGares = $this->resolveZoneGares($request, $role);
-        $payload = $this->normalizePayload($request, $data, $module, $role);
         $modules = $this->resolveModules($request, $module);
+        $allowMultiGareEntry = $request->boolean('allow_multi_gare_entry');
+        $zoneGares = $this->resolveZoneGares($request, $role, $modules, $allowMultiGareEntry);
+        $payload = $this->normalizePayload($request, $data, $module, $role);
 
         $user = User::create($payload);
         $user->gares()->sync($zoneGares);
@@ -106,6 +128,7 @@ class UserController extends Controller
                 'gares' => $zoneGares,
                 'is_active' => $user->is_active,
                 'must_change_password' => $user->must_change_password,
+                'cashier_collection_mode' => $user->cashierCollectionMode(),
             ],
         ]);
 
@@ -115,11 +138,14 @@ class UserController extends Controller
     public function edit(User $user): View
     {
         $this->authorize('update', $user);
+        $actor = auth()->user();
 
         return view('users.edit', [
             'user' => $user->load(['gares', 'department', 'serviceModules']),
-            'moduleOptions' => ServiceModule::options(),
-            'roleOptionsByModule' => $this->roleOptionsByModule(),
+            'moduleOptions' => $this->moduleOptionsForActor($actor),
+            'roleOptionsByModule' => $this->roleOptionsByModule($actor),
+            'allowNoModuleOption' => ! $actor->isServiceAdmin(),
+            'forcedModule' => $actor->isServiceAdmin() ? $actor->assignedModule()?->value : null,
             'gares' => Gare::query()->where('is_active', true)->where('is_virtual', false)->orderBy('name')->get(),
         ]);
     }
@@ -139,14 +165,16 @@ class UserController extends Controller
             'gares' => $user->gares()->pluck('gares.id')->all(),
             'is_active' => $user->is_active,
             'must_change_password' => $user->must_change_password,
+            'cashier_collection_mode' => $user->cashierCollectionMode(),
         ];
 
         $data = $request->validated();
         $module = ServiceModule::tryFrom((string) ($data['module'] ?? ''));
         $role = UserRole::fromLegacyAware($data['role']);
-        $zoneGares = $this->resolveZoneGares($request, $role);
-        $payload = $this->normalizePayload($request, $data, $module, $role, $user);
         $modules = $this->resolveModules($request, $module);
+        $allowMultiGareEntry = $request->boolean('allow_multi_gare_entry');
+        $zoneGares = $this->resolveZoneGares($request, $role, $modules, $allowMultiGareEntry);
+        $payload = $this->normalizePayload($request, $data, $module, $role, $user);
 
         if (blank($payload['password'] ?? null)) {
             unset($payload['password']);
@@ -170,6 +198,7 @@ class UserController extends Controller
                 'gares' => $zoneGares,
                 'is_active' => $user->is_active,
                 'must_change_password' => $user->must_change_password,
+                'cashier_collection_mode' => $user->cashierCollectionMode(),
             ],
         ]);
 
@@ -196,6 +225,7 @@ class UserController extends Controller
             'department_id' => $user->department_id,
             'gares' => $user->gares()->pluck('gares.id')->all(),
             'is_active' => $user->is_active,
+            'cashier_collection_mode' => $user->cashierCollectionMode(),
         ];
 
         $userId = $user->id;
@@ -269,6 +299,10 @@ class UserController extends Controller
         $data['must_change_password'] = $user
             ? $request->boolean('must_change_password', $user->must_change_password)
             : true;
+        $data['allow_multi_gare_entry'] = $request->boolean('allow_multi_gare_entry');
+        $data['cashier_collection_mode'] = $this->supportsCashierCollectionMode($role)
+            ? (string) $request->input('cashier_collection_mode', User::CASHIER_COLLECTION_BOTH)
+            : User::CASHIER_COLLECTION_BOTH;
         $data['department_id'] = $role->isUniversalSupervisor()
             ? null
             : ($module ? (Department::forModule($module)?->id ?? $user?->department_id) : $user?->department_id);
@@ -281,17 +315,50 @@ class UserController extends Controller
         return $data;
     }
 
-    protected function resolveZoneGares(Request $request, UserRole $role): array
+    protected function supportsCashierCollectionMode(UserRole $role): bool
     {
-        if (! $role->supportsMultipleGares()) {
+        return in_array($role, [
+            UserRole::CaissierGare,
+            UserRole::CaissierCourrier,
+            UserRole::Caissiere,
+            UserRole::ChefDeZone,
+        ], true);
+    }
+
+    protected function resolveZoneGares(Request $request, UserRole $role, array $modules = [], bool $allowMultiGareEntry = false): array
+    {
+        if (! $role->supportsMultipleGares() && ! $allowMultiGareEntry) {
             return [];
         }
 
+        $excludeInterOnly = in_array(ServiceModule::Courrier->value, $modules, true);
+
         if ($request->boolean('all_gares')) {
-            return Gare::query()->where('is_active', true)->where('is_virtual', false)->pluck('id')->all();
+            $query = Gare::query()->where('is_active', true)->where('is_virtual', false);
+            if ($excludeInterOnly) {
+                $query->where(function ($inner) {
+                    $inner->whereNull('activity_mode')
+                        ->orWhere('activity_mode', '!=', 'inter_only');
+                });
+            }
+
+            return $query->pluck('id')->all();
         }
 
-        return array_map('intval', $request->input('zone_gares', []));
+        $selectedIds = array_map('intval', $request->input('zone_gares', []));
+        if (! $excludeInterOnly || empty($selectedIds)) {
+            return $selectedIds;
+        }
+
+        return Gare::query()
+            ->whereIn('id', $selectedIds)
+            ->where(function ($inner) {
+                $inner->whereNull('activity_mode')
+                    ->orWhere('activity_mode', '!=', 'inter_only');
+            })
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
     }
 
     protected function extractFirstName(string $fullName): string
@@ -312,16 +379,42 @@ class UserController extends Controller
         return trim(implode(' ', $parts));
     }
 
-    protected function roleOptionsByModule(): array
+    protected function roleOptionsByModule(User $actor): array
     {
-        return ['' => [
+        $options = ['' => [
             ['value' => UserRole::Admin->value, 'label' => UserRole::Admin->label()],
             ['value' => UserRole::Responsable->value, 'label' => UserRole::Responsable->label()],
         ]] + UserRole::options();
+
+        if (! $actor->isServiceAdmin()) {
+            return $options;
+        }
+
+        $actorModule = $actor->assignedModule();
+        if (! $actorModule) {
+            return ['' => []];
+        }
+
+        $allowedValues = collect($actorModule->roleOptions())
+            ->pluck('value')
+            ->reject(fn ($value) => in_array($value, [UserRole::Admin->value, UserRole::Responsable->value], true))
+            ->values()
+            ->all();
+
+        $filtered = [
+            '' => [],
+            $actorModule->value => collect($actorModule->roleOptions())
+                ->filter(fn ($option) => in_array($option['value'], $allowedValues, true))
+                ->values()
+                ->all(),
+        ];
+
+        return $filtered;
     }
 
     protected function resolveModules(Request $request, ?ServiceModule $module): array
     {
+        $actor = $request->user();
         $modules = collect($request->input('modules', []))
             ->filter()
             ->map(fn ($value) => (string) $value)
@@ -331,7 +424,27 @@ class UserController extends Controller
             $modules->prepend($module->value);
         }
 
+        if ($actor?->isServiceAdmin()) {
+            $actorModule = $actor->assignedModule();
+
+            return $actorModule ? [$actorModule->value] : [];
+        }
+
         return $modules->unique()->take(2)->values()->all();
+    }
+
+    protected function moduleOptionsForActor(User $actor): array
+    {
+        if (! $actor->isServiceAdmin()) {
+            return ServiceModule::options();
+        }
+
+        $module = $actor->assignedModule();
+        if (! $module) {
+            return [];
+        }
+
+        return array_values(array_filter(ServiceModule::options(), fn ($option) => $option['value'] === $module->value));
     }
 
     protected function syncUserModules(User $user, array $modules): void
@@ -356,5 +469,15 @@ class UserController extends Controller
         if (in_array(ServiceModule::Courrier->value, $modules, true) && $user->canActAsCashierForScope('courrier')) {
             $this->virtualGares->ensureForScope($user, 'courrier');
         }
+    }
+
+    protected function departmentCodesForModule(ServiceModule $module): array
+    {
+        return match ($module) {
+            ServiceModule::Gares => ['GARES', 'EXP', 'FIN', 'DIR'],
+            ServiceModule::Documents => ['DOCS', 'DOC', 'ADM', 'CTL'],
+            ServiceModule::Courrier => ['COURRIER', 'CRR'],
+            ServiceModule::Rh => ['RH'],
+        };
     }
 }

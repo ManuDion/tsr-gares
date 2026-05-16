@@ -66,7 +66,7 @@
                     <th>Gare</th>
                     <th>Description</th>
                     <th>Détail</th>
-                    @if(auth()->user()->isAdmin())
+                    @if(auth()->user()->canAdministerModule($module))
                         <th>Suppression</th>
                     @endif
                 </tr>
@@ -85,7 +85,7 @@
                                 <span class="icon">{!! app_icon('eye') !!}</span> Voir
                             </a>
                         </td>
-                        @if(auth()->user()->isAdmin())
+                        @if(auth()->user()->canAdministerModule($module))
                             <td>
                                 <form method="POST" action="{{ route('activity-logs.destroy', array_merge(['activityLog' => $log], request()->query())) }}" onsubmit="return confirm('Supprimer cet historique ?');">
                                     @csrf
@@ -98,7 +98,7 @@
                         @endif
                     </tr>
                 @empty
-                    <tr><td colspan="{{ auth()->user()->isAdmin() ? 8 : 7 }}">Aucune modification historisée.</td></tr>
+                    <tr><td colspan="{{ auth()->user()->canAdministerModule($module) ? 8 : 7 }}">Aucune modification historisée.</td></tr>
                 @endforelse
             </tbody>
         </table>
@@ -106,3 +106,4 @@
 
     {{ $logs->links('partials.pagination') }}
 @endsection
+

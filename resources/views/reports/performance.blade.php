@@ -33,7 +33,7 @@
                             <strong>{{ $gare->name }}</strong>
                             <span>{{ $gare->saisie_total }} saisies</span>
                         </div>
-                        <div class="mini-bar-track"><div class="mini-bar-fill" style="width: {{ $width }}%"></div></div>
+                        <div class="mini-bar-track"><div class="mini-bar-fill" data-width-percent="{{ $width }}"></div></div>
                     </div>
                 @empty
                     <p class="text-muted">Aucune donnée sur cette période.</p>
@@ -49,9 +49,9 @@
                     <div class="mini-bar-row">
                         <div class="mini-bar-header">
                             <strong>{{ $row->gare?->name ?? 'Gare' }}</strong>
-                            <span>{{ number_format($row->total_amount, 0, ',', ' ') }} FCFA</span>
+                            <span>{{ number_format($row->total_amount, 0, '', ' ') }} FCFA</span>
                         </div>
-                        <div class="mini-bar-track"><div class="mini-bar-fill" style="width: {{ $width }}%"></div></div>
+                        <div class="mini-bar-track"><div class="mini-bar-fill" data-width-percent="{{ $width }}"></div></div>
                     </div>
                 @empty
                     <p class="text-muted">Aucune recette sur cette période.</p>
@@ -67,9 +67,9 @@
                     <div class="mini-bar-row">
                         <div class="mini-bar-header">
                             <strong>{{ $row->gare?->name ?? 'Gare' }}</strong>
-                            <span>{{ number_format($row->total_amount, 0, ',', ' ') }} FCFA</span>
+                            <span>{{ number_format($row->total_amount, 0, '', ' ') }} FCFA</span>
                         </div>
-                        <div class="mini-bar-track"><div class="mini-bar-fill" style="width: {{ $width }}%"></div></div>
+                        <div class="mini-bar-track"><div class="mini-bar-fill" data-width-percent="{{ $width }}"></div></div>
                     </div>
                 @empty
                     <p class="text-muted">Aucune dépense sur cette période.</p>

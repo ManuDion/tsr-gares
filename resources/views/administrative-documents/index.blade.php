@@ -64,12 +64,14 @@
                         <td><span class="badge {{ $class }}">{{ $status }}</span></td>
                         <td>{{ $document->updated_at?->format('d/m/Y H:i') }}</td>
                         <td class="actions-cell">
-                            <a class="btn btn-sm btn-outline" href="{{ route('administrative-documents.preview', $document) }}" target="_blank">
+                            <a class="btn btn-sm btn-outline" href="{{ route('administrative-documents.preview', $document) }}" data-internal-file-preview data-file-title="{{ $document->original_name ?? 'Document administratif' }}" onclick="return window.openInternalFileViewer(this);">
                                 <span class="icon">{!! app_icon('eye') !!}</span> Lire
                             </a>
-                            <a class="btn btn-sm btn-outline" href="{{ route('administrative-documents.download', $document) }}">
-                                <span class="icon">{!! app_icon('download') !!}</span> Télécharger
-                            </a>
+                            @if(auth()->user()->hasGlobalVisibility())
+                                <a class="btn btn-sm btn-outline" href="{{ route('administrative-documents.download', $document) }}">
+                                    <span class="icon">{!! app_icon('download') !!}</span> Télécharger
+                                </a>
+                            @endif
                             @can('update', $document)
                                 <a class="btn btn-sm btn-primary" href="{{ route('administrative-documents.edit', $document) }}">
                                     <span class="icon">{!! app_icon('edit') !!}</span> Mettre à jour
@@ -95,3 +97,4 @@
 
     {{ $documents->links('partials.pagination') }}
 @endsection
+

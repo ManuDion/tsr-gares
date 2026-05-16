@@ -5,11 +5,17 @@
 @section('subheading', 'Même principe de verrouillage que les recettes')
 
 @section('actions')
-    @if(auth()->user()->isAdmin() || auth()->user()->isResponsable() || auth()->user()->isVerificateur())
-        <form method="POST" action="{{ route('versements.unlock', ['versement' => $versement, 'module' => $module->value]) }}">
+    @if(auth()->user()->canUnlockFinancialScope($versement->service_scope))
+        <form method="POST" action="{{ route('versements.unlock', ['versement' => $versement, 'module' => $module->value]) }}" class="form-inline unlock-controls">
             @csrf
-            <input type="hidden" name="unlock_reason" value="Déverrouillage manuel par superviseur">
-            <button class="btn btn-outline" type="submit">Déverrouiller 24h</button>
+            <input type="hidden" name="unlock_reason" value="Deverrouillage manuel par superviseur">
+            <input type="number" name="unlock_duration" min="1" step="1" value="{{ old('unlock_duration', 24) }}" class="unlock-duration" required>
+            <select name="unlock_unit" class="unlock-unit" required>
+                <option value="minutes" @selected(old('unlock_unit') === 'minutes')>Minutes</option>
+                <option value="hours" @selected(old('unlock_unit', 'hours') === 'hours')>Heures</option>
+                <option value="days" @selected(old('unlock_unit') === 'days')>Jours</option>
+            </select>
+            <button class="btn btn-outline" type="submit">Deverrouiller</button>
         </form>
     @endif
 @endsection
@@ -71,3 +77,4 @@
         </div>
     </div>
 @endsection
+

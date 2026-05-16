@@ -2,7 +2,7 @@
 
 @section('title', 'Versements bancaires')
 @section('heading', ($module?->value ?? 'gares') === 'courrier' ? 'Versements courrier' : 'Gestion des versements bancaires')
-@section('subheading', auth()->user()->canViewAllGares() ? 'Suivi des depots bancaires et des bordereaux justificatifs' : 'Liste des versements de votre perimetre')
+@section('subheading', auth()->user()->canViewAllGares($module->financialScope()) ? 'Suivi des depots bancaires et des bordereaux justificatifs' : 'Liste des versements de votre perimetre')
 
 @section('actions')
     @can('create', App\Models\VersementBancaire::class)
@@ -11,7 +11,11 @@
 @endsection
 
 @section('content')
-    @if(auth()->user()->canViewAllGares())
+    @php
+        $isVerificateur = auth()->user()->isVerificateur();
+    @endphp
+
+    @if(auth()->user()->canViewAllGares($module->financialScope()) || $isVerificateur)
         <div class="panel">
             <form method="GET" class="filters-grid">
                 <input type="hidden" name="module" value="{{ $module->value }}">
@@ -32,6 +36,25 @@
                     <label>Date fin</label>
                     <input type="date" name="end_date" value="{{ request('end_date') }}">
                 </div>
+                @if($isVerificateur)
+                    <div>
+                        <label>Saisi par</label>
+                        <input type="text" name="creator_name" value="{{ request('creator_name') }}" placeholder="Nom utilisateur">
+                    </div>
+                    <div>
+                        <label>Numero de telephone</label>
+                        <input type="text" name="creator_phone" value="{{ request('creator_phone') }}" placeholder="Ex. 0700000000">
+                    </div>
+                    <div>
+                        <label>Modification</label>
+                        <select name="modification_state">
+                            <option value="">Tous</option>
+                            <option value="unlock_active" @selected(request('modification_state') === 'unlock_active')>Deverrouillage actif</option>
+                            <option value="unlock_expired" @selected(request('modification_state') === 'unlock_expired')>Deverrouillage expire</option>
+                            <option value="locked" @selected(request('modification_state') === 'locked')>Aucun deverrouillage</option>
+                        </select>
+                    </div>
+                @endif
                 <div class="align-end gap-sm">
                     <button class="btn btn-outline" type="submit"><span class="icon">{!! app_icon('filter') !!}</span> Filtrer</button>
                     <a class="btn btn-outline" href="{{ route('exports.controls', request()->query()) }}">Exporter controles</a>
@@ -40,17 +63,15 @@
         </div>
     @endif
 
-    <div class="table-wrapper">
+    <div class="table-wrapper versements-table">
         <table>
             <thead>
                 <tr>
                     <th>Date operation</th>
                     <th>Date recette</th>
                     <th>Gare</th>
-                    <th>Compte</th>
                     <th>Banque</th>
-                    <th><span class="th-stack">Montant<small>en FCFA</small></span></th>
-                    <th>Reference</th>
+                    <th>Montant en FCFA</th>
                     <th>Bordereau</th>
                     <th>Action</th>
                 </tr>
@@ -61,19 +82,19 @@
                         <td>{{ $versement->operation_date?->format('d/m/Y') }}</td>
                         <td>{{ $versement->receipt_date?->format('d/m/Y') ?: '-' }}</td>
                         <td>{{ $versement->gare->name }}</td>
-                        <td>{{ ($versement->account_type ?? 'national') === 'inter' ? 'Inter' : 'National' }}</td>
                         <td>{{ $versement->bank_name ?: '-' }}</td>
-                        <td class="amount-cell">{{ number_format($versement->amount, 0, ',', ' ') }}</td>
-                        <td>{{ $versement->reference ?: '-' }}</td>
+                        <td class="amount-cell">{{ number_format($versement->amount, 0, '', ' ') }}</td>
                         <td>
                             @forelse($versement->justificatives as $piece)
                                 <div class="doc-links">
-                                    <a class="btn btn-sm btn-outline" href="{{ route('justificatifs.preview', $piece) }}" target="_blank">
+                                    <a class="btn btn-sm btn-outline" href="{{ route('justificatifs.preview', $piece) }}" data-internal-file-preview data-file-title="{{ $piece->original_name ?? 'Bordereau versement' }}" onclick="return window.openInternalFileViewer(this);">
                                         <span class="icon">{!! app_icon('eye') !!}</span> Lire
                                     </a>
-                                    <a class="btn btn-sm btn-outline" href="{{ route('justificatifs.download', $piece) }}">
-                                        <span class="icon">{!! app_icon('download') !!}</span> Telecharger
-                                    </a>
+                                    @if(auth()->user()->hasGlobalVisibility())
+                                        <a class="btn btn-sm btn-outline" href="{{ route('justificatifs.download', $piece) }}">
+                                            <span class="icon">{!! app_icon('download') !!}</span> Telecharger
+                                        </a>
+                                    @endif
                                 </div>
                             @empty
                                 -
@@ -91,7 +112,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="9">Aucun versement trouve.</td></tr>
+                    <tr><td colspan="7">Aucun versement trouve.</td></tr>
                 @endforelse
             </tbody>
         </table>

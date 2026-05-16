@@ -182,12 +182,19 @@ class AdministrativeDocumentController extends Controller
     public function preview(Request $request, AdministrativeDocument $administrativeDocument): BinaryFileResponse
     {
         $this->authorize('view', $administrativeDocument);
+        $mimeType = $this->resolveMimeType(
+            $administrativeDocument->mime_type,
+            $administrativeDocument->original_name,
+            $administrativeDocument->disk,
+            $administrativeDocument->path
+        );
 
         return response()->file(
             Storage::disk($administrativeDocument->disk)->path($administrativeDocument->path),
             [
-                'Content-Type' => $administrativeDocument->mime_type ?: 'application/pdf',
+                'Content-Type' => $mimeType,
                 'Content-Disposition' => 'inline; filename="'.$administrativeDocument->original_name.'"',
+                'X-File-Name' => $administrativeDocument->original_name ?? '',
             ]
         );
     }
@@ -195,10 +202,33 @@ class AdministrativeDocumentController extends Controller
     public function download(Request $request, AdministrativeDocument $administrativeDocument): StreamedResponse
     {
         $this->authorize('view', $administrativeDocument);
+        abort_unless($request->user()?->hasGlobalVisibility(), 403);
 
         return Storage::disk($administrativeDocument->disk)->download(
             $administrativeDocument->path,
             $administrativeDocument->original_name
         );
+    }
+
+    protected function resolveMimeType(?string $storedMimeType, ?string $originalName, string $disk, string $path): string
+    {
+        $mimeType = strtolower(trim((string) $storedMimeType));
+        if ($mimeType !== '' && $mimeType !== 'application/octet-stream') {
+            return $mimeType;
+        }
+
+        $detected = Storage::disk($disk)->mimeType($path);
+        if (is_string($detected) && trim($detected) !== '') {
+            return strtolower(trim($detected));
+        }
+
+        $extension = strtolower((string) pathinfo((string) $originalName, PATHINFO_EXTENSION));
+
+        return match ($extension) {
+            'jpg', 'jpeg' => 'image/jpeg',
+            'png' => 'image/png',
+            'pdf' => 'application/pdf',
+            default => 'application/octet-stream',
+        };
     }
 }

@@ -52,7 +52,7 @@ class ExportController extends Controller
 
         $query = DailyControl::query()->with('gare')->where('service_scope', $scope);
 
-        if (! $request->user()->canViewAllGares()) {
+        if (! $request->user()->canViewAllGares($scope)) {
             $query->whereIn('gare_id', $request->user()->accessibleGareIds($scope));
         }
 

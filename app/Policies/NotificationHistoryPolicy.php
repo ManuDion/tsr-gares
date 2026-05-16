@@ -14,6 +14,6 @@ class NotificationHistoryPolicy
 
     public function view(User $user, NotificationHistory $notificationHistory): bool
     {
-        return $user->canViewAllGares() || $notificationHistory->user_id === $user->id;
+        return $user->hasGlobalVisibility() || $notificationHistory->user_id === $user->id;
     }
 }
