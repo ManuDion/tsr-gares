@@ -192,12 +192,30 @@ Quand une gare est selectionnee:
 - Contrainte d'unicite sur les versements: `service_scope + gare_id + operation_date + account_type`
 - Ecran `Ecritures manquantes` pour identifier les jours incomplets
 - Export PDF des ecritures manquantes pour partage terrain/controle
+- Les gares desactivees sont exclues du module Verification et de la fiche des ecritures manquantes
 
 ## 6) Notifications et historique systeme
 
 - Les notifications sont filtrees par module actif
 - L'historique systeme est filtre par module actif
 - En pratique, un utilisateur dans un module ne voit que les elements pertinents de ce module
+- Les notifications liees a une gare desactivee ne sont plus affichees dans les modules financiers
+
+## 6.1 Ergonomie mobile et responsive
+
+- Optimisation des tableaux pour tablettes et telephones:
+  - Gestion des utilisateurs
+  - Gestion des recettes
+  - Gestion des versements
+  - Historique des notifications
+  - Module Verification
+- Ajustement des largeurs de colonnes et retours a la ligne pour eviter les textes verticaux
+- Filtre rapide `Aujourd'hui` ajoute dans l'historique des notifications
+
+## 6.2 Tableau de bord financier
+
+- Ajout de la carte `Gares actives` avant `Total recettes`
+- Cartes `Gares actives`, `Total recettes`, `Total depenses`, `Total versements` compactees et alignees sur une meme ligne (ecran large)
 
 ## 7) OCR versements
 
@@ -493,6 +511,17 @@ Important:
   - jusqu'a 10 photos/fichiers justificatifs par enregistrement
 - Harmonisation montants:
   - montants financiers en entiers FCFA sur saisie, controle et export Excel/PDF
+- Ergonomie mobile:
+  - optimisation des tableaux Recettes, Versements, Verification, Utilisateurs et Notifications
+  - ajustements des colonnes et tailles de badges/boutons pour une meilleure lisibilite sur petit ecran
+- Regles gares actives:
+  - exclusion des gares desactivees dans Verification et Ecritures manquantes
+  - notifications financieres filtrees pour ne plus remonter les gares desactivees
+- Tableau de bord:
+  - ajout du KPI `Gares actives`
+  - compactage des 4 cartes financieres principales sur une seule ligne en ecran large
+- Encodage FR:
+  - correction des libelles avec accents sur les ecrans financiers et notifications
 
 ## 13) Limites actuelles et prochaines etapes
 
