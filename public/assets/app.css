@@ -1563,6 +1563,11 @@ tbody tr:hover {
 .chat-meta { display:flex; justify-content:space-between; gap:1rem; color: var(--muted); font-size:.86rem; margin-bottom:.4rem; }
 .message-box { min-height: 110px; }
 .list-stack { display:grid; gap:.85rem; }
+.chat-message-actions {
+    margin-top: .45rem;
+    display: flex;
+    justify-content: flex-end;
+}
 .list-card { border:1px solid var(--border); border-radius:1rem; padding:1rem; background:#fff; }
 .list-card h3 { margin-bottom:.35rem; }
 .list-card .text-muted { font-size:.92rem; }
@@ -1759,6 +1764,18 @@ tbody tr:hover {
     line-height: 1.35;
 }
 
+.notification-operations-list {
+    display: grid;
+    gap: .12rem;
+    line-height: 1.3;
+}
+
+.notification-operations-list span {
+    display: block;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
 @media (max-width: 1024px) {
     .notifications-table td:nth-child(2) .notification-subject-title,
     .notifications-table td:nth-child(4) .cell-truncate {
@@ -1773,7 +1790,7 @@ tbody tr:hover {
         font-size: .84rem;
     }
 
-    .notifications-table td:nth-child(4) .cell-truncate {
+    .notification-operations-list {
         font-size: .8rem;
     }
 
@@ -1802,6 +1819,109 @@ tbody tr:hover {
         word-break: normal;
         overflow-wrap: normal;
         hyphens: none;
+    }
+}
+
+.versements-table th:nth-child(1),
+.versements-table td:nth-child(1) {
+    width: 108px;
+    white-space: nowrap;
+}
+
+.versements-table th:nth-child(2),
+.versements-table td:nth-child(2) {
+    width: 104px;
+    white-space: nowrap;
+}
+
+.activity-logs-table th,
+.activity-logs-table td {
+    font-size: .86rem;
+    line-height: 1.35;
+}
+
+.activity-logs-table th {
+    font-size: .78rem;
+}
+
+.activity-logs-table table {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0 !important;
+    table-layout: fixed;
+}
+
+.activity-logs-table th:nth-child(1),
+.activity-logs-table td:nth-child(1) {
+    width: 170px;
+}
+
+.activity-logs-table th:nth-child(2),
+.activity-logs-table td:nth-child(2) {
+    width: 160px;
+    white-space: nowrap;
+}
+
+.activity-logs-table th:nth-child(3),
+.activity-logs-table td:nth-child(3) {
+    width: 190px;
+}
+
+.activity-logs-table th:nth-child(6),
+.activity-logs-table td:nth-child(6) {
+    width: 132px;
+    white-space: nowrap;
+}
+
+.activity-log-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+}
+
+.activity-log-action-form {
+    display: inline-flex;
+}
+
+.activity-log-action-btn {
+    min-height: 36px;
+    padding: .42rem .72rem;
+    font-size: .8rem;
+    white-space: nowrap;
+}
+
+@media (max-width: 1024px) {
+    .activity-logs-table.table-compact table {
+        min-width: 0;
+    }
+
+    .activity-logs-table th,
+    .activity-logs-table td {
+        font-size: .8rem;
+    }
+
+    .activity-log-action-btn {
+        min-height: 34px;
+        padding: .38rem .62rem;
+        font-size: .76rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .activity-logs-table tbody td {
+        font-size: .78rem;
+    }
+
+    .activity-log-actions {
+        display: flex;
+        justify-content: center;
+        gap: .35rem;
+    }
+
+    .activity-log-action-btn {
+        justify-content: center;
+        min-width: 36px;
+        padding: .36rem .54rem;
     }
 }
 
@@ -1960,8 +2080,13 @@ tbody tr:hover {
 .versements-table td:nth-child(1),
 .versements-table th:nth-child(2),
 .versements-table td:nth-child(2) {
-    width: 102px;
+    width: 96px;
     white-space: nowrap;
+}
+
+.versements-table th:nth-child(1),
+.versements-table td:nth-child(1) {
+    width: 118px;
 }
 
 .versements-table th:nth-child(3),
@@ -2946,4 +3071,30 @@ body.sidebar-open {
     margin-top: .18rem;
     font-size: .66rem;
     line-height: 1.25;
+}
+
+.justificatifs-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .6rem;
+}
+
+.justificatifs-batch-table th:nth-child(1),
+.justificatifs-batch-table td:nth-child(1) { width: 34%; }
+.justificatifs-batch-table th:nth-child(2),
+.justificatifs-batch-table td:nth-child(2) { width: 28%; }
+.justificatifs-batch-table th:nth-child(3),
+.justificatifs-batch-table td:nth-child(3) { width: 20%; white-space: nowrap; }
+.justificatifs-batch-table th:nth-child(4),
+.justificatifs-batch-table td:nth-child(4) { width: 18%; white-space: nowrap; }
+
+.justificatifs-period-form {
+    grid-template-columns: minmax(170px, 200px) minmax(170px, 210px) minmax(170px, 210px) auto;
+    align-items: end;
+}
+
+@media (max-width: 900px) {
+    .justificatifs-period-form {
+        grid-template-columns: 1fr 1fr;
+    }
 }

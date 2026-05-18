@@ -155,7 +155,7 @@
         <div class="panel hero-panel">
             <div class="filters-grid">
                 <div>
-                    <label for="period">Periode</label>
+                    <label for="period">Période</label>
                     <select id="period" wire:model.live="period">
                         @foreach($metrics['period_options'] ?? [] as $option)
                             <option value="{{ $option['value'] }}">{{ $option['label'] }}</option>
@@ -163,7 +163,7 @@
                     </select>
                 </div>
                 <div>
-                    <label for="start_date">Date debut</label>
+                    <label for="start_date">Date début</label>
                     <input id="start_date" type="date" wire:model.live="start_date">
                 </div>
                 <div>
@@ -186,7 +186,7 @@
             <div class="stats-grid {{ $useEntryCounts ? '' : 'dashboard-kpi-grid' }}">
                 @if($useEntryCounts)
                     <x-stat-card title="Recettes enregistrees" :value="$metrics['recettes_count']" meta="Nombre d'enregistrements - {{ $metrics['period_label'] }}" icon="wallet" />
-                    <x-stat-card title="Depenses enregistrees" :value="$metrics['depenses_count']" meta="Nombre d'enregistrements - {{ $metrics['period_label'] }}" icon="receipt" />
+                    <x-stat-card title="Dépenses enregistrées" :value="$metrics['depenses_count']" meta="Nombre d'enregistrements - {{ $metrics['period_label'] }}" icon="receipt" />
                     <x-stat-card title="Versements enregistres" :value="$metrics['versements_count']" meta="Nombre d'enregistrements - {{ $metrics['period_label'] }}" icon="bank" />
                 @else
                     <x-stat-card title="Gares actives" :value="$metrics['active_gares_count']" meta="{{ $serviceTitle }} - {{ $metrics['period_label'] }}" icon="users" />
@@ -333,7 +333,7 @@
                     </svg>
                     <div class="chart-legend">
                         <span><i class="legend-dot recettes"></i> Recettes</span>
-                        <span><i class="legend-dot depenses"></i> Depenses</span>
+                        <span><i class="legend-dot depenses"></i> Dépenses</span>
                         <span><i class="legend-dot versements"></i> Versements</span>
                     </div>
                 </div>
@@ -348,7 +348,7 @@
                     <table>
                         <thead>
                             <tr>
-                                <th>Periode</th>
+                                <th>Période</th>
                                 @if($isCourrier)
                                     <th>Recettes courrier</th>
                                 @else
@@ -356,7 +356,7 @@
                                     <th>Recette nationale</th>
                                     <th>Recette totale</th>
                                 @endif
-                                <th>Depenses</th>
+                                <th>Dépenses</th>
                                 <th>Versements</th>
                             </tr>
                         </thead>
@@ -409,7 +409,7 @@
                     <div class="panel-header">
                         <div>
                             <h2>Top gares en recettes</h2>
-                            <p class="text-muted">Periode selectionnee</p>
+                            <p class="text-muted">Période sélectionnée</p>
                         </div>
                     </div>
                     <div class="table-wrapper table-plain">
@@ -438,7 +438,7 @@
                     <div class="panel-header">
                         <div>
                             <h2>Top gares en depenses</h2>
-                            <p class="text-muted">Periode selectionnee</p>
+                            <p class="text-muted">Période sélectionnée</p>
                         </div>
                     </div>
                     <div class="table-wrapper table-plain">

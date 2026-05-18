@@ -2,7 +2,7 @@
 
 @section('title', 'Recettes')
 @section('heading', ($module?->value ?? 'gares') === 'courrier' ? 'Recettes courrier' : 'Gestion des recettes')
-@section('subheading', ($module?->value ?? 'gares') === 'courrier' ? 'Recettes du service courrier par gare et par periode' : (auth()->user()->canViewAllGares($module->financialScope()) ? 'Saisie, consultation, modification et export' : 'Recettes visibles et modifiables dans votre perimetre'))
+@section('subheading', ($module?->value ?? 'gares') === 'courrier' ? 'Recettes du service courrier par gare et par période' : (auth()->user()->canViewAllGares($module->financialScope()) ? 'Saisie, consultation, modification et export' : 'Recettes visibles et modifiables dans votre périmètre'))
 
 @section('actions')
     @can('create', App\Models\Recette::class)
@@ -29,7 +29,7 @@
                     </select>
                 </div>
                 <div>
-                    <label>Date debut</label>
+                    <label>Date début</label>
                     <input type="date" name="start_date" value="{{ request('start_date') }}">
                 </div>
                 <div>
@@ -42,16 +42,16 @@
                         <input type="text" name="creator_name" value="{{ request('creator_name') }}" placeholder="Nom utilisateur">
                     </div>
                     <div>
-                        <label>Numero de telephone</label>
+                        <label>Numéro de téléphone</label>
                         <input type="text" name="creator_phone" value="{{ request('creator_phone') }}" placeholder="Ex. 0700000000">
                     </div>
                     <div>
                         <label>Modification</label>
                         <select name="modification_state">
                             <option value="">Tous</option>
-                            <option value="unlock_active" @selected(request('modification_state') === 'unlock_active')>Deverrouillage actif</option>
-                            <option value="unlock_expired" @selected(request('modification_state') === 'unlock_expired')>Deverrouillage expire</option>
-                            <option value="locked" @selected(request('modification_state') === 'locked')>Aucun deverrouillage</option>
+                            <option value="unlock_active" @selected(request('modification_state') === 'unlock_active')>Déverrouillage actif</option>
+                            <option value="unlock_expired" @selected(request('modification_state') === 'unlock_expired')>Déverrouillage expiré</option>
+                            <option value="locked" @selected(request('modification_state') === 'locked')>Aucun déverrouillage</option>
                         </select>
                     </div>
                 @endif
@@ -102,7 +102,7 @@
                                     </a>
                                     @if(auth()->user()->hasGlobalVisibility())
                                         <a class="btn btn-sm btn-outline" href="{{ route('justificatifs.download', $piece) }}">
-                                            <span class="icon">{!! app_icon('download') !!}</span> Telecharger
+                                            <span class="icon">{!! app_icon('download') !!}</span> Télécharger
                                         </a>
                                     @endif
                                 </div>
@@ -118,12 +118,12 @@
                                     <span class="sr-only">Modifier</span>
                                 </a>
                             @else
-                                <span class="text-muted">Verrouillee</span>
+                                <span class="text-muted">Verrouillée</span>
                             @endcan
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="6">Aucune recette trouvee.</td></tr>
+                    <tr><td colspan="6">Aucune recette trouvée.</td></tr>
                 @endforelse
             </tbody>
         </table>
@@ -131,4 +131,3 @@
 
     {{ $recettes->links('partials.pagination') }}
 @endsection
-

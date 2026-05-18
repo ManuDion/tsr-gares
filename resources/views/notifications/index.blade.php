@@ -80,11 +80,7 @@
             <tbody>
                 @forelse($notifications as $notification)
                     @php($garesLabel = collect($notification->gares)->implode(', ') ?: '—')
-                    @php(
-                        $operationsLabel = collect($notification->operations)
-                            ->map(fn ($operation) => $operationLabels[$operation] ?? \Illuminate\Support\Str::headline($operation))
-                            ->implode(', ') ?: '—'
-                    )
+                    @php($operations = collect($notification->operations)->map(fn ($operation) => $operationLabels[$operation] ?? \Illuminate\Support\Str::headline($operation)))
                     <tr>
                         <td data-label="Date génération">{{ $notification->created_at?->format('d/m/Y H:i') }}</td>
                         <td data-label="Objet">
@@ -92,7 +88,15 @@
                             <div class="text-muted notification-subject-content" title="{{ $notification->content }}">{{ $notification->content }}</div>
                         </td>
                         <td data-label="Gares" title="{{ $garesLabel }}"><span class="cell-truncate">{{ $garesLabel }}</span></td>
-                        <td data-label="Opérations" title="{{ $operationsLabel }}"><span class="cell-truncate">{{ $operationsLabel }}</span></td>
+                        <td data-label="Opérations">
+                            <div class="notification-operations-list">
+                                @forelse($operations as $operationLabel)
+                                    <span>{{ $operationLabel }}</span>
+                                @empty
+                                    <span>—</span>
+                                @endforelse
+                            </div>
+                        </td>
                         <td data-label="Statut">
                             <span class="badge {{ $notification->status === 'generated' ? 'badge-success' : '' }}">
                                 {{ $statusLabels[$notification->status] ?? \Illuminate\Support\Str::headline($notification->status) }}
@@ -108,4 +112,3 @@
 
     {{ $notifications->links('partials.pagination') }}
 @endsection
-

@@ -9,7 +9,7 @@
 
 <div class="panel depense-entry-card" data-depense-entry>
     <div class="entry-head">
-        <h3 data-entry-title>Depense {{ is_numeric($index) ? ((int) $index + 1) : '' }}</h3>
+        <h3 data-entry-title>Dépense {{ is_numeric($index) ? ((int) $index + 1) : '' }}</h3>
         <button class="btn btn-sm btn-outline" type="button" data-remove-depense>Retirer</button>
     </div>
 
@@ -63,7 +63,7 @@
         </div>
         <div>
             <label>Nom du justificatif</label>
-            <input type="text" name="entries[{{ $index }}][justificatif_name]" value="{{ old($oldPrefix.'.justificatif_name', data_get($entry, 'justificatif_name')) }}" placeholder="Ex. Depense billetage {{ is_numeric($index) ? ((int) $index + 1) : '' }}">
+            <input type="text" name="entries[{{ $index }}][justificatif_name]" value="{{ old($oldPrefix.'.justificatif_name', data_get($entry, 'justificatif_name')) }}" placeholder="Ex. Dépense billetage {{ is_numeric($index) ? ((int) $index + 1) : '' }}">
         </div>
         <div>
             <label>Justificatifs (max 10, {{ $maxSizeKb }} Ko par fichier)</label>

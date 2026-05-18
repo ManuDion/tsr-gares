@@ -8,7 +8,7 @@
     @if(auth()->user()->canUnlockFinancialScope($recette->service_scope))
         <form method="POST" action="{{ route('recettes.unlock', ['recette' => $recette, 'module' => $module->value]) }}" class="form-inline unlock-controls">
             @csrf
-            <input type="hidden" name="unlock_reason" value="Deverrouillage manuel par superviseur">
+            <input type="hidden" name="unlock_reason" value="Déverrouillage manuel par superviseur">
             <input type="number" name="unlock_duration" min="1" step="1" value="{{ old('unlock_duration', 24) }}" class="unlock-duration" required>
             <select name="unlock_unit" class="unlock-unit" required>
                 <option value="minutes" @selected(old('unlock_unit') === 'minutes')>Minutes</option>

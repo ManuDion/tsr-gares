@@ -2,9 +2,12 @@
 
 use App\Http\Middleware\EnsurePasswordIsPersonalized;
 use App\Http\Middleware\EnsureRole;
+use Illuminate\Http\Request;
+use Illuminate\Session\TokenMismatchException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -22,5 +25,27 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        $handleExpiredSession = function (Request $request) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => 'Session expiree. Veuillez vous reconnecter.',
+                ], 419);
+            }
+
+            return redirect()
+                ->guest(route('login'))
+                ->with('status', 'Votre session a expire apres inactivite. Veuillez vous reconnecter.');
+        };
+
+        $exceptions->render(function (TokenMismatchException $exception, Request $request) use ($handleExpiredSession) {
+            return $handleExpiredSession($request);
+        });
+
+        $exceptions->render(function (HttpExceptionInterface $exception, Request $request) use ($handleExpiredSession) {
+            if ((int) $exception->getStatusCode() !== 419) {
+                return null;
+            }
+
+            return $handleExpiredSession($request);
+        });
     })->create();

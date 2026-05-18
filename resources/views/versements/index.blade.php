@@ -2,7 +2,7 @@
 
 @section('title', 'Versements bancaires')
 @section('heading', ($module?->value ?? 'gares') === 'courrier' ? 'Versements courrier' : 'Gestion des versements bancaires')
-@section('subheading', auth()->user()->canViewAllGares($module->financialScope()) ? 'Suivi des depots bancaires et des bordereaux justificatifs' : 'Liste des versements de votre perimetre')
+@section('subheading', auth()->user()->canViewAllGares($module->financialScope()) ? 'Suivi des dépôts bancaires et des bordereaux justificatifs' : 'Liste des versements de votre périmètre')
 
 @section('actions')
     @can('create', App\Models\VersementBancaire::class)
@@ -29,7 +29,7 @@
                     </select>
                 </div>
                 <div>
-                    <label>Date debut</label>
+                    <label>Date début</label>
                     <input type="date" name="start_date" value="{{ request('start_date') }}">
                 </div>
                 <div>
@@ -42,22 +42,22 @@
                         <input type="text" name="creator_name" value="{{ request('creator_name') }}" placeholder="Nom utilisateur">
                     </div>
                     <div>
-                        <label>Numero de telephone</label>
+                        <label>Numéro de téléphone</label>
                         <input type="text" name="creator_phone" value="{{ request('creator_phone') }}" placeholder="Ex. 0700000000">
                     </div>
                     <div>
                         <label>Modification</label>
                         <select name="modification_state">
                             <option value="">Tous</option>
-                            <option value="unlock_active" @selected(request('modification_state') === 'unlock_active')>Deverrouillage actif</option>
-                            <option value="unlock_expired" @selected(request('modification_state') === 'unlock_expired')>Deverrouillage expire</option>
-                            <option value="locked" @selected(request('modification_state') === 'locked')>Aucun deverrouillage</option>
+                            <option value="unlock_active" @selected(request('modification_state') === 'unlock_active')>Déverrouillage actif</option>
+                            <option value="unlock_expired" @selected(request('modification_state') === 'unlock_expired')>Déverrouillage expiré</option>
+                            <option value="locked" @selected(request('modification_state') === 'locked')>Aucun déverrouillage</option>
                         </select>
                     </div>
                 @endif
                 <div class="align-end gap-sm">
                     <button class="btn btn-outline" type="submit"><span class="icon">{!! app_icon('filter') !!}</span> Filtrer</button>
-                    <a class="btn btn-outline" href="{{ route('exports.controls', request()->query()) }}">Exporter controles</a>
+                    <a class="btn btn-outline" href="{{ route('exports.controls', request()->query()) }}">Exporter contrôles</a>
                 </div>
             </form>
         </div>
@@ -67,8 +67,8 @@
         <table>
             <thead>
                 <tr>
-                    <th>Date operation</th>
-                    <th>Date recette</th>
+                    <th><span class="th-stack">Date<small>opération</small></span></th>
+                    <th><span class="th-stack">Date<small>recette</small></span></th>
                     <th>Gare</th>
                     <th>Banque</th>
                     <th>Montant en FCFA</th>
@@ -79,7 +79,7 @@
             <tbody>
                 @forelse($versements as $versement)
                     <tr>
-                        <td data-label="Date operation">{{ $versement->operation_date?->format('d/m/Y') }}</td>
+                        <td data-label="Date opération">{{ $versement->operation_date?->format('d/m/Y') }}</td>
                         <td data-label="Date recette">{{ $versement->receipt_date?->format('d/m/Y') ?: '-' }}</td>
                         <td data-label="Gare" title="{{ $versement->gare->name }}"><span class="cell-truncate">{{ $versement->gare->name }}</span></td>
                         <td data-label="Banque" title="{{ $versement->bank_name ?: '-' }}"><span class="cell-truncate">{{ $versement->bank_name ?: '-' }}</span></td>
@@ -92,7 +92,7 @@
                                     </a>
                                     @if(auth()->user()->hasGlobalVisibility())
                                         <a class="btn btn-sm btn-outline" href="{{ route('justificatifs.download', $piece) }}">
-                                            <span class="icon">{!! app_icon('download') !!}</span> Telecharger
+                                            <span class="icon">{!! app_icon('download') !!}</span> Télécharger
                                         </a>
                                     @endif
                                 </div>
@@ -112,7 +112,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="7">Aucun versement trouve.</td></tr>
+                    <tr><td colspan="7">Aucun versement trouvé.</td></tr>
                 @endforelse
             </tbody>
         </table>
@@ -120,4 +120,3 @@
 
     {{ $versements->links('partials.pagination') }}
 @endsection
-

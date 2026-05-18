@@ -115,7 +115,7 @@ class CashierReceiptController extends Controller
                 $duration,
                 $unit
             );
-            $this->activity->log($user, 'cashier_operations_unlocked', $gare, 'Deverrouillage caissier des operations d une gare.', [
+            $this->activity->log($user, 'cashier_operations_unlocked', $gare, 'Déverrouillage caissier des opérations d une gare.', [
                 'gare_id' => $gare->id,
                 'before' => [
                     'service_scope' => $scope,
@@ -137,7 +137,7 @@ class CashierReceiptController extends Controller
             return redirect()->route('cashier-receipts.index', [
                 'module' => $module->value,
                 'operation_date' => $operationDate,
-            ])->with('status', "Deverrouillage actif pour {$duration} {$unitLabel} (jusqu au {$until->format('d/m/Y H:i')}).");
+            ])->with('status', "Déverrouillage actif pour {$duration} {$unitLabel} (jusqu au {$until->format('d/m/Y H:i')}).");
         }
 
         $payload['is_verified'] = true;

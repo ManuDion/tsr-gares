@@ -38,7 +38,7 @@ class EmployeeController extends Controller
 
     public function create(Request $request): View
     {
-        abort_unless($request->user()->canAccessRhModule() && ! $request->user()->isPersonnelTsr(), 403);
+        abort_unless($this->canManageRh($request->user()), 403);
 
         return view('rh.employees.create', [
             'departments' => Department::query()->where('is_active', true)->orderBy('name')->get(),
@@ -49,7 +49,7 @@ class EmployeeController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        abort_unless($request->user()->canAccessRhModule() && ! $request->user()->isPersonnelTsr(), 403);
+        abort_unless($this->canManageRh($request->user()), 403);
 
         $data = $request->validate([
             'employee_code' => ['required', 'string', 'max:60', 'unique:employees,employee_code'],
@@ -112,7 +112,7 @@ class EmployeeController extends Controller
 
     public function edit(Request $request, Employee $employee): View
     {
-        abort_unless($request->user()->canAccessRhModule() && ! $request->user()->isPersonnelTsr(), 403);
+        abort_unless($this->canManageRh($request->user()), 403);
 
         return view('rh.employees.edit', [
             'employee' => $employee,
@@ -124,7 +124,7 @@ class EmployeeController extends Controller
 
     public function update(Request $request, Employee $employee): RedirectResponse
     {
-        abort_unless($request->user()->canAccessRhModule() && ! $request->user()->isPersonnelTsr(), 403);
+        abort_unless($this->canManageRh($request->user()), 403);
 
         $data = $request->validate([
             'employee_code' => ['required', 'string', 'max:60', 'unique:employees,employee_code,'.$employee->id],
@@ -168,5 +168,10 @@ class EmployeeController extends Controller
         array_shift($parts);
 
         return [$first, implode(' ', $parts)];
+    }
+
+    protected function canManageRh(User $user): bool
+    {
+        return $user->canAdministerModule(ServiceModule::Rh) || $user->isResponsableRh();
     }
 }

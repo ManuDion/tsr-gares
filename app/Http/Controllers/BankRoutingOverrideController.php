@@ -130,7 +130,7 @@ class BankRoutingOverrideController extends Controller
 
         return redirect()
             ->route('bank-routing-overrides.index', ['module' => $module->value])
-            ->with('status', 'Parametrage desactive.');
+            ->with('status', 'Paramétrage désactivé.');
     }
 
     public function disableAll(Request $request): RedirectResponse
@@ -191,21 +191,21 @@ class BankRoutingOverrideController extends Controller
     protected function storeStatusMessage(bool $isGlobalVisibility, array $createdScopes): string
     {
         if (! $isGlobalVisibility) {
-            return 'Parametrage de banque enregistre pour votre service.';
+            return 'Paramétrage de banque enregistré pour votre service.';
         }
 
         if (count($createdScopes) === 2) {
-            return 'Parametrage de banque enregistre pour les deux services (gares et courrier).';
+            return 'Paramétrage de banque enregistré pour les deux services (gares et courrier).';
         }
 
         if ($createdScopes === ['gares']) {
-            return 'Parametrage de banque enregistre uniquement pour le service gares.';
+            return 'Paramétrage de banque enregistré uniquement pour le service gares.';
         }
 
         if ($createdScopes === ['courrier']) {
-            return 'Parametrage de banque enregistre uniquement pour le service courrier.';
+            return 'Paramétrage de banque enregistré uniquement pour le service courrier.';
         }
 
-        return 'Parametrage de banque enregistre.';
+        return 'Paramétrage de banque enregistré.';
     }
 }

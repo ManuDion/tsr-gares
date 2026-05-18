@@ -14,11 +14,17 @@ class JustificatifController extends Controller
     {
         $this->assertPieceAccess($request, $piece);
 
-        abort_unless($piece->exists(), 404);
-        $mimeType = $this->resolveMimeType($piece->mime_type, $piece->original_name, $piece->disk, $piece->path);
+        $resolved = $this->resolvePieceStorage($piece);
+        abort_unless($resolved !== null, 404);
+        $mimeType = $this->resolveMimeType(
+            $piece->mime_type,
+            $piece->original_name,
+            $resolved['disk'],
+            $resolved['path']
+        );
 
         return response()->file(
-            Storage::disk($piece->disk)->path($piece->path),
+            Storage::disk($resolved['disk'])->path($resolved['path']),
             [
                 'Content-Type' => $mimeType,
                 'Content-Disposition' => 'inline; filename="'.$piece->original_name.'"',
@@ -32,9 +38,10 @@ class JustificatifController extends Controller
         $this->assertPieceAccess($request, $piece);
         abort_unless($request->user()?->hasGlobalVisibility(), 403);
 
-        abort_unless($piece->exists(), 404);
+        $resolved = $this->resolvePieceStorage($piece);
+        abort_unless($resolved !== null, 404);
 
-        return Storage::disk($piece->disk)->download($piece->path, $piece->original_name);
+        return Storage::disk($resolved['disk'])->download($resolved['path'], $piece->original_name);
     }
 
     protected function assertPieceAccess(Request $request, PieceJustificative $piece): void
@@ -82,5 +89,25 @@ class JustificatifController extends Controller
             'pdf' => 'application/pdf',
             default => 'application/octet-stream',
         };
+    }
+
+    /**
+     * @return array{disk:string,path:string}|null
+     */
+    protected function resolvePieceStorage(PieceJustificative $piece): ?array
+    {
+        $resolved = $piece->resolveStorageLocation();
+        if (! $resolved) {
+            return null;
+        }
+
+        if ($piece->disk !== $resolved['disk'] || $piece->path !== $resolved['path']) {
+            $piece->forceFill([
+                'disk' => $resolved['disk'],
+                'path' => $resolved['path'],
+            ])->saveQuietly();
+        }
+
+        return $resolved;
     }
 }

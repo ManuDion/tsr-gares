@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
     <meta charset="utf-8">
@@ -6,8 +6,13 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', config('app.name'))</title>
     <meta name="theme-color" content="#8a2433">
-    <meta name="description" content="Progiciel intégré TSR.">
+    <meta name="description" content="Progiciel integre TSR.">
     <link rel="manifest" href="{{ asset('manifest.webmanifest') }}">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="TSR Finance">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('icons/apple-touch-icon.png') }}">
     <link rel="icon" href="{{ asset('icons/icon-192.png') }}">
     <link rel="stylesheet" href="{{ asset('assets/app.css') }}">
     @livewireStyles
@@ -103,14 +108,14 @@
                 @if($currentModule->supportsFinancialFlows())
                     @if($user->canSuperviseFinancialScope($currentModule->financialScope()))
                         <a href="{{ route('verifications.index', ['module' => $currentModule->value]) }}" class="{{ request()->routeIs('verifications.*') && !request()->routeIs('verifications.missing-entries*') ? 'active' : '' }}">
-                            <span class="icon">{!! app_icon('checklist') !!}</span><span>Verification</span>
+                            <span class="icon">{!! app_icon('checklist') !!}</span><span>Vérification</span>
                         </a>
                         <a href="{{ route('verifications.missing-entries', ['module' => $currentModule->value]) }}" class="{{ request()->routeIs('verifications.missing-entries*') ? 'active' : '' }}">
-                            <span class="icon">{!! app_icon('checklist') !!}</span><span>Ecritures manquantes</span>
+                            <span class="icon">{!! app_icon('checklist') !!}</span><span>Écritures manquantes</span>
                         </a>
                         @if($user->canAdministerModule($currentModule))
                             <a href="{{ route('bank-routing-overrides.index', ['module' => $currentModule->value]) }}" class="{{ request()->routeIs('bank-routing-overrides.*') ? 'active' : '' }}">
-                                <span class="icon">{!! app_icon('bank') !!}</span><span>Parametrage banque</span>
+                                <span class="icon">{!! app_icon('bank') !!}</span><span>Paramétrage banque</span>
                             </a>
                         @endif
                     @endif
@@ -179,6 +184,13 @@
                         <span class="nav-badge">{{ $notificationCount }}</span>
                     @endif
                 </a>
+
+                @if($user->hasGlobalVisibility() && $currentModule->supportsFinancialFlows())
+                    <a href="{{ route('justificatifs-batch.index', ['module' => $currentModule->value]) }}" class="{{ request()->routeIs('justificatifs-batch.*') ? 'active' : '' }}">
+                        <span class="icon">{!! app_icon('document') !!}</span>
+                        <span>Pieces justificatives</span>
+                    </a>
+                @endif
 
                 @if($user->canManageUsersForModule($currentModule))
                     <a href="{{ route('users.index', ['module' => $currentModule->value]) }}" class="{{ request()->routeIs('users.*') ? 'active' : '' }}">
@@ -795,5 +807,6 @@
     @livewireScripts
 </body>
 </html>
+
 
 

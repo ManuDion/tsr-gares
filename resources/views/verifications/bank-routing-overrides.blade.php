@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
-@section('title', 'Parametrage banque')
-@section('heading', 'Parametrage de versement exceptionnel')
+@section('title', 'Paramétrage banque')
+@section('heading', 'Paramétrage de versement exceptionnel')
 @section('subheading', 'Forcer temporairement les versements sur Coris ou Ecobank (globalement ou selon les gares ciblees)')
 
 @section('content')
@@ -16,7 +16,7 @@
                 </select>
             </div>
             <div>
-                <label>Date debut</label>
+                <label>Date début</label>
                 <input type="date" name="start_date" value="{{ old('start_date', now()->toDateString()) }}" required>
             </div>
             <div>
@@ -61,7 +61,7 @@
                 <thead>
                     <tr>
                         <th>Banque forcee</th>
-                        <th>Periode</th>
+                        <th>Période</th>
                         <th>Gares ciblees</th>
                         <th>Note</th>
                         <th></th>
@@ -103,7 +103,7 @@
                     <tr>
                         <th>Statut</th>
                         <th>Banque</th>
-                        <th>Periode</th>
+                        <th>Période</th>
                         <th>Gares ciblees</th>
                         <th>Cree par</th>
                         <th>Mis a jour par</th>

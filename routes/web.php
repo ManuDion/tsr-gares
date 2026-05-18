@@ -11,6 +11,7 @@ use App\Http\Controllers\DailyMissingEntriesController;
 use App\Http\Controllers\DepenseController;
 use App\Http\Controllers\ExportController;
 use App\Http\Controllers\BankRoutingOverrideController;
+use App\Http\Controllers\BatchJustificatifController;
 use App\Http\Controllers\GareController;
 use App\Http\Controllers\JustificatifController;
 use App\Http\Controllers\NotificationHistoryController;
@@ -73,6 +74,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/chat', [ConversationController::class, 'store'])->name('chat.store');
         Route::get('/chat/{conversation}', [ConversationController::class, 'show'])->name('chat.show');
         Route::post('/chat/{conversation}/messages', [ConversationController::class, 'storeMessage'])->name('chat.messages.store');
+        Route::delete('/chat/messages/{message}', [ConversationController::class, 'destroyMessage'])->name('chat.messages.destroy');
         Route::get('/chat/messages/{message}/audio', [ConversationController::class, 'audio'])->name('chat.messages.audio');
 
         Route::get('/documents-administratifs', [AdministrativeDocumentController::class, 'index'])->name('administrative-documents.index');
@@ -100,6 +102,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/exports/recettes', [ExportController::class, 'recettes'])->name('exports.recettes');
         Route::get('/exports/depenses', [ExportController::class, 'depenses'])->name('exports.depenses');
         Route::get('/exports/controls', [ExportController::class, 'controls'])->name('exports.controls');
+        Route::get('/justificatifs-lots', [BatchJustificatifController::class, 'index'])->name('justificatifs-batch.index');
+        Route::get('/justificatifs-lots/{type}/{gare}', [BatchJustificatifController::class, 'periodForm'])->name('justificatifs-batch.period');
+        Route::post('/justificatifs-lots/{type}/{gare}/download', [BatchJustificatifController::class, 'download'])->name('justificatifs-batch.download');
 
         Route::get('/justificatifs/{piece}/preview', [JustificatifController::class, 'preview'])->name('justificatifs.preview');
         Route::get('/justificatifs/{piece}/download', [JustificatifController::class, 'download'])->name('justificatifs.download');

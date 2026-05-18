@@ -53,7 +53,7 @@
     </div>
     <div>
         <label>Nom du justificatif</label>
-        <input type="text" name="justificatif_name" value="{{ old('justificatif_name') }}" placeholder="Ex. Depense carburant 15-07-2025">
+        <input type="text" name="justificatif_name" value="{{ old('justificatif_name') }}" placeholder="Ex. Dépense carburant 15-07-2025">
         <small>Optionnel. Le nom saisi sera utilise pour le fichier telecharge.</small>
     </div>
     <div>

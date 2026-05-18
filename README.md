@@ -380,56 +380,61 @@ DROP PROCEDURE IF EXISTS sp_add_fk_if_missing;
 DROP PROCEDURE IF EXISTS sp_drop_index_if_exists;
 ```
 
-## 11.2 Procedure pas a pas (mise a jour en ligne sans ecraser les donnees)
+## 11.2 Procedure cPanel (sans ecraser la base de donnees)
 
-Exemple pour un serveur Linux/cPanel (adaptez les chemins si besoin):
+Objectif: mettre a jour le code applicatif en production sans suppression des donnees metier.
 
-1. Activer le mode maintenance
+### A. Checklist avant mise a jour
+
+1. Verifier que le `.env` production est correct (`APP_ENV=production`, `APP_DEBUG=false`).
+2. Confirmer que vous avez acces a:
+   - cPanel File Manager (ou Git Version Control)
+   - Terminal cPanel (ou SSH)
+   - phpMyAdmin
+3. Avoir une sauvegarde locale de la nouvelle version du projet.
+
+### B. Sauvegardes obligatoires
+
+1. Mettre le site en maintenance:
 
 ```bash
 cd ~/public_html
 php artisan down
 ```
 
-2. Sauvegarder la base actuelle
+2. Sauvegarder la base MySQL:
 
 ```bash
-mysqldump -u gestiont_user -p gestiont_bd_tsr > ~/backup_tsr_$(date +%F_%H%M).sql
+mysqldump -u VOTRE_USER -p VOTRE_BASE > ~/backup_tsr_$(date +%F_%H%M).sql
 ```
 
-3. Sauvegarder le fichier d'environnement
+3. Sauvegarder `.env`:
 
 ```bash
 cp .env ~/env_backup_tsr_$(date +%F_%H%M)
 ```
 
-4. Mettre a jour le code applicatif (git/panel/fichiers)
+4. Option recommande: sauvegarder aussi `storage/` (logs + fichiers locaux).
 
-- Remplacez les fichiers applicatifs par la nouvelle version.
-- Ne supprimez pas `.env` et ne videz pas la base.
+### C. Mise a jour du code (sans toucher a la DB)
 
-5. Installer/mettre a jour les dependances PHP
+Option 1 (recommandee): `git pull` sur le serveur si votre depot est connecte.
+
+Option 2: upload ZIP via cPanel, puis extraction en remplacant le code applicatif.
+
+Regles de securite:
+
+- Ne pas supprimer `.env`.
+- Ne pas ecraser `storage/` si vous y conservez des fichiers utilisateurs.
+- Ne pas importer de dump SQL vide/ancien par erreur.
+
+### D. Commandes de mise a jour Laravel
+
+Depuis la racine du projet en production:
 
 ```bash
 composer install --no-dev --optimize-autoloader
-```
-
-6. Executer les scripts SQL de mise a niveau
-
-```bash
-mysql -u VOTRE_USER -p VOTRE_BASE < docs/sql/mysql_upgrade_safe_2026_05_09.sql
-mysql -u VOTRE_USER -p VOTRE_BASE < docs/sql/mysql_upgrade_safe_2026_05_15.sql
-```
-
-7. Executer les migrations en production
-
-```bash
 php artisan migrate --force
-```
-
-8. Nettoyer et reconstruire les caches
-
-```bash
 php artisan optimize:clear
 php artisan config:cache
 php artisan route:cache
@@ -437,36 +442,57 @@ php artisan view:cache
 php artisan optimize
 ```
 
-9. Verifier les droits (storage + bootstrap/cache)
-
-```bash
-chmod -R 775 storage bootstrap/cache
-```
-
-10. Relancer les workers si vous utilisez les files/queues
+Si vous utilisez les queues:
 
 ```bash
 php artisan queue:restart
 ```
 
-11. Desactiver le mode maintenance
+### E. Scripts SQL de mise a niveau (si necessaire)
+
+Executer uniquement les scripts incrementaux necessaires:
+
+```bash
+mysql -u VOTRE_USER -p VOTRE_BASE < docs/sql/mysql_upgrade_safe_2026_05_09.sql
+mysql -u VOTRE_USER -p VOTRE_BASE < docs/sql/mysql_upgrade_safe_2026_05_15.sql
+```
+
+Puis relancer `php artisan migrate --force`.
+
+### F. Remise en ligne + verification
+
+1. Sortir du mode maintenance:
 
 ```bash
 php artisan up
 ```
 
-12. Verification finale
+2. Verifier dans l'application:
+   - Connexion / deconnexion
+   - Recettes / Depenses / Versements
+   - Notifications / Historique
+   - Lecture et telechargement des justificatifs
 
-- Ouvrir l'application et tester:
-  - Recettes, Depenses, Versements
-  - Validation des sommes recues
-  - Verification
-  - Lecteur interne de justificatifs
+### G. Commandes interdites en production (risque de perte de donnees)
 
-Important:
+Ne jamais lancer sur la production:
 
-- Cette procedure met a jour l'application sans ecraser les donnees existantes.
-- En cas de probleme, restaurez le dump SQL et le `.env` sauvegardes.
+```bash
+php artisan migrate:fresh
+php artisan db:wipe
+php artisan db:seed --force
+```
+
+Sauf cas exceptionnel explicitement valide, ne pas executer de `DROP TABLE`, `TRUNCATE` ou import SQL destructif.
+
+### H. Rollback rapide (si anomalie apres mise a jour)
+
+1. `php artisan down`
+2. Restaurer le dump SQL sauvegarde.
+3. Restaurer `.env` sauvegarde.
+4. Revenir au code precedent.
+5. `php artisan optimize:clear`
+6. `php artisan up`
 
 ## 12) Changelog recent (mise a niveau)
 
@@ -488,6 +514,8 @@ Important:
   - unicite `versement_bancaires` par `service_scope + gare_id + operation_date + account_type`
 - Notifications et historique systeme filtres par module
 - Dashboard Gares/Courrier: courbe evolutive jour par jour (1 a 31)
+- Historique detaille: colonne `Objet` retiree, colonne `Action` fusionnee (voir + supprimer)
+- Historique detaille: affichage de tableau ajuste pour une meilleure lecture sur petits ecrans
 - Comparatif hebdomadaire conserve (S1 a S4)
 - Correction duplication des blocs globaux lors du filtre sur une gare
 - `Detail des types de recettes par gare` en Top 5

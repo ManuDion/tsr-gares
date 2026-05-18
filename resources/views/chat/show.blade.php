@@ -37,6 +37,17 @@
                                 </audio>
                             </div>
                         @endif
+                        @if($message->user_id === auth()->id())
+                            <div class="chat-message-actions">
+                                <form method="POST" action="{{ route('chat.messages.destroy', ['message' => $message, 'module' => request('module')]) }}" onsubmit="return confirm('Supprimer ce message ?');">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button class="btn btn-sm btn-outline" type="submit">
+                                        <span class="icon">{!! app_icon('trash') !!}</span> Supprimer
+                                    </button>
+                                </form>
+                            </div>
+                        @endif
                     </div>
                 @empty
                     <div class="empty-state">

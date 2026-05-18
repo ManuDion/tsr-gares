@@ -10,7 +10,7 @@
             <input type="hidden" name="module" value="{{ request('module', $module->value ?? 'gares') }}">
             <div>
                 <label>Recherche</label>
-                <input type="text" name="search" value="{{ request('search') }}" placeholder="Objet, description, événement...">
+                <input type="text" name="search" value="{{ request('search') }}" placeholder="Description, événement...">
             </div>
             <div>
                 <label>Utilisateur</label>
@@ -55,50 +55,47 @@
         </form>
     </div>
 
-    <div class="table-wrapper">
+    <div class="table-wrapper table-compact activity-logs-table">
         <table>
             <thead>
                 <tr>
-                    <th>Objet</th>
                     <th>Utilisateur</th>
                     <th>Date et heure</th>
                     <th>Événement</th>
                     <th>Gare</th>
                     <th>Description</th>
-                    <th>Détail</th>
-                    @if(auth()->user()->canAdministerModule($module))
-                        <th>Suppression</th>
-                    @endif
+                    <th>Action</th>
                 </tr>
             </thead>
             <tbody>
                 @forelse($logs as $log)
                     <tr>
-                        <td><strong>{{ $log->subject }}</strong></td>
                         <td>{{ $log->user?->name ?? 'Système' }}</td>
                         <td>{{ $log->created_at?->format('d/m/Y H:i') }}</td>
                         <td>{{ $eventLabels[$log->event_type] ?? \Illuminate\Support\Str::headline($log->event_type) }}</td>
                         <td>{{ $log->gare?->name ?: 'Toutes gares' }}</td>
                         <td>{{ $log->description ?: 'Modification enregistrée.' }}</td>
                         <td>
-                            <a href="{{ route('activity-logs.show', array_merge(['activityLog' => $log], request()->query())) }}" class="btn btn-sm btn-outline">
-                                <span class="icon">{!! app_icon('eye') !!}</span> Voir
-                            </a>
+                            <div class="activity-log-actions">
+                                <a href="{{ route('activity-logs.show', array_merge(['activityLog' => $log], request()->query())) }}" class="btn btn-sm btn-outline activity-log-action-btn" title="Voir" aria-label="Voir">
+                                    <span class="icon">{!! app_icon('eye') !!}</span>
+                                    <span class="sr-only">Voir</span>
+                                </a>
+                                @if(auth()->user()->canAdministerModule($module))
+                                    <form method="POST" action="{{ route('activity-logs.destroy', array_merge(['activityLog' => $log], request()->query())) }}" class="activity-log-action-form" onsubmit="return confirm('Supprimer cet historique ?');">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button class="btn btn-sm btn-danger activity-log-action-btn" type="submit" title="Supprimer" aria-label="Supprimer">
+                                            <span class="icon">{!! app_icon('trash') !!}</span>
+                                            <span class="sr-only">Supprimer</span>
+                                        </button>
+                                    </form>
+                                @endif
+                            </div>
                         </td>
-                        @if(auth()->user()->canAdministerModule($module))
-                            <td>
-                                <form method="POST" action="{{ route('activity-logs.destroy', array_merge(['activityLog' => $log], request()->query())) }}" onsubmit="return confirm('Supprimer cet historique ?');">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button class="btn btn-sm btn-danger" type="submit">
-                                        <span class="icon">{!! app_icon('trash') !!}</span> Supprimer
-                                    </button>
-                                </form>
-                            </td>
-                        @endif
                     </tr>
                 @empty
-                    <tr><td colspan="{{ auth()->user()->canAdministerModule($module) ? 8 : 7 }}">Aucune modification historisée.</td></tr>
+                    <tr><td colspan="6">Aucune modification historisée.</td></tr>
                 @endforelse
             </tbody>
         </table>
@@ -106,4 +103,3 @@
 
     {{ $logs->links('partials.pagination') }}
 @endsection
-

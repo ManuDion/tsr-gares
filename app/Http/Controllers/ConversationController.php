@@ -271,6 +271,32 @@ class ConversationController extends Controller
         );
     }
 
+    public function destroyMessage(Request $request, ChatMessage $message): RedirectResponse
+    {
+        $conversation = $message->conversation;
+        abort_unless($conversation, 404);
+
+        if ($conversation->conversation_type === 'general') {
+            $this->ensureGeneralConversationAccess($request->user());
+        }
+
+        if (in_array($conversation->conversation_type, ['service_internal', 'inter_service'], true)) {
+            $this->ensureServiceConversationAccess($request->user(), $conversation);
+        }
+
+        $this->authorize('view', $conversation);
+        abort_unless((int) $message->user_id === (int) $request->user()->id, 403);
+
+        $message->delete();
+
+        $lastMessageAt = $conversation->messages()->max('created_at');
+        $conversation->update([
+            'last_message_at' => $lastMessageAt ?: null,
+        ]);
+
+        return back()->with('status', 'Message supprimé.');
+    }
+
     public function pruneInactiveConversations(): int
     {
         return Conversation::query()

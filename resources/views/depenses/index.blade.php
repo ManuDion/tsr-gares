@@ -1,12 +1,12 @@
 @extends('layouts.app')
 
-@section('title', 'Depenses')
-@section('heading', ($module?->value ?? 'gares') === 'courrier' ? 'Depenses courrier' : 'Gestion des depenses')
-@section('subheading', auth()->user()->canViewAllGares($module->financialScope()) ? 'Saisie des depenses, justificatifs et export' : 'Liste des depenses de votre perimetre')
+@section('title', 'Dépenses')
+@section('heading', ($module?->value ?? 'gares') === 'courrier' ? 'Dépenses courrier' : 'Gestion des dépenses')
+@section('subheading', auth()->user()->canViewAllGares($module->financialScope()) ? 'Saisie des dépenses, justificatifs et export' : 'Liste des dépenses de votre périmètre')
 
 @section('actions')
     @can('create', App\Models\Depense::class)
-        <a class="btn btn-primary" href="{{ route('depenses.create', ['module' => $module->value]) }}"><span class="icon">{!! app_icon('plus') !!}</span> Nouvelle depense</a>
+        <a class="btn btn-primary" href="{{ route('depenses.create', ['module' => $module->value]) }}"><span class="icon">{!! app_icon('plus') !!}</span> Nouvelle dépense</a>
     @endcan
 @endsection
 
@@ -29,7 +29,7 @@
                     </select>
                 </div>
                 <div>
-                    <label>Date debut</label>
+                    <label>Date début</label>
                     <input type="date" name="start_date" value="{{ request('start_date') }}">
                 </div>
                 <div>
@@ -42,16 +42,16 @@
                         <input type="text" name="creator_name" value="{{ request('creator_name') }}" placeholder="Nom utilisateur">
                     </div>
                     <div>
-                        <label>Numero de telephone</label>
+                        <label>Numéro de téléphone</label>
                         <input type="text" name="creator_phone" value="{{ request('creator_phone') }}" placeholder="Ex. 0700000000">
                     </div>
                     <div>
                         <label>Modification</label>
                         <select name="modification_state">
                             <option value="">Tous</option>
-                            <option value="unlock_active" @selected(request('modification_state') === 'unlock_active')>Deverrouillage actif</option>
-                            <option value="unlock_expired" @selected(request('modification_state') === 'unlock_expired')>Deverrouillage expire</option>
-                            <option value="locked" @selected(request('modification_state') === 'locked')>Aucun deverrouillage</option>
+                            <option value="unlock_active" @selected(request('modification_state') === 'unlock_active')>Déverrouillage actif</option>
+                            <option value="unlock_expired" @selected(request('modification_state') === 'unlock_expired')>Déverrouillage expiré</option>
+                            <option value="locked" @selected(request('modification_state') === 'locked')>Aucun déverrouillage</option>
                         </select>
                     </div>
                 @endif
@@ -72,7 +72,7 @@
                         <th>Gare</th>
                         <th>Justificatif</th>
                         <th>Saisi par</th>
-                        <th>Numero de telephone</th>
+                        <th>Numéro de téléphone</th>
                         <th>Modification</th>
                     @else
                         <th>Date</th>
@@ -96,12 +96,12 @@
                         <td>
                             @forelse($depense->justificatives as $piece)
                                 <div class="doc-links">
-                                    <a class="btn btn-sm btn-outline" href="{{ route('justificatifs.preview', $piece) }}" data-internal-file-preview data-file-title="{{ $piece->original_name ?? 'Justificatif depense' }}" onclick="return window.openInternalFileViewer(this);">
+                                    <a class="btn btn-sm btn-outline" href="{{ route('justificatifs.preview', $piece) }}" data-internal-file-preview data-file-title="{{ $piece->original_name ?? 'Justificatif dépense' }}" onclick="return window.openInternalFileViewer(this);">
                                         <span class="icon">{!! app_icon('eye') !!}</span> Lire
                                     </a>
                                     @if(auth()->user()->hasGlobalVisibility())
                                         <a class="btn btn-sm btn-outline" href="{{ route('justificatifs.download', $piece) }}">
-                                            <span class="icon">{!! app_icon('download') !!}</span> Telecharger
+                                            <span class="icon">{!! app_icon('download') !!}</span> Télécharger
                                         </a>
                                     @endif
                                 </div>
@@ -115,12 +115,12 @@
                             <td>
                                 @if($depense->force_unlocked_until)
                                     @if($depense->force_unlocked_until->isFuture())
-                                        <small>Deverrouillee jusqu'au {{ $depense->force_unlocked_until->format('d/m/Y H:i') }} ({{ $depense->unlockedBy?->name ?? 'Superviseur' }})</small>
+                                        <small>Déverrouillée jusqu'au {{ $depense->force_unlocked_until->format('d/m/Y H:i') }} ({{ $depense->unlockedBy?->name ?? 'Superviseur' }})</small>
                                     @else
-                                        <small>Deverrouillage expire le {{ $depense->force_unlocked_until->format('d/m/Y H:i') }}</small>
+                                        <small>Déverrouillage expiré le {{ $depense->force_unlocked_until->format('d/m/Y H:i') }}</small>
                                     @endif
                                 @else
-                                    <small>Aucun deverrouillage actif</small>
+                                    <small>Aucun déverrouillage actif</small>
                                 @endif
                                 @can('update', $depense)
                                     <div class="mt-xs">
@@ -136,13 +136,13 @@
                                         <span class="sr-only">Modifier</span>
                                     </a>
                                 @else
-                                    <span class="text-muted">Verrouillee</span>
+                                    <span class="text-muted">Verrouillée</span>
                                 @endcan
                             </td>
                         @endif
                     </tr>
                 @empty
-                    <tr><td colspan="6">Aucune depense trouvee.</td></tr>
+                    <tr><td colspan="6">Aucune dépense trouvée.</td></tr>
                 @endforelse
             </tbody>
         </table>
@@ -150,4 +150,3 @@
 
     {{ $depenses->links('partials.pagination') }}
 @endsection
-

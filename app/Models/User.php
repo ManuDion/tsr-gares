@@ -30,6 +30,9 @@ class User extends Authenticatable
         'allow_multi_gare_entry',
         'cashier_collection_mode',
         'department_id',
+        'contract_type',
+        'assignment_location',
+        'hr_service',
         'is_active',
         'must_change_password',
     ];
@@ -201,15 +204,7 @@ class User extends Authenticatable
 
     public function canAccessRhModule(): bool
     {
-        if ($this->hasGlobalVisibility()) {
-            return true;
-        }
-
-        if ($this->isServiceAdminForModule(ServiceModule::Rh)) {
-            return true;
-        }
-
-        return in_array($this->role, [UserRole::ResponsableRh, UserRole::PersonnelTsr], true);
+        return (bool) $this->is_active;
     }
 
     public function isAdmin(): bool

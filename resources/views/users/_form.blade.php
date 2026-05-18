@@ -10,6 +10,7 @@
     $selectedModules = old('modules', isset($user) ? $user->moduleMemberships() : []);
     $allowMultiGareEntry = old('allow_multi_gare_entry', isset($user) ? (bool) $user->allow_multi_gare_entry : false);
     $cashierCollectionMode = old('cashier_collection_mode', isset($user) ? $user->cashierCollectionMode() : \App\Models\User::CASHIER_COLLECTION_BOTH);
+    $hrServiceOptions = collect($hrServiceOptions ?? [])->filter()->values();
     if ($selectedModule !== '' && ! in_array($selectedModule, $selectedModules, true)) {
         $selectedModules[] = $selectedModule;
     }
@@ -29,6 +30,33 @@
     <div>
         <label>Email</label>
         <input type="email" name="email" value="{{ old('email', $user->email ?? '') }}" required>
+    </div>
+
+    <div>
+        <label>Type de contrat</label>
+        <input type="text" name="contract_type" value="{{ old('contract_type', $user->contract_type ?? '') }}" placeholder="Ex. CDI, CDD, Stage">
+    </div>
+
+    <div>
+        <label>Lieu d'affectation</label>
+        <input type="text" name="assignment_location" list="user-assignment-gares" value="{{ old('assignment_location', $user->assignment_location ?? '') }}" placeholder="Tapez pour filtrer les gares (ex: adja)">
+        <datalist id="user-assignment-gares">
+            @foreach($gares as $gare)
+                <option value="{{ $gare->name }}">{{ $gare->name }} - {{ $gare->city }}</option>
+            @endforeach
+        </datalist>
+        <small>Le lieu d'affectation doit correspondre à une gare.</small>
+    </div>
+
+    <div>
+        <label>Service (RH)</label>
+        <input type="text" name="hr_service" list="user-hr-services" value="{{ old('hr_service', $user->hr_service ?? '') }}" placeholder="Tapez pour filtrer ou ajouter un service">
+        <datalist id="user-hr-services">
+            @foreach($hrServiceOptions as $serviceName)
+                <option value="{{ $serviceName }}">{{ $serviceName }}</option>
+            @endforeach
+        </datalist>
+        <small>La liste est évolutive: vous pouvez saisir un nouveau service si besoin.</small>
     </div>
 
     <div>

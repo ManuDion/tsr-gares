@@ -78,6 +78,7 @@ class UserController extends Controller
             'allowNoModuleOption' => ! $actor->isServiceAdmin(),
             'forcedModule' => $actor->isServiceAdmin() ? $actor->assignedModule()?->value : null,
             'gares' => Gare::query()->where('is_active', true)->where('is_virtual', false)->orderBy('name')->get(),
+            'hrServiceOptions' => $this->hrServiceOptions(),
         ]);
     }
 
@@ -121,6 +122,9 @@ class UserController extends Controller
                 'name' => $user->name,
                 'phone' => $user->phone,
                 'email' => $user->email,
+                'contract_type' => $user->contract_type,
+                'assignment_location' => $user->assignment_location,
+                'hr_service' => $user->hr_service,
                 'role' => $user->role?->value,
                 'module' => $module?->value,
                 'modules' => $modules,
@@ -147,6 +151,7 @@ class UserController extends Controller
             'allowNoModuleOption' => ! $actor->isServiceAdmin(),
             'forcedModule' => $actor->isServiceAdmin() ? $actor->assignedModule()?->value : null,
             'gares' => Gare::query()->where('is_active', true)->where('is_virtual', false)->orderBy('name')->get(),
+            'hrServiceOptions' => $this->hrServiceOptions(),
         ]);
     }
 
@@ -158,6 +163,9 @@ class UserController extends Controller
             'name' => $user->name,
             'phone' => $user->phone,
             'email' => $user->email,
+            'contract_type' => $user->contract_type,
+            'assignment_location' => $user->assignment_location,
+            'hr_service' => $user->hr_service,
             'role' => $user->role?->value,
             'module' => $user->assignedModule()?->value,
             'modules' => $user->moduleMemberships(),
@@ -191,6 +199,9 @@ class UserController extends Controller
                 'name' => $user->name,
                 'phone' => $user->phone,
                 'email' => $user->email,
+                'contract_type' => $user->contract_type,
+                'assignment_location' => $user->assignment_location,
+                'hr_service' => $user->hr_service,
                 'role' => $user->role?->value,
                 'module' => $module?->value,
                 'modules' => $modules,
@@ -218,6 +229,9 @@ class UserController extends Controller
             'name' => $user->name,
             'phone' => $user->phone,
             'email' => $user->email,
+            'contract_type' => $user->contract_type,
+            'assignment_location' => $user->assignment_location,
+            'hr_service' => $user->hr_service,
             'role' => $user->role?->value,
             'module' => $user->assignedModule()?->value,
             'modules' => $user->moduleMemberships(),
@@ -303,6 +317,9 @@ class UserController extends Controller
         $data['cashier_collection_mode'] = $this->supportsCashierCollectionMode($role)
             ? (string) $request->input('cashier_collection_mode', User::CASHIER_COLLECTION_BOTH)
             : User::CASHIER_COLLECTION_BOTH;
+        $data['contract_type'] = trim((string) ($data['contract_type'] ?? '')) ?: null;
+        $data['assignment_location'] = trim((string) ($data['assignment_location'] ?? '')) ?: null;
+        $data['hr_service'] = trim((string) ($data['hr_service'] ?? '')) ?: null;
         $data['department_id'] = $role->isUniversalSupervisor()
             ? null
             : ($module ? (Department::forModule($module)?->id ?? $user?->department_id) : $user?->department_id);
@@ -479,5 +496,28 @@ class UserController extends Controller
             ServiceModule::Courrier => ['COURRIER', 'CRR'],
             ServiceModule::Rh => ['RH'],
         };
+    }
+
+    protected function hrServiceOptions(): array
+    {
+        $departmentServices = Department::query()
+            ->where('is_active', true)
+            ->pluck('name')
+            ->filter()
+            ->map(fn ($name) => trim((string) $name));
+
+        $existingUserServices = User::query()
+            ->whereNotNull('hr_service')
+            ->pluck('hr_service')
+            ->filter()
+            ->map(fn ($name) => trim((string) $name));
+
+        return $departmentServices
+            ->merge($existingUserServices)
+            ->filter()
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
     }
 }

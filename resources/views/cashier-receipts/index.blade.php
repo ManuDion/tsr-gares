@@ -30,9 +30,9 @@
                     <th>Gare</th>
                     <th>Recette Inter</th>
                     <th>Recette Nationale</th>
-                    <th>Depenses</th>
+                    <th>Dépenses</th>
                     <th>Total attendu</th>
-                    <th>Numero de telephone</th>
+                    <th>Numéro de téléphone</th>
                     <th>Approbation caissier</th>
                 </tr>
             </thead>

@@ -129,7 +129,7 @@
                     </a>
                     @if(auth()->user()->hasGlobalVisibility())
                         <a class="btn btn-sm btn-outline" href="{{ route('justificatifs.download', $piece) }}">
-                            <span class="icon">{!! app_icon('download') !!}</span> Telecharger
+                            <span class="icon">{!! app_icon('download') !!}</span> Télécharger
                         </a>
                     @endif
                 </div>

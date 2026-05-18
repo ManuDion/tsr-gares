@@ -150,7 +150,7 @@ class DepenseController extends Controller
                     }
                 }
 
-                $this->activity->log($user, 'depense_created', $depense, 'CrÃ©ation dâ€™une dÃ©pense.', [
+                $this->activity->log($user, 'depense_created', $depense, 'Création d\'une dépense.', [
                     'gare_id' => $depense->gare_id,
                     'after' => $depense->only(['gare_id', 'operation_date', 'amount', 'motif', 'reference', 'description']),
                 ]);
@@ -162,8 +162,8 @@ class DepenseController extends Controller
         });
 
         $message = $createdCount > 1
-            ? $createdCount.' dÃ©penses enregistrÃ©es.'
-            : 'DÃ©pense enregistrÃ©e.';
+            ? $createdCount.' dépenses enregistrées.'
+            : 'Dépense enregistrée.';
 
         return redirect()->route('depenses.index', ['module' => $module->value])->with('status', $message);
     }
@@ -224,7 +224,7 @@ class DepenseController extends Controller
                 'modified_by' => $request->user()->id,
                 'before' => $before,
                 'after' => $after,
-                'comment' => $request->string('history_comment')->toString() ?: 'Modification de dÃ©pense',
+                'comment' => $request->string('history_comment')->toString() ?: 'Modification de dépense',
             ]);
         }
 
@@ -245,7 +245,7 @@ class DepenseController extends Controller
                 );
             }
 
-            $this->activity->log($request->user(), 'depense_attachment_added', $depense, 'Ajout dâ€™un justificatif sur une dÃ©pense.', [
+            $this->activity->log($request->user(), 'depense_attachment_added', $depense, 'Ajout d\'un justificatif sur une dépense.', [
                 'gare_id' => $depense->gare_id,
                 'after' => [
                     'pieces_total' => count($uploadedFiles),
@@ -254,7 +254,7 @@ class DepenseController extends Controller
         }
 
         if ($hasFieldChanges) {
-            $this->activity->log($request->user(), 'depense_updated', $depense, 'Modification dâ€™une dÃ©pense.', [
+            $this->activity->log($request->user(), 'depense_updated', $depense, 'Modification d\'une dépense.', [
                 'before' => $before,
                 'after' => $after,
                 'gare_id' => $depense->gare_id,
@@ -262,7 +262,7 @@ class DepenseController extends Controller
             ]);
         }
 
-        $status = $hasFieldChanges || ($uploadedFiles !== []) ? 'DÃ©pense modifiÃ©e.' : 'Aucune modification dÃ©tectÃ©e sur la dÃ©pense.';
+        $status = $hasFieldChanges || ($uploadedFiles !== []) ? 'Dépense modifiée.' : 'Aucune modification détectée sur la dépense.';
 
         return redirect()->route('depenses.index', ['module' => $module->value])->with('status', $status);
     }
@@ -292,7 +292,7 @@ class DepenseController extends Controller
             'unlocked_by' => $request->user()->id,
         ]);
 
-        $this->activity->log($request->user(), 'depense_unlocked', $depense, 'DÃ©verrouillage superviseur dâ€™une dÃ©pense.', [
+        $this->activity->log($request->user(), 'depense_unlocked', $depense, 'Déverrouillage superviseur d\'une dépense.', [
             'before' => $before,
             'after' => $depense->fresh()->only(['force_unlocked_until', 'unlock_reason', 'unlocked_by']),
             'gare_id' => $depense->gare_id,
@@ -309,7 +309,7 @@ class DepenseController extends Controller
             $request->user()
         );
 
-        return back()->with('status', "Deverrouillage actif pour {$duration} {$unitLabel}.");
+        return back()->with('status', "Déverrouillage actif pour {$duration} {$unitLabel}.");
     }
 
     protected function attachUploadedPiece(Depense $depense, UploadedFile $file, int $userId, ?string $desiredName = null)
@@ -387,7 +387,7 @@ class DepenseController extends Controller
         $gare = trim($gareName) !== '' ? trim($gareName) : 'Gare';
         $date = trim($operationDate) !== '' ? trim($operationDate) : now('Africa/Abidjan')->toDateString();
 
-        return "Depense {$gare} {$date}";
+        return "Dépense {$gare} {$date}";
     }
     protected function uploadedDepenseJustificatifs(Request $request, ?string $entryPrefix = null): array
     {

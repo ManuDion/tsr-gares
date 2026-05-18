@@ -400,7 +400,7 @@ class VersementBancaireController extends Controller
             $request->user()
         );
 
-        return back()->with('status', "Deverrouillage actif pour {$duration} {$unitLabel}.");
+        return back()->with('status', "Déverrouillage actif pour {$duration} {$unitLabel}.");
     }
 
     protected function hasMeaningfulChanges(array $before, array $after): bool

@@ -14,7 +14,7 @@ class EmployeeDocumentController extends Controller
 {
     public function store(Request $request, Employee $employee): RedirectResponse
     {
-        abort_unless($request->user()->canAccessRhModule() && ! $request->user()->isPersonnelTsr(), 403);
+        abort_unless($request->user()->canAdministerModule(ServiceModule::Rh) || $request->user()->isResponsableRh(), 403);
 
         $data = $request->validate([
             'document_type' => ['required', 'string', 'max:120'],
