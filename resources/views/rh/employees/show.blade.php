@@ -6,8 +6,9 @@
 
 @section('actions')
     @if(! auth()->user()->isPersonnelTsr())
-        <a class="btn btn-outline" href="{{ route('rh.employees.edit', ['employee' => $employee, 'module' => 'rh']) }}">
-            <span class="icon">{!! app_icon('edit') !!}</span> Modifier
+        <a class="btn btn-outline" href="{{ route('rh.employees.edit', ['employee' => $employee, 'module' => 'rh']) }}" title="Modifier" aria-label="Modifier">
+            <span class="icon">{!! app_icon('edit') !!}</span>
+            <span class="sr-only">Modifier</span>
         </a>
     @endif
 @endsection

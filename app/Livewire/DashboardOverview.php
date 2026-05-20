@@ -39,7 +39,7 @@ class DashboardOverview extends Component
         if ($resolvedModule->supportsFinancialFlows()) {
             $this->period = $user->canViewAllGares($resolvedModule->financialScope()) ? 'week' : 'month';
             $this->syncPeriodRange($now);
-            if ($user->isChefDeGare() || $user->isAgentCourrierGare()) {
+            if (($user->isChefDeGare() || $user->isAgentCourrierGare()) && ! $user->canUseMultiGareEntry()) {
                 $this->gare_id = $user->gare_id;
             }
         }
@@ -168,22 +168,25 @@ class DashboardOverview extends Component
         $serviceScope = $module->financialScope() ?? 'gares';
         $isCourrier = $serviceScope === 'courrier';
         [$startDate, $endDate] = $this->resolvedPeriod($serviceScope);
+        $isCashierOnlyUser = $this->isCashierOnlyFinancialUser($serviceScope);
         $isVerificateur = $user->isVerificateur();
-        $accessibleGareCount = count($user->accessibleGareIds($serviceScope));
         $gareIds = $this->resolvedGareIds($serviceScope);
+        $accessibleGareCount = count($gareIds);
         $selectedGareId = $this->gare_id ? (int) $this->gare_id : null;
         $showGlobalSections = $user->canViewAllGares($serviceScope) && ! $selectedGareId && ! $isVerificateur;
-        $showGareFilter = $user->canViewAllGares($serviceScope) || $isVerificateur || $accessibleGareCount > 1;
+        $showGareFilter = ! $isCashierOnlyUser && ($user->canViewAllGares($serviceScope) || $isVerificateur || $accessibleGareCount > 1);
         $monthStart = now('Africa/Abidjan')->startOfMonth();
         $monthEnd = now('Africa/Abidjan')->endOfMonth();
         $periodLabel = $this->periodLabel();
 
         $recettes = Recette::query()
+            ->financiallyValidated()
             ->where('service_scope', $serviceScope)
             ->whereBetween('operation_date', [$startDate, $endDate])
             ->whereIn('gare_id', $gareIds);
 
         $depenses = Depense::query()
+            ->financiallyValidated()
             ->where('service_scope', $serviceScope)
             ->whereBetween('operation_date', [$startDate, $endDate])
             ->whereIn('gare_id', $gareIds);
@@ -207,13 +210,14 @@ class DashboardOverview extends Component
 
         $missingYesterday = DailyControl::query()
             ->where('service_scope', $serviceScope)
-            ->whereDate('concerned_date', now('Africa/Abidjan')->subDay()->toDateString())
+            ->whereDate('concerned_date', now('Africa/Abidjan')->toDateString())
             ->whereIn('gare_id', $gareIds)
             ->where('is_compliant', false)
             ->with('gare')
             ->get();
 
         $recettesTrend = Recette::query()
+            ->financiallyValidated()
             ->selectRaw('DAY(operation_date) as day_num, SUM(amount) as total')
             ->where('service_scope', $serviceScope)
             ->whereBetween('operation_date', [$monthStart->toDateString(), $monthEnd->toDateString()])
@@ -222,6 +226,7 @@ class DashboardOverview extends Component
             ->pluck('total', 'day_num');
 
         $depensesTrend = Depense::query()
+            ->financiallyValidated()
             ->selectRaw('DAY(operation_date) as day_num, SUM(amount) as total')
             ->where('service_scope', $serviceScope)
             ->whereBetween('operation_date', [$monthStart->toDateString(), $monthEnd->toDateString()])
@@ -251,6 +256,7 @@ class DashboardOverview extends Component
         $weeklyComparison = collect($weeklyWindows)->map(function (array $window) use ($serviceScope, $gareIds, $isCourrier) {
             $period = [$window['start']->toDateString(), $window['end']->toDateString()];
             $recettesQuery = Recette::query()
+                ->financiallyValidated()
                 ->where('service_scope', $serviceScope)
                 ->whereBetween('operation_date', $period)
                 ->whereIn('gare_id', $gareIds);
@@ -271,6 +277,7 @@ class DashboardOverview extends Component
                 'recettes_national' => $recettesNational,
                 'recettes_total' => $recettesTotal,
                 'depenses' => (float) Depense::query()
+                    ->financiallyValidated()
                     ->where('service_scope', $serviceScope)
                     ->whereBetween('operation_date', $period)
                     ->whereIn('gare_id', $gareIds)
@@ -289,6 +296,7 @@ class DashboardOverview extends Component
 
         if ($showGlobalSections) {
             $topRecettes = Recette::query()
+                ->financiallyValidated()
                 ->selectRaw('gare_id, SUM(amount) as total')
                 ->where('service_scope', $serviceScope)
                 ->whereBetween('operation_date', [$startDate, $endDate])
@@ -300,6 +308,7 @@ class DashboardOverview extends Component
                 ->get();
 
             $topDepenses = Depense::query()
+                ->financiallyValidated()
                 ->selectRaw('gare_id, SUM(amount) as total')
                 ->where('service_scope', $serviceScope)
                 ->whereBetween('operation_date', [$startDate, $endDate])
@@ -313,8 +322,8 @@ class DashboardOverview extends Component
             $topSaisie = Gare::query()
                 ->whereIn('id', $gareIds)
                 ->withCount([
-                    'recettes as recettes_count' => fn ($query) => $query->where('service_scope', $serviceScope)->whereBetween('operation_date', [$startDate, $endDate]),
-                    'depenses as depenses_count' => fn ($query) => $query->where('service_scope', $serviceScope)->whereBetween('operation_date', [$startDate, $endDate]),
+                    'recettes as recettes_count' => fn ($query) => $query->financiallyValidated()->where('service_scope', $serviceScope)->whereBetween('operation_date', [$startDate, $endDate]),
+                    'depenses as depenses_count' => fn ($query) => $query->financiallyValidated()->where('service_scope', $serviceScope)->whereBetween('operation_date', [$startDate, $endDate]),
                     'versementsBancaires as versements_count' => fn ($query) => $query->where('service_scope', $serviceScope)->whereBetween('operation_date', [$startDate, $endDate]),
                 ])
                 ->get()
@@ -338,6 +347,7 @@ class DashboardOverview extends Component
             ->first();
 
         $recetteBreakdownByGare = Recette::query()
+            ->financiallyValidated()
             ->selectRaw(
                 $isCourrier
                     ? 'gare_id, COALESCE(SUM(amount), 0) as total_amount'
@@ -474,6 +484,25 @@ class DashboardOverview extends Component
     protected function resolvedGareIds(?string $scope = null): array
     {
         $user = auth()->user();
+        $scope = $scope ?: ServiceModule::from($this->module)->financialScope();
+
+        if ($this->isCashierOnlyFinancialUser($scope)) {
+            $virtualIds = Gare::query()
+                ->where('is_active', true)
+                ->where('is_virtual', true)
+                ->where('virtual_owner_user_id', $user->id)
+                ->where('virtual_scope', $scope)
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->all();
+
+            if ($this->gare_id) {
+                return array_values(array_intersect($virtualIds, [(int) $this->gare_id]));
+            }
+
+            return $virtualIds;
+        }
+
         $allowedIds = $user->accessibleGareIds($scope);
         $activeAllowedIds = Gare::query()
             ->where('is_active', true)
@@ -487,6 +516,19 @@ class DashboardOverview extends Component
         }
 
         return $activeAllowedIds;
+    }
+
+    protected function isCashierOnlyFinancialUser(?string $scope = null): bool
+    {
+        $user = auth()->user();
+        $scope = $scope ?: ServiceModule::from($this->module)->financialScope();
+
+        if (! $scope) {
+            return false;
+        }
+
+        return $user->canActAsCashierForScope($scope)
+            && ! $user->canActAsChefForScope($scope);
     }
 
     protected function resolvedPeriod(?string $scope = null): array

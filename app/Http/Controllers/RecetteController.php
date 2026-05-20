@@ -75,6 +75,10 @@ class RecetteController extends Controller
                 };
             });
 
+        if (! $request->filled('start_date') && ! $request->filled('end_date')) {
+            $query->whereDate('operation_date', now('Africa/Abidjan')->toDateString());
+        }
+
         return view('recettes.index', [
             'recettes' => $query->paginate(15)->withQueryString(),
             'gares' => $this->access->availableGares($user, $serviceScope),
@@ -93,7 +97,7 @@ class RecetteController extends Controller
         return view('recettes.create', [
             'gares' => $this->access->availableGares($request->user(), $serviceScope),
             'module' => $module,
-            'maxSizeKb' => (int) env('JUSTIFICATIF_MAX_SIZE_KB', 5120),
+            'maxSizeKb' => (int) env('JUSTIFICATIF_MAX_SIZE_KB', 10240),
         ]);
     }
 
@@ -179,7 +183,7 @@ class RecetteController extends Controller
             'recette' => $recette->load(['gare', 'histories.modifier', 'justificatives']),
             'gares' => $this->access->availableGares(auth()->user(), $recette->service_scope ?? 'gares'),
             'module' => $module,
-            'maxSizeKb' => (int) env('JUSTIFICATIF_MAX_SIZE_KB', 5120),
+            'maxSizeKb' => (int) env('JUSTIFICATIF_MAX_SIZE_KB', 10240),
         ]);
     }
 
@@ -296,7 +300,14 @@ class RecetteController extends Controller
 
     public function unlock(UnlockRecetteRequest $request, Recette $recette): RedirectResponse
     {
-        abort_unless($request->user()->canUnlockFinancialScope($recette->service_scope), 403);
+        $user = $request->user();
+        $scope = (string) ($recette->service_scope ?? 'gares');
+
+        abort_unless($user->canUnlockFinancialScope($scope), 403);
+        abort_unless(
+            $user->canAdministerFinancialScope($scope) || $user->hasAccessToGare((int) $recette->gare_id, $scope),
+            403
+        );
         $validated = $request->validated();
         $duration = (int) ($validated['unlock_duration'] ?? 0);
         $unit = (string) ($validated['unlock_unit'] ?? 'hours');
@@ -316,10 +327,10 @@ class RecetteController extends Controller
         $recette->update([
             'force_unlocked_until' => $until,
             'unlock_reason' => $validated['unlock_reason'],
-            'unlocked_by' => $request->user()->id,
+            'unlocked_by' => $user->id,
         ]);
 
-        $this->activity->log($request->user(), 'recette_unlocked', $recette, 'Déverrouillage superviseur d\'une recette.', [
+        $this->activity->log($user, 'recette_unlocked', $recette, 'Déverrouillage superviseur d\'une recette.', [
             'before' => $before,
             'after' => $recette->fresh()->only(['force_unlocked_until', 'unlock_reason', 'unlocked_by']),
             'gare_id' => $recette->gare_id,
@@ -333,7 +344,7 @@ class RecetteController extends Controller
             $recette->operation_date,
             $until,
             (string) ($validated['unlock_reason'] ?? ''),
-            $request->user()
+            $user
         );
 
         return back()->with('status', "Déverrouillage actif pour {$duration} {$unitLabel}.");
@@ -481,4 +492,5 @@ class RecetteController extends Controller
         return "Recette {$gare} {$date}";
     }
 }
+
 

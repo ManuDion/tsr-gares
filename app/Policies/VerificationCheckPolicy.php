@@ -18,6 +18,10 @@ class VerificationCheckPolicy
             return false;
         }
 
+        if ($user->isVerificateur() && $user->canAccessFinancialScope($check->service_scope)) {
+            return true;
+        }
+
         return $user->canViewAllGares($check->service_scope) || $user->hasAccessToGare($check->gare_id, $check->service_scope);
     }
 }

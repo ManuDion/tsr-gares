@@ -8,7 +8,9 @@ class UnlockDepenseRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return ($this->user()?->hasGlobalVisibility() || $this->user()?->isServiceAdmin()) ?? false;
+        $scope = (string) ($this->route('depense')?->service_scope ?? 'gares');
+
+        return $this->user()?->canUnlockFinancialScope($scope) ?? false;
     }
 
     public function rules(): array

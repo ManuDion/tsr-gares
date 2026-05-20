@@ -235,7 +235,7 @@
                 <div class="panel-header">
                     <div>
                         <h2>Alertes metier</h2>
-                        <p class="text-muted">Non-saisies detectees sur la journee precedente</p>
+                        <p class="text-muted">Non-saisies detectees sur la journee du jour</p>
                     </div>
                 </div>
                 <div class="notification-list">
@@ -246,7 +246,7 @@
                             <small>{{ $control->concerned_date?->format('d/m/Y') }}</small>
                         </article>
                     @empty
-                        <p class="text-muted">Aucune alerte de non-saisie pour la veille.</p>
+                        <p class="text-muted">Aucune alerte de non-saisie pour aujourd'hui.</p>
                     @endforelse
                 </div>
             </div>
@@ -386,7 +386,7 @@
                 <div class="panel-header">
                     <div>
                         <h2>Alertes metier</h2>
-                        <p class="text-muted">Non-saisies detectees sur la journee precedente</p>
+                        <p class="text-muted">Non-saisies detectees sur la journee du jour</p>
                     </div>
                 </div>
                 <div class="notification-list">
@@ -397,7 +397,7 @@
                             <small>{{ $control->concerned_date?->format('d/m/Y') }}</small>
                         </article>
                     @empty
-                        <p class="text-muted">Aucune alerte de non-saisie pour la veille.</p>
+                        <p class="text-muted">Aucune alerte de non-saisie pour aujourd'hui.</p>
                     @endforelse
                 </div>
             </div>

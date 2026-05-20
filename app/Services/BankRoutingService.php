@@ -14,29 +14,10 @@ class BankRoutingService
     {
         $dateValue = $date instanceof CarbonInterface ? $date->toDateString() : Carbon::parse($date)->toDateString();
 
-        $exact = $this->applyGareCondition(
-            BankRoutingOverride::query()
-            ->with('gares:id')
-            ->where('service_scope', $scope)
-            ->where('is_active', true)
-            ->whereDate('start_date', '<=', $dateValue)
-            ->where(function ($query) use ($dateValue) {
-                $query->whereNull('end_date')
-                    ->orWhereDate('end_date', '>=', $dateValue);
-            })
-        , $gareId)
-            ->orderByDesc('start_date')
-            ->orderByDesc('id')
-            ->first();
-
-        if ($exact) {
-            return $exact;
-        }
-
         return $this->applyGareCondition(
             BankRoutingOverride::query()
             ->with('gares:id')
-            ->whereIn('service_scope', ['gares', 'courrier'])
+            ->where('service_scope', $scope)
             ->where('is_active', true)
             ->whereDate('start_date', '<=', $dateValue)
             ->where(function ($query) use ($dateValue) {

@@ -2,7 +2,6 @@
 
 @section('title', 'Historique système')
 @section('heading', 'Historique détaillé des modifications')
-@section('subheading', 'Journal centralisé des mises à jour réellement effectuées dans l’application')
 
 @section('content')
     <div class="panel">
@@ -41,11 +40,11 @@
             </div>
             <div>
                 <label>Date début</label>
-                <input type="date" name="start_date" value="{{ request('start_date') }}">
+                <input type="date" name="start_date" value="{{ request('start_date', now('Africa/Abidjan')->toDateString()) }}">
             </div>
             <div>
                 <label>Date fin</label>
-                <input type="date" name="end_date" value="{{ request('end_date') }}">
+                <input type="date" name="end_date" value="{{ request('end_date', now('Africa/Abidjan')->toDateString()) }}">
             </div>
             <div class="align-end gap-sm">
                 <button class="btn btn-outline" type="submit">

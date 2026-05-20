@@ -2,7 +2,6 @@
 
 @section('title', 'Notifications')
 @section('heading', 'Historique des notifications')
-@section('subheading', 'Suivi des anomalies, rappels et contrôles journaliers')
 
 @section('content')
     @php
@@ -60,7 +59,10 @@
                     <input type="date" name="end_date" required>
                 </div>
                 <div class="align-end">
-                    <button class="btn btn-outline" type="submit">Supprimer sur la période</button>
+                    <button class="btn btn-outline" type="submit" title="Supprimer" aria-label="Supprimer">
+                        <span class="icon">{!! app_icon('trash') !!}</span>
+                        <span class="sr-only">Supprimer</span>
+                    </button>
                 </div>
             </form>
         </div>

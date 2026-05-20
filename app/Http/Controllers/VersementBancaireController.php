@@ -72,6 +72,10 @@ class VersementBancaireController extends Controller
                 };
             });
 
+        if (! $request->filled('start_date') && ! $request->filled('end_date')) {
+            $query->whereDate('operation_date', now('Africa/Abidjan')->toDateString());
+        }
+
         return view('versements.index', [
             'versements' => $query->paginate(15)->withQueryString(),
             'gares' => $this->access->availableGares($user, $serviceScope),
@@ -104,7 +108,7 @@ class VersementBancaireController extends Controller
             'virtualGare' => $virtualGare,
             'bankRoutingWindows' => $this->bankRouting->activeWindowsForScope($serviceScope),
             'forcedAccountType' => $this->bankRouting->forcedAccountTypeForDate($serviceScope, $defaultOperationDate, $defaultGareId ?: null),
-            'maxSizeKb' => (int) env('JUSTIFICATIF_MAX_SIZE_KB', 5120),
+            'maxSizeKb' => (int) env('JUSTIFICATIF_MAX_SIZE_KB', 10240),
         ]);
     }
 
@@ -215,7 +219,7 @@ class VersementBancaireController extends Controller
             'virtualGare' => $resolvedVirtualGare,
             'bankRoutingWindows' => $this->bankRouting->activeWindowsForScope($scope),
             'forcedAccountType' => $this->bankRouting->forcedAccountTypeForDate($scope, $defaultOperationDate, $defaultGareId ?: null),
-            'maxSizeKb' => (int) env('JUSTIFICATIF_MAX_SIZE_KB', 5120),
+            'maxSizeKb' => (int) env('JUSTIFICATIF_MAX_SIZE_KB', 10240),
         ]);
     }
 
@@ -360,7 +364,14 @@ class VersementBancaireController extends Controller
 
     public function unlock(UnlockVersementBancaireRequest $request, VersementBancaire $versement): RedirectResponse
     {
-        abort_unless($request->user()->canUnlockFinancialScope($versement->service_scope), 403);
+        $user = $request->user();
+        $scope = (string) ($versement->service_scope ?? 'gares');
+
+        abort_unless($user->canUnlockFinancialScope($scope), 403);
+        abort_unless(
+            $user->canAdministerFinancialScope($scope) || $user->hasAccessToGare((int) $versement->gare_id, $scope),
+            403
+        );
         $validated = $request->validated();
         $duration = (int) ($validated['unlock_duration'] ?? 0);
         $unit = (string) ($validated['unlock_unit'] ?? 'hours');
@@ -380,10 +391,10 @@ class VersementBancaireController extends Controller
         $versement->update([
             'force_unlocked_until' => $until,
             'unlock_reason' => $validated['unlock_reason'],
-            'unlocked_by' => $request->user()->id,
+            'unlocked_by' => $user->id,
         ]);
 
-        $this->activity->log($request->user(), 'versement_unlocked', $versement, 'Déverrouillage superviseur d\'un versement.', [
+        $this->activity->log($user, 'versement_unlocked', $versement, 'Déverrouillage superviseur d\'un versement.', [
             'gare_id' => $versement->gare_id,
             'before' => $before,
             'after' => $versement->fresh()->only(['force_unlocked_until', 'unlock_reason', 'unlocked_by']),
@@ -397,7 +408,7 @@ class VersementBancaireController extends Controller
             $versement->operation_date,
             $until,
             (string) ($validated['unlock_reason'] ?? ''),
-            $request->user()
+            $user
         );
 
         return back()->with('status', "Déverrouillage actif pour {$duration} {$unitLabel}.");
@@ -507,4 +518,5 @@ class VersementBancaireController extends Controller
         return "Bordereau {$bank} {$date}";
     }
 }
+
 

@@ -224,6 +224,17 @@ label {
     width: auto;
 }
 
+.action-toggle-input {
+    width: 1rem;
+    height: 1rem;
+    cursor: pointer;
+}
+
+.action-toggle-input:disabled {
+    cursor: not-allowed;
+    opacity: .55;
+}
+
 .btn {
     display: inline-flex;
     align-items: center;
@@ -239,6 +250,13 @@ label {
 
 .btn:hover {
     text-decoration: none;
+}
+
+.btn:disabled,
+.btn[disabled] {
+    cursor: not-allowed;
+    opacity: .55;
+    pointer-events: none;
 }
 
 .btn-block { width: 100%; }
@@ -2138,6 +2156,133 @@ tbody tr:hover {
     content: ' | ';
 }
 
+.cashier-progress-block {
+    margin-top: .35rem;
+    display: block;
+    width: 100%;
+}
+
+.cashier-progress-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: .25rem .7rem;
+    border-radius: 999px;
+    border: 1px solid rgba(15, 118, 110, 0.25);
+    background: rgba(15, 118, 110, 0.1);
+    color: var(--accent);
+    font-size: .78rem;
+    font-weight: 700;
+    line-height: 1.2;
+    cursor: pointer;
+    box-shadow: 0 1px 0 rgba(15, 118, 110, 0.08);
+    transition: background .15s ease, border-color .15s ease, color .15s ease, box-shadow .15s ease, transform .15s ease;
+}
+
+.cashier-progress-button:hover {
+    background: rgba(15, 118, 110, 0.24);
+    border-color: rgba(15, 118, 110, 0.58);
+    color: #083b37;
+    box-shadow: 0 6px 14px rgba(15, 118, 110, 0.2);
+    transform: translateY(-1px);
+}
+
+.cashier-progress-button:focus-visible {
+    outline: 2px solid rgba(15, 118, 110, 0.55);
+    outline-offset: 2px;
+}
+
+.cashier-progress-button:active {
+    transform: translateY(0);
+}
+
+.cashier-popup {
+    position: fixed;
+    inset: 0;
+    z-index: 140;
+    pointer-events: none;
+}
+
+.cashier-popup[hidden] {
+    display: none !important;
+}
+
+.cashier-popup__backdrop {
+    position: absolute;
+    inset: 0;
+    background: transparent;
+    pointer-events: auto;
+}
+
+.cashier-popup__panel {
+    position: absolute;
+    top: var(--cashier-popup-top, 50%);
+    left: var(--cashier-popup-left, 50%);
+    transform: translate(-50%, -50%);
+    width: min(760px, calc(100vw - 1rem));
+    max-height: min(88vh, 760px);
+    overflow: auto;
+    border-radius: 1rem;
+    background: #fff;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    pointer-events: auto;
+}
+
+.cashier-popup.is-anchored .cashier-popup__panel {
+    transform: none;
+}
+
+.cashier-popup--unlock .cashier-popup__panel {
+    width: min(460px, 100%);
+    max-height: min(76vh, 560px);
+}
+
+.cashier-popup__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: .95rem 1rem;
+    border-bottom: 1px solid var(--border);
+    background: #f8fafc;
+}
+
+.cashier-popup__header h3 {
+    margin: 0;
+    font-size: 1rem;
+}
+
+.cashier-popup__header p {
+    margin: .2rem 0 0;
+    font-size: .84rem;
+    color: var(--muted);
+}
+
+.cashier-popup__body {
+    padding: .9rem 1rem 1rem;
+}
+
+.cashier-popup-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.cashier-popup-table th,
+.cashier-popup-table td {
+    padding: .6rem .7rem;
+    border-bottom: 1px solid var(--border);
+    font-size: .86rem;
+}
+
+.cashier-popup-table th {
+    background: #f8fafc;
+    text-transform: uppercase;
+    letter-spacing: .02em;
+    font-size: .78rem;
+    color: var(--muted);
+}
+
 .form-inline-compact {
     display: grid;
     grid-template-columns: 1fr;
@@ -2831,6 +2976,280 @@ td {
     gap: .4rem;
 }
 
+.cashier-approval-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    flex-wrap: nowrap;
+}
+
+.cashier-unlock-button {
+    gap: .3rem;
+    width: 36px;
+    min-width: 36px;
+    padding: .35rem .4rem;
+    justify-content: center;
+}
+
+.cashier-unlock-modal-actions {
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    flex-wrap: wrap;
+}
+
+.cashier-receipts-table thead th {
+    font-size: .76rem;
+    letter-spacing: .01em;
+    padding-top: .5rem;
+    padding-bottom: .5rem;
+}
+
+.cashier-receipts-table td {
+    vertical-align: middle;
+}
+
+.cashier-receipts-table td:nth-child(3),
+.cashier-receipts-table td:nth-child(4),
+.cashier-receipts-table td:nth-child(5),
+.cashier-receipts-table td:nth-child(6) {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.cashier-receipts-table .col-gare {
+    min-width: 260px;
+}
+
+.cashier-receipts-table .col-date {
+    min-width: 140px;
+    white-space: nowrap;
+}
+
+.cashier-receipts-table th.col-phone {
+    width: 96px;
+    max-width: 96px;
+    text-align: center;
+}
+
+.cashier-receipts-table td.col-phone {
+    width: 96px;
+    max-width: 96px;
+    white-space: nowrap;
+    text-align: center;
+}
+
+.cashier-receipts-table .col-depenses {
+    min-width: 240px;
+}
+
+.cashier-receipts-table .th-two-lines {
+    display: inline-block;
+    line-height: 1.05;
+}
+
+.cashier-receipts-table {
+    min-width: 1150px;
+}
+
+@media (max-width: 768px) {
+    .cashier-receipts-table-wrapper {
+        overflow-x: auto !important;
+        border: 1px solid var(--border) !important;
+        box-shadow: var(--shadow) !important;
+        background: var(--panel) !important;
+    }
+
+    .cashier-receipts-table-wrapper table.cashier-receipts-table {
+        display: table !important;
+        width: auto !important;
+        min-width: 1150px;
+    }
+
+    .cashier-receipts-table-wrapper thead {
+        display: table-header-group !important;
+        position: static !important;
+        width: auto !important;
+        height: auto !important;
+        overflow: visible !important;
+        clip: auto !important;
+        white-space: normal !important;
+    }
+
+    .cashier-receipts-table-wrapper tbody {
+        display: table-row-group !important;
+    }
+
+    .cashier-receipts-table-wrapper tr {
+        display: table-row !important;
+        background: transparent !important;
+        border: 0 !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+        padding: 0 !important;
+    }
+
+    .cashier-receipts-table-wrapper th,
+    .cashier-receipts-table-wrapper td {
+        display: table-cell !important;
+        width: auto !important;
+        border-bottom: 1px solid var(--border) !important;
+        padding: .62rem .7rem !important;
+        text-align: left !important;
+    }
+
+    .cashier-receipts-table-wrapper tbody td::before {
+        content: none !important;
+    }
+
+    .cashier-receipts-table-wrapper .cashier-receipts-table td:nth-child(3),
+    .cashier-receipts-table-wrapper .cashier-receipts-table td:nth-child(4),
+    .cashier-receipts-table-wrapper .cashier-receipts-table td:nth-child(5),
+    .cashier-receipts-table-wrapper .cashier-receipts-table td:nth-child(6) {
+        text-align: right !important;
+    }
+
+    .cashier-receipts-table-wrapper .cashier-receipts-table td.col-phone {
+        text-align: center !important;
+    }
+
+    .cashier-receipts-table-wrapper .cashier-approval-actions {
+        flex-wrap: nowrap;
+    }
+}
+
+.cashier-receipt-actions .unlock-controls {
+    display: flex;
+    align-items: center;
+    gap: .35rem;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+}
+
+.cashier-receipt-actions .unlock-fields-row {
+    display: flex;
+    align-items: center;
+    gap: .3rem;
+    flex-wrap: nowrap;
+}
+
+.cashier-receipt-actions .unlock-duration {
+    width: 52px;
+    padding: .28rem .38rem;
+    font-size: .76rem;
+    line-height: 1.1;
+}
+
+.cashier-receipt-actions .unlock-unit {
+    width: 76px;
+    padding: .28rem .38rem;
+    font-size: .76rem;
+    line-height: 1.1;
+}
+
+.cashier-receipt-actions .unlock-buttons-row {
+    display: flex;
+    align-items: center;
+    gap: .35rem;
+    flex-wrap: nowrap;
+}
+
+.cashier-receipt-actions .unlock-buttons-row .btn {
+    min-width: 0;
+    white-space: nowrap;
+}
+
+.unlock-controls--compact {
+    flex-wrap: nowrap;
+    gap: .3rem;
+    justify-content: center;
+}
+
+.unlock-controls--compact .unlock-duration {
+    width: 58px;
+    height: 34px;
+    padding: .3rem .4rem;
+    font-size: .78rem;
+    text-align: center;
+}
+
+.unlock-controls--compact .unlock-unit {
+    width: 92px;
+    height: 34px;
+    padding: .3rem .4rem;
+    font-size: .78rem;
+    text-align: center;
+    text-align-last: center;
+}
+
+.unlock-controls--compact .btn {
+    padding: .35rem .55rem;
+    font-size: .78rem;
+    line-height: 1.1;
+    white-space: nowrap;
+}
+
+.unlock-controls--compact .unlock-state-badge {
+    padding: .28rem .5rem;
+    font-size: .72rem;
+    white-space: nowrap;
+}
+
+.cashier-unlock-inline-row {
+    flex-wrap: nowrap;
+    justify-content: center;
+    align-items: center;
+    gap: .35rem;
+}
+
+.cashier-unlock-inline-row .unlock-duration {
+    width: 52px;
+}
+
+.cashier-unlock-inline-row .unlock-unit {
+    width: 84px;
+}
+
+.unlock-state-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    border: 1.5px solid var(--line);
+    border-radius: 999px;
+    padding: .36rem .64rem;
+    font-size: .8rem;
+    font-weight: 700;
+    line-height: 1;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+}
+
+.unlock-state-badge .icon {
+    width: 1.04rem;
+    height: 1.04rem;
+    padding: .16rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .75);
+}
+
+.unlock-state-badge.is-open {
+    color: #0a5f57;
+    border-color: rgba(15, 118, 110, .55);
+    background: rgba(15, 118, 110, .17);
+}
+
+.unlock-state-badge.is-closed {
+    color: #9a4304;
+    border-color: rgba(180, 83, 9, .55);
+    background: rgba(180, 83, 9, .17);
+}
+
+.verification-table--compact .unlock-inline-fields {
+    display: inline-flex;
+    align-items: center;
+    gap: .25rem;
+    min-width: 0;
+}
+
 .missing-entries-table .badge-nowrap {
     white-space: nowrap;
 }
@@ -2847,6 +3266,29 @@ td {
     text-align: center;
 }
 
+.missing-entries-table th.col-date,
+.missing-entries-table td.col-date {
+    white-space: nowrap;
+}
+
+.missing-entries-table th.col-depense {
+    white-space: nowrap;
+}
+
+.missing-entries-table .cashier-popup-host,
+.missing-entries-table .cashier-popup-host:hover {
+    background: transparent !important;
+}
+
+.missing-entries-table .cashier-popup-host > td {
+    padding: 0 !important;
+    border: 0 !important;
+    height: 0;
+    line-height: 0;
+    font-size: 0;
+    overflow: visible;
+}
+
 .unlock-duration {
     width: 92px;
     max-width: 100%;
@@ -2857,6 +3299,20 @@ td {
     width: 130px;
     max-width: 100%;
     margin: 0 !important;
+}
+
+.verification-table--compact .unlock-duration {
+    width: 56px;
+    padding: .35rem .45rem;
+    border-radius: .65rem;
+    font-size: .78rem;
+}
+
+.verification-table--compact .unlock-unit {
+    width: 74px;
+    padding: .35rem .45rem;
+    border-radius: .65rem;
+    font-size: .78rem;
 }
 
 .mobile-topbar strong {
@@ -2883,10 +3339,21 @@ td {
         align-items: stretch;
     }
 
+    .unlock-controls--compact {
+        display: flex;
+        flex-wrap: nowrap;
+        align-items: center;
+        overflow-x: auto;
+    }
+
     .unlock-duration,
     .unlock-unit,
     .unlock-controls .btn {
         width: 100%;
+    }
+
+    .unlock-state-badge {
+        justify-content: center;
     }
 
     .form-inline textarea,
@@ -3098,3 +3565,124 @@ body.sidebar-open {
         grid-template-columns: 1fr 1fr;
     }
 }
+
+/* Cashier receipts table: compact fixed layout, no horizontal scroll */
+.cashier-receipts-table-wrapper {
+    overflow-x: hidden;
+}
+
+.cashier-receipts-table {
+    width: 100%;
+    min-width: 0;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+.cashier-receipts-table th,
+.cashier-receipts-table td {
+    vertical-align: middle;
+}
+
+.cashier-receipts-table th {
+    text-align: center;
+    white-space: normal;
+}
+
+.cashier-receipts-table td:nth-child(3),
+.cashier-receipts-table td:nth-child(4),
+.cashier-receipts-table td:nth-child(5),
+.cashier-receipts-table td:nth-child(6) {
+    text-align: right;
+    white-space: nowrap;
+}
+
+.cashier-receipts-table td.col-gare,
+.cashier-receipts-table th.col-gare {
+    width: 14%;
+    min-width: 0;
+}
+
+.cashier-receipts-table td.col-date,
+.cashier-receipts-table th.col-date {
+    width: 10%;
+    min-width: 0;
+}
+
+.cashier-receipts-table td.col-date,
+.cashier-receipts-table th.col-date {
+    text-align: center;
+    white-space: nowrap;
+}
+
+.cashier-receipts-table th:nth-child(3),
+.cashier-receipts-table td:nth-child(3) {
+    width: 11%;
+}
+
+.cashier-receipts-table th:nth-child(4),
+.cashier-receipts-table td:nth-child(4) {
+    width: 12%;
+}
+
+.cashier-receipts-table th:nth-child(6),
+.cashier-receipts-table td:nth-child(6) {
+    width: 11%;
+}
+
+.cashier-receipts-table td.col-phone,
+.cashier-receipts-table th.col-phone {
+    width: 9%;
+    min-width: 0;
+    text-align: center;
+}
+
+.cashier-receipts-table th.col-phone .th-two-lines {
+    white-space: nowrap;
+    overflow-wrap: normal;
+    word-break: keep-all;
+}
+
+.cashier-receipts-table td.col-depenses,
+.cashier-receipts-table th.col-depenses {
+    width: 10%;
+    min-width: 0;
+    white-space: nowrap;
+}
+
+.cashier-receipts-table td.col-approval,
+.cashier-receipts-table th.col-approval {
+    width: 23%;
+    min-width: 0;
+}
+
+.cashier-receipts-table td.col-approval {
+    text-align: center;
+}
+
+.cashier-receipts-table .th-two-lines {
+    display: inline-block;
+    line-height: 1.05;
+}
+
+.cashier-receipts-table td.col-gare {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.cashier-receipts-table .cashier-approval-actions {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: nowrap;
+}
+
+.cashier-receipts-table .cashier-approval-actions form {
+    margin: 0;
+}
+
+.cashier-receipts-table .cashier-approval-actions .btn {
+    white-space: nowrap;
+}
+

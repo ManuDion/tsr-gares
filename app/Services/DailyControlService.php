@@ -6,9 +6,11 @@ use App\Enums\ServiceModule;
 use App\Enums\UserRole;
 use App\Models\CashierReceiptConfirmation;
 use App\Models\DailyControl;
+use App\Models\Depense;
 use App\Models\Gare;
 use App\Models\NotificationHistory;
 use App\Models\User;
+use App\Models\VersementBancaire;
 use Illuminate\Support\Collection;
 
 class DailyControlService
@@ -20,12 +22,15 @@ class DailyControlService
 
         foreach ($scopes as $scope) {
             $module = $scope === 'courrier' ? ServiceModule::Courrier : ServiceModule::Gares;
+            $virtualGareByCashier = [];
 
             $scopeControls = Gare::query()
                 ->where('is_active', true)
                 ->get()
-                ->map(function (Gare $gare) use ($concernedDate, $scope) {
+                ->map(function (Gare $gare) use ($concernedDate, $scope, &$virtualGareByCashier) {
                     $hasCashierValidation = false;
+                    $hasCashierVirtualDepense = false;
+                    $hasCashierVirtualVersement = false;
                     if ($gare->is_virtual) {
                         $hasRecette = CashierReceiptConfirmation::query()
                             ->where('service_scope', $scope)
@@ -43,12 +48,40 @@ class DailyControlService
                             ->whereDate('operation_date', $concernedDate)
                             ->where('is_verified', true)
                             ->exists();
-                        $hasVersement = $gare->versement_mode === 'cashier'
-                            ? true
-                            : $gare->versementsBancaires()
+
+                        if (($gare->versement_mode ?? 'direct') === 'cashier' && (int) ($gare->cashier_user_id ?? 0) > 0) {
+                            $cashierId = (int) $gare->cashier_user_id;
+                            if (! array_key_exists($cashierId, $virtualGareByCashier)) {
+                                $virtualGareByCashier[$cashierId] = Gare::query()
+                                    ->where('is_virtual', true)
+                                    ->where('virtual_scope', $scope)
+                                    ->where('virtual_owner_user_id', $cashierId)
+                                    ->first(['id']);
+                            }
+
+                            $virtualGare = $virtualGareByCashier[$cashierId];
+                            if ($virtualGare) {
+                                $hasCashierVirtualDepense = Depense::query()
+                                    ->where('service_scope', $scope)
+                                    ->where('gare_id', $virtualGare->id)
+                                    ->whereDate('operation_date', $concernedDate)
+                                    ->exists();
+
+                                $hasCashierVirtualVersement = VersementBancaire::query()
+                                    ->where('service_scope', $scope)
+                                    ->where('gare_id', $virtualGare->id)
+                                    ->whereDate('operation_date', $concernedDate)
+                                    ->exists();
+                            }
+
+                            $hasDepense = $hasDepense || $hasCashierVirtualDepense;
+                            $hasVersement = $hasCashierValidation || $hasCashierVirtualVersement;
+                        } else {
+                            $hasVersement = $gare->versementsBancaires()
                                 ->where('service_scope', $scope)
                                 ->whereDate('operation_date', $concernedDate)
                                 ->exists();
+                        }
                     }
 
                     $missing = [];
@@ -59,14 +92,19 @@ class DailyControlService
                         $missing[] = 'depense';
                     }
                     if ($gare->versement_mode === 'cashier') {
-                        if (! $hasCashierValidation) {
+                        if (! $hasCashierValidation && ! $hasCashierVirtualVersement && ! $hasCashierVirtualDepense) {
                             $missing[] = 'validation_caissier';
                         }
                     } elseif (! $hasVersement) {
                         $missing[] = 'versement_bancaire';
                     }
 
-                    if ($gare->is_virtual && ! $hasRecette && ! $hasDepense && ! $hasVersement) {
+                    if ($gare->is_virtual
+                        && (int) ($gare->virtual_owner_user_id ?? 0) <= 0
+                        && ! $hasRecette
+                        && ! $hasDepense
+                        && ! $hasVersement
+                    ) {
                         $missing = [];
                     }
 
@@ -232,4 +270,3 @@ class DailyControlService
         }
     }
 }
-

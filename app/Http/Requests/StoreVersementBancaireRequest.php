@@ -38,7 +38,7 @@ class StoreVersementBancaireRequest extends FormRequest
 
     public function rules(): array
     {
-        $max = (int) env('JUSTIFICATIF_MAX_SIZE_KB', 5120);
+        $max = (int) env('JUSTIFICATIF_MAX_SIZE_KB', 10240);
 
         return [
             'gare_id' => ['nullable', 'integer', 'exists:gares,id'],
@@ -50,7 +50,7 @@ class StoreVersementBancaireRequest extends FormRequest
             'bank_name' => ['nullable', 'string', 'max:150'],
             'description' => ['nullable', 'string', 'max:500'],
             'bordereau_name' => ['nullable', 'string', 'max:120'],
-            'bordereaux' => ['required', 'array', 'min:1', 'max:10'],
+            'bordereaux' => ['required', 'array', 'min:1'],
             'bordereaux.*' => JustificatifFileRules::single(true, $max),
         ];
     }
@@ -59,7 +59,6 @@ class StoreVersementBancaireRequest extends FormRequest
     {
         return [
             'bordereaux.required' => 'Au moins un bordereau est obligatoire pour enregistrer un versement.',
-            'bordereaux.max' => 'Vous pouvez joindre au maximum 10 photos/fichiers justificatifs par versement.',
             'account_type.required' => 'Le compte de versement est obligatoire.',
             'bordereaux.*.uploaded' => 'Le televersement du bordereau a echoue. Veuillez reessayer.',
         ];

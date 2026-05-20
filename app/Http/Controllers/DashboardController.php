@@ -25,8 +25,9 @@ class DashboardController extends Controller
 
         if ($module->supportsFinancialFlows()) {
             $scope = ModuleContext::financialScope($module);
-            $this->dailyControlService->ensureFreshControl(null, $scope);
-            $this->verificationService->ensureFreshForDate(null, $scope);
+            $today = now('Africa/Abidjan')->toDateString();
+            $this->dailyControlService->ensureFreshControl($today, $scope);
+            $this->verificationService->ensureFreshForDate($today, $scope);
         }
 
         if ($module === ServiceModule::Documents || $request->user()->isControleur() || $request->user()->hasGlobalVisibility()) {
@@ -43,4 +44,3 @@ class DashboardController extends Controller
         return view('dashboard.index', compact('heading', 'subheading', 'module'));
     }
 }
-

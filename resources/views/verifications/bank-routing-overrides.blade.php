@@ -81,9 +81,16 @@
                             </td>
                             <td>{{ $override->notes ?: '-' }}</td>
                             <td class="actions-cell">
-                                <form method="POST" action="{{ route('bank-routing-overrides.disable', ['override' => $override, 'module' => $module->value]) }}">
+                                <form method="POST" action="{{ route('bank-routing-overrides.disable', ['override' => $override, 'module' => $module->value]) }}" class="inline-flex-form">
                                     @csrf
-                                    <button class="btn btn-sm btn-outline" type="submit">Desactiver</button>
+                                    <input
+                                        type="checkbox"
+                                        class="action-toggle-input"
+                                        checked
+                                        title="Desactiver"
+                                        aria-label="Desactiver"
+                                        onchange="this.form.submit()"
+                                    >
                                 </form>
                             </td>
                         </tr>
@@ -129,7 +136,10 @@
                                 <form method="POST" action="{{ route('bank-routing-overrides.destroy', ['override' => $item, 'module' => $module->value]) }}" onsubmit="return confirm('Supprimer cette ligne de l\\'historique ?');">
                                     @csrf
                                     @method('DELETE')
-                                    <button class="btn btn-sm btn-danger" type="submit">Supprimer</button>
+                                    <button class="btn btn-sm btn-danger" type="submit" title="Supprimer" aria-label="Supprimer">
+                                        <span class="icon">{!! app_icon('trash') !!}</span>
+                                        <span class="sr-only">Supprimer</span>
+                                    </button>
                                 </form>
                             </td>
                         </tr>

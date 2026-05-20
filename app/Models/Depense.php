@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
@@ -106,5 +107,26 @@ class Depense extends Model
             ->whereNotNull('modifications_enabled_until')
             ->where('modifications_enabled_until', '>', now())
             ->exists();
+    }
+
+    public function scopeFinanciallyValidated(Builder $query): Builder
+    {
+        return $query->where(function (Builder $inner) {
+            $inner
+                ->whereHas('gare', function (Builder $gareQuery) {
+                    $gareQuery->where('is_virtual', true)
+                        ->orWhere('versement_mode', '!=', 'cashier');
+                })
+                ->orWhereExists(function ($exists) {
+                    $exists->selectRaw('1')
+                        ->from('cashier_receipt_confirmations as crc')
+                        ->join('gares as g', 'g.id', '=', 'crc.gare_id')
+                        ->whereColumn('crc.service_scope', 'depenses.service_scope')
+                        ->whereColumn('crc.gare_id', 'depenses.gare_id')
+                        ->whereColumn('crc.operation_date', 'depenses.operation_date')
+                        ->whereColumn('crc.cashier_id', 'g.cashier_user_id')
+                        ->where('crc.is_verified', true);
+                });
+        });
     }
 }

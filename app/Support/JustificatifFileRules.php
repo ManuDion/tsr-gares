@@ -11,13 +11,13 @@ class JustificatifFileRules
      */
     public static function single(bool $required = true, ?int $maxKb = null): array
     {
-        $max = $maxKb ?? (int) env('JUSTIFICATIF_MAX_SIZE_KB', 5120);
+        $max = $maxKb ?? (int) env('JUSTIFICATIF_MAX_SIZE_KB', 10240);
 
         return [
             $required ? 'required' : 'nullable',
             'file',
             self::typeRule(),
-            'max:'.$max,
+            self::sizeRule($max),
         ];
     }
 
@@ -40,5 +40,37 @@ class JustificatifFileRules
             }
         };
     }
-}
 
+    /**
+     * @return \Closure(string, mixed, \Closure): void
+     */
+    public static function sizeRule(int $maxKb): \Closure
+    {
+        return function (string $attribute, mixed $value, \Closure $fail) use ($maxKb): void {
+            if (! $value instanceof UploadedFile) {
+                return;
+            }
+
+            $size = (int) ($value->getSize() ?? 0);
+            if ($size <= 0) {
+                return;
+            }
+
+            if ($size > ($maxKb * 1024)) {
+                $maxLabel = self::formatSizeLabel($maxKb);
+                $fileName = trim((string) $value->getClientOriginalName());
+                $fileLabel = $fileName !== '' ? '"'.$fileName.'"' : 'selectionne';
+                $fail("Le fichier {$fileLabel} depasse {$maxLabel}. Taille maximale autorisee: {$maxLabel}.");
+            }
+        };
+    }
+
+    protected static function formatSizeLabel(int $maxKb): string
+    {
+        if ($maxKb > 0 && $maxKb % 1024 === 0) {
+            return ((int) ($maxKb / 1024)).' Mo';
+        }
+
+        return $maxKb.' Ko';
+    }
+}

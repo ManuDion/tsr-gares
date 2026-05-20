@@ -11,6 +11,7 @@ use App\Services\ActivityLogService;
 use App\Services\CashierValidationNotificationService;
 use App\Services\CashierFlowService;
 use App\Support\ModuleContext;
+use Carbon\CarbonPeriod;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -34,45 +35,71 @@ class CashierReceiptController extends Controller
         $scope = ModuleContext::financialScope($module);
         abort_unless($user->canActAsCashierForScope($scope), 403);
 
-        $operationDate = $request->date('operation_date')
-            ? $request->date('operation_date')->toDateString()
-            : now('Africa/Abidjan')->toDateString();
+        $today = now('Africa/Abidjan')->toDateString();
+        $legacyOperationDate = $request->date('operation_date')?->toDateString();
+        $startDate = $request->date('start_date')?->toDateString();
+        $endDate = $request->date('end_date')?->toDateString();
+
+        if (! $startDate && ! $endDate) {
+            $startDate = $legacyOperationDate ?: $today;
+            $endDate = $legacyOperationDate ?: $today;
+        } elseif (! $startDate && $endDate) {
+            $startDate = $endDate;
+        } elseif ($startDate && ! $endDate) {
+            $endDate = $startDate;
+        }
+
+        if ($startDate > $endDate) {
+            [$startDate, $endDate] = [$endDate, $startDate];
+        }
+
+        $periodDates = collect(CarbonPeriod::create($startDate, $endDate))
+            ->map(fn ($date) => $date->toDateString())
+            ->values();
 
         $gares = $this->flow->garesForCashier($user, $scope);
         $phones = $this->phonesByGare($scope, $gares->pluck('id')->all());
         $confirmations = CashierReceiptConfirmation::query()
             ->where('service_scope', $scope)
             ->where('cashier_id', $user->id)
-            ->whereDate('operation_date', $operationDate)
+            ->whereBetween('operation_date', [$startDate, $endDate])
             ->get()
-            ->keyBy('gare_id');
+            ->keyBy(fn (CashierReceiptConfirmation $confirmation) => $confirmation->gare_id.'|'.$confirmation->operation_date?->toDateString());
 
-        $rows = $gares->map(function (Gare $gare) use ($user, $scope, $operationDate, $confirmations, $phones) {
-            $expected = $this->flow->expectedForGareDate($gare, $scope, $operationDate, $user);
-            $confirmation = $confirmations->get($gare->id);
-            $hasOperations = (float) ($expected['recette_total'] ?? 0) > 0.01
-                || (float) ($expected['depense_total'] ?? 0) > 0.01;
+        $rows = $gares
+            ->flatMap(function (Gare $gare) use ($user, $scope, $periodDates, $confirmations, $phones) {
+                return $periodDates->map(function (string $operationDate) use ($gare, $user, $scope, $confirmations, $phones) {
+                    $expected = $this->flow->expectedForGareDate($gare, $scope, $operationDate, $user);
+                    $confirmation = $confirmations->get($gare->id.'|'.$operationDate);
+                    $hasOperations = (float) ($expected['recette_total'] ?? 0) > 0.01
+                        || (float) ($expected['depense_total'] ?? 0) > 0.01;
 
-            if ($confirmation?->is_verified) {
-                return null;
-            }
+                    if (! $confirmation && ! $hasOperations) {
+                        return null;
+                    }
 
-            if (! $confirmation && ! $hasOperations) {
-                return null;
-            }
-
-            return [
-                'gare' => $gare,
-                'expected' => $expected,
-                'confirmation' => $confirmation,
-                'phone' => $phones[$gare->id] ?? '-',
-                'is_locked' => $this->flow->isGareDateLocked($gare, $scope, $operationDate),
-            ];
-        })->filter()->values();
+                    return [
+                        'gare' => $gare,
+                        'operation_date' => $operationDate,
+                        'expected' => $expected,
+                        'confirmation' => $confirmation,
+                        'phone' => $phones[$gare->id] ?? '-',
+                        'is_locked' => $this->flow->isGareDateLocked($gare, $scope, $operationDate),
+                        'is_verified' => (bool) ($confirmation?->is_verified ?? false),
+                    ];
+                });
+            })
+            ->filter()
+            ->sortBy([
+                ['operation_date', 'desc'],
+                ['gare.name', 'asc'],
+            ])
+            ->values();
 
         return view('cashier-receipts.index', [
             'module' => $module,
-            'operationDate' => $operationDate,
+            'startDate' => $startDate,
+            'endDate' => $endDate,
             'rows' => $rows,
             'collectsInter' => $user->cashierCollectsInter(),
             'collectsNational' => $user->cashierCollectsNational(),
@@ -86,17 +113,81 @@ class CashierReceiptController extends Controller
         $scope = ModuleContext::financialScope($module);
         abort_unless($user->canActAsCashierForScope($scope), 403);
 
-        $gare = Gare::query()->findOrFail($request->integer('gare_id'));
-        abort_unless((int) $gare->cashier_user_id === (int) $user->id, 403);
         $operationDate = $request->date('operation_date')->toDateString();
         $payload = $request->validated();
         $mode = (string) ($payload['mode'] ?? 'validate');
+
+        if ($mode === 'validate_date') {
+            $gares = $this->flow->garesForCashier($user, $scope);
+            $confirmations = CashierReceiptConfirmation::query()
+                ->where('service_scope', $scope)
+                ->where('cashier_id', $user->id)
+                ->whereDate('operation_date', $operationDate)
+                ->get()
+                ->keyBy('gare_id');
+
+            $validatedCount = 0;
+
+            foreach ($gares as $gare) {
+                $expected = $this->flow->expectedForGareDate($gare, $scope, $operationDate, $user);
+                $confirmation = $confirmations->get($gare->id);
+                $hasOperations = (float) ($expected['recette_total'] ?? 0) > 0.01
+                    || (float) ($expected['depense_total'] ?? 0) > 0.01;
+
+                if ($confirmation?->is_verified) {
+                    continue;
+                }
+
+                if (! $confirmation && ! $hasOperations) {
+                    continue;
+                }
+
+                $receivedInter = $user->cashierCollectsInter() ? (int) round((float) ($expected['expected_inter'] ?? 0), 0) : 0;
+                $receivedNational = $user->cashierCollectsNational() ? (int) round((float) ($expected['expected_national'] ?? 0), 0) : 0;
+                $receivedTotal = $receivedInter + $receivedNational;
+
+                $this->flow->upsertConfirmation(
+                    $user,
+                    $gare,
+                    $scope,
+                    $operationDate,
+                    [
+                        'is_verified' => true,
+                        'received_inter_total' => $receivedInter,
+                        'received_national_total' => $receivedNational,
+                        'received_total' => $receivedTotal,
+                        'note' => $payload['note'] ?? null,
+                    ]
+                );
+
+                $this->validationNotifications->notifyStationManagerForValidation(
+                    $scope,
+                    $gare,
+                    $operationDate,
+                    $user
+                );
+
+                $validatedCount++;
+            }
+
+            return redirect()->route('cashier-receipts.index', [
+                'module' => $module->value,
+                'start_date' => $operationDate,
+                'end_date' => $operationDate,
+            ])->with('status', $validatedCount > 0
+                ? "{$validatedCount} ligne(s) validee(s) pour la date {$operationDate}."
+                : "Aucune ligne a valider pour la date {$operationDate}.");
+        }
+
+        $gare = Gare::query()->findOrFail($request->integer('gare_id'));
+        abort_unless((int) $gare->cashier_user_id === (int) $user->id, 403);
 
         if ($mode === 'unlock') {
             if (! $this->flow->isGareDateLocked($gare, $scope, $operationDate)) {
                 return redirect()->route('cashier-receipts.index', [
                     'module' => $module->value,
-                    'operation_date' => $operationDate,
+                    'start_date' => $operationDate,
+                    'end_date' => $operationDate,
                 ])->with('status', 'La ligne n est pas verrouillee.');
             }
 
@@ -115,7 +206,7 @@ class CashierReceiptController extends Controller
                 $duration,
                 $unit
             );
-            $this->activity->log($user, 'cashier_operations_unlocked', $gare, 'Déverrouillage caissier des opérations d une gare.', [
+            $this->activity->log($user, 'cashier_operations_unlocked', $gare, 'Deverrouillage caissier des operations d une gare.', [
                 'gare_id' => $gare->id,
                 'before' => [
                     'service_scope' => $scope,
@@ -136,11 +227,26 @@ class CashierReceiptController extends Controller
 
             return redirect()->route('cashier-receipts.index', [
                 'module' => $module->value,
-                'operation_date' => $operationDate,
-            ])->with('status', "Déverrouillage actif pour {$duration} {$unitLabel} (jusqu au {$until->format('d/m/Y H:i')}).");
+                'start_date' => $operationDate,
+                'end_date' => $operationDate,
+            ])->with('status', "Deverrouillage actif pour {$duration} {$unitLabel} (jusqu au {$until->format('d/m/Y H:i')}).");
         }
 
         $payload['is_verified'] = true;
+        $existingConfirmation = CashierReceiptConfirmation::query()
+            ->where('service_scope', $scope)
+            ->where('cashier_id', $user->id)
+            ->where('gare_id', $gare->id)
+            ->whereDate('operation_date', $operationDate)
+            ->first();
+
+        if ($existingConfirmation?->is_verified) {
+            return redirect()->route('cashier-receipts.index', [
+                'module' => $module->value,
+                'start_date' => $operationDate,
+                'end_date' => $operationDate,
+            ])->with('status', 'Cette ligne est deja validee.');
+        }
 
         $this->flow->upsertConfirmation(
             $user,
@@ -159,7 +265,8 @@ class CashierReceiptController extends Controller
 
         return redirect()->route('cashier-receipts.index', [
             'module' => $module->value,
-            'operation_date' => $operationDate,
+            'start_date' => $operationDate,
+            'end_date' => $operationDate,
         ])->with('status', 'Validation caissier enregistree.');
     }
 

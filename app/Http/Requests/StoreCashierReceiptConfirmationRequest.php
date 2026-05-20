@@ -29,12 +29,12 @@ class StoreCashierReceiptConfirmationRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'gare_id' => ['required', 'integer', 'exists:gares,id'],
+            'gare_id' => ['nullable', 'integer', 'exists:gares,id'],
             'operation_date' => ['required', 'date'],
-            'received_total' => ['required', 'integer', 'min:0'],
-            'received_inter_total' => ['required', 'integer', 'min:0'],
-            'received_national_total' => ['required', 'integer', 'min:0'],
-            'mode' => ['nullable', 'in:validate,unlock'],
+            'received_total' => ['nullable', 'integer', 'min:0'],
+            'received_inter_total' => ['nullable', 'integer', 'min:0'],
+            'received_national_total' => ['nullable', 'integer', 'min:0'],
+            'mode' => ['nullable', 'in:validate,unlock,validate_date'],
             'unlock_duration' => ['nullable', 'integer', 'min:1', 'max:10000'],
             'unlock_unit' => ['nullable', 'in:minutes,hours,days'],
             'is_verified' => ['nullable', 'boolean'],
@@ -46,7 +46,19 @@ class StoreCashierReceiptConfirmationRequest extends FormRequest
     {
         $validator->after(function ($validator) {
             $scope = $this->input('module') === 'courrier' ? 'courrier' : 'gares';
-            $gare = \App\Models\Gare::query()->find($this->integer('gare_id'));
+            $mode = (string) $this->input('mode', 'validate');
+
+            if ($mode === 'validate_date') {
+                return;
+            }
+
+            $gareId = $this->integer('gare_id');
+            if (! $gareId) {
+                $validator->errors()->add('gare_id', 'Veuillez selectionner une gare.');
+                return;
+            }
+
+            $gare = \App\Models\Gare::query()->find($gareId);
             if (! $gare) {
                 return;
             }
@@ -71,8 +83,6 @@ class StoreCashierReceiptConfirmationRequest extends FormRequest
             if ($receivedTotal !== $calculatedTotal) {
                 $validator->errors()->add('received_total', 'Le total recu doit etre egal a Inter + National (montants en FCFA).');
             }
-
-            $mode = (string) $this->input('mode', 'validate');
 
             if ($mode === 'unlock') {
                 if (! $this->filled('unlock_duration')) {

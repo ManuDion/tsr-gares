@@ -44,7 +44,7 @@ class UpdateVersementBancaireRequest extends FormRequest
             'bank_name' => ['nullable', 'string', 'max:150'],
             'description' => ['nullable', 'string', 'max:500'],
             'bordereau_name' => ['nullable', 'string', 'max:120'],
-            'bordereaux' => ['nullable', 'array', 'min:1', 'max:10'],
+            'bordereaux' => ['nullable', 'array', 'min:1'],
             'bordereaux.*' => JustificatifFileRules::single(false),
             'history_comment' => ['nullable', 'string', 'max:255'],
         ];
@@ -95,7 +95,6 @@ class UpdateVersementBancaireRequest extends FormRequest
     {
         return [
             'bordereaux.*.file' => 'Le bordereau doit etre un fichier valide.',
-            'bordereaux.max' => 'Vous pouvez joindre au maximum 10 photos/fichiers justificatifs par versement.',
             'bordereaux.*.uploaded' => 'Le televersement du bordereau a echoue. Veuillez reessayer.',
         ];
     }

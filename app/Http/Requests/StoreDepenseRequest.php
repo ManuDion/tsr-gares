@@ -56,7 +56,7 @@ class StoreDepenseRequest extends FormRequest
             'entries.*.reference' => ['nullable', 'string', 'max:100'],
             'entries.*.description' => ['nullable', 'string', 'max:500'],
             'entries.*.justificatif_name' => ['nullable', 'string', 'max:120'],
-            'entries.*.justificatifs' => ['required', 'array', 'min:1', 'max:10'],
+            'entries.*.justificatifs' => ['required', 'array', 'min:1'],
             'entries.*.justificatifs.*' => JustificatifFileRules::single(true),
         ];
     }
@@ -85,7 +85,6 @@ class StoreDepenseRequest extends FormRequest
             'entries.required' => 'Ajoutez au moins une depense.',
             'entries.max' => 'Le maximum est de 5 depenses par enregistrement.',
             'entries.*.justificatifs.required' => 'Le justificatif est obligatoire pour chaque depense.',
-            'entries.*.justificatifs.max' => 'Maximum 10 photos/fichiers justificatifs par depense.',
             'entries.*.justificatifs.*.uploaded' => 'Le televersement du justificatif a echoue. Veuillez reessayer.',
         ];
     }

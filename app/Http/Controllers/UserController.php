@@ -98,6 +98,7 @@ class UserController extends Controller
         $user->gares()->sync($zoneGares);
         $this->syncUserModules($user, $modules);
         $this->ensureVirtualGaresForUser($user, $modules);
+        $this->assignVirtualPrimaryGareForMultiEntryUser($user, $role, $module, $zoneGares);
 
         if ($module === ServiceModule::Rh && in_array($role, [UserRole::ResponsableRh, UserRole::PersonnelTsr], true)) {
             Employee::query()->firstOrCreate(
@@ -192,6 +193,7 @@ class UserController extends Controller
         $user->gares()->sync($zoneGares);
         $this->syncUserModules($user, $modules);
         $this->ensureVirtualGaresForUser($user, $modules);
+        $this->assignVirtualPrimaryGareForMultiEntryUser($user, $role, $module, $zoneGares);
 
         $this->activity->log($request->user(), 'user_updated', $user, 'Mise à jour d\'un utilisateur.', [
             'before' => $before,
@@ -485,6 +487,38 @@ class UserController extends Controller
 
         if (in_array(ServiceModule::Courrier->value, $modules, true) && $user->canActAsCashierForScope('courrier')) {
             $this->virtualGares->ensureForScope($user, 'courrier');
+        }
+    }
+
+    protected function assignVirtualPrimaryGareForMultiEntryUser(
+        User $user,
+        UserRole $role,
+        ?ServiceModule $module,
+        array $zoneGares
+    ): void {
+        if (! $role->requiresPrimaryGare() || ! $user->canUseMultiGareEntry()) {
+            return;
+        }
+
+        $physicalGareIds = collect($zoneGares)
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn (int $id) => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
+
+        if (count($physicalGareIds) <= 1) {
+            return;
+        }
+
+        $scope = $module?->financialScope();
+        if (! in_array($scope, ['gares', 'courrier'], true) || ! $user->canActAsChefForScope($scope)) {
+            return;
+        }
+
+        $virtualGare = $this->virtualGares->ensureForScope($user, $scope);
+        if ((int) $user->gare_id !== (int) $virtualGare->id) {
+            $user->update(['gare_id' => $virtualGare->id]);
         }
     }
 

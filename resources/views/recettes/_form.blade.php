@@ -95,7 +95,7 @@
     <div>
         <label>Fichier justificatif {{ isset($recette) ? '(optionnel en modification)' : '(obligatoire)' }}</label>
         <input type="file" name="justificatifs[]" accept="image/*,.heic,.heif,.webp,.jpg,.jpeg,.png,.pdf,application/pdf" multiple @required(!isset($recette))>
-        <small>Vous pouvez joindre jusqu'a 10 photos/fichiers (Android, iPhone, galerie ou camera).</small>
+        <small>Vous pouvez joindre plusieurs fichiers (PDF jusqu'a 10 Mo par fichier).</small>
     </div>
     @isset($recette)
         <div class="col-span-2">

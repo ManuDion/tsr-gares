@@ -38,7 +38,7 @@ class UpdateDepenseRequest extends FormRequest
             'description' => ['nullable', 'string', 'max:500'],
             'justificatif_name' => ['nullable', 'string', 'max:120'],
             'history_comment' => ['nullable', 'string', 'max:255'],
-            'justificatifs' => ['nullable', 'array', 'min:1', 'max:10'],
+            'justificatifs' => ['nullable', 'array', 'min:1'],
             'justificatifs.*' => JustificatifFileRules::single(false),
         ];
     }
@@ -47,7 +47,6 @@ class UpdateDepenseRequest extends FormRequest
     {
         return [
             'justificatifs.*.file' => 'Le justificatif doit etre un fichier valide.',
-            'justificatifs.max' => 'Vous pouvez joindre au maximum 10 photos/fichiers justificatifs par depense.',
             'justificatifs.*.uploaded' => 'Le televersement du justificatif a echoue. Veuillez reessayer.',
         ];
     }

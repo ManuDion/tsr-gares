@@ -57,9 +57,9 @@
         <small>Optionnel. Le nom saisi sera utilise pour le fichier telecharge.</small>
     </div>
     <div>
-        <label>Justificatif {{ isset($depense) ? '(optionnel en modification)' : '(obligatoire)' }} (max {{ $maxSizeKb }} Ko)</label>
+        <label>Justificatif {{ isset($depense) ? '(optionnel en modification)' : '(obligatoire)' }} (max 10 Mo par fichier)</label>
         <input type="file" name="justificatifs[]" accept="image/*,.heic,.heif,.webp,.jpg,.jpeg,.png,.pdf,application/pdf" multiple @required(!isset($depense))>
-        <small>Vous pouvez joindre jusqu'a 10 photos/fichiers (Android, iPhone, galerie ou camera).</small>
+        <small>Vous pouvez joindre plusieurs fichiers (PDF jusqu'a 10 Mo par fichier).</small>
     </div>
     @if(isset($depense))
         <div class="col-span-2">

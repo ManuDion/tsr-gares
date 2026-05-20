@@ -115,22 +115,24 @@
     </div>
 
     <div>
-        <label>Bordereaux justificatifs {{ isset($versement) ? '(optionnels en modification)' : '(au moins un obligatoire)' }} (max {{ $maxSizeKb }} Ko par fichier)</label>
+        <label>Bordereaux justificatifs {{ isset($versement) ? '(optionnels en modification)' : '(au moins un obligatoire)' }} (max 10 Mo par fichier)</label>
         <input type="file" name="bordereaux[]" accept="image/*,.heic,.heif,.webp,.jpg,.jpeg,.png,.pdf,application/pdf" multiple @required(!isset($versement))>
-        <small>Vous pouvez joindre jusqu'a 10 photos/fichiers (Android, iPhone, galerie ou camera).</small>
+        <small>Vous pouvez joindre plusieurs fichiers (PDF jusqu'a 10 Mo par fichier).</small>
     </div>
 
     @if($existingPieces->isNotEmpty())
         <div class="col-span-2">
             @foreach($existingPieces as $piece)
                 <div class="doc-links">
-                    <a class="btn btn-sm btn-outline" href="{{ route('justificatifs.preview', $piece) }}" data-internal-file-preview data-file-title="{{ $piece->original_name ?? 'Bordereau actuel' }}" onclick="return window.openInternalFileViewer(this);">
-                        <span class="icon">{!! app_icon('eye') !!}</span> Lire {{ $piece->original_name ?? 'le bordereau' }}
+                    <a class="btn btn-sm btn-outline" href="{{ route('justificatifs.preview', $piece) }}" data-internal-file-preview data-file-title="{{ $piece->original_name ?? 'Bordereau actuel' }}" onclick="return window.openInternalFileViewer(this);" title="Voir" aria-label="Voir">
+                        <span class="icon">{!! app_icon('eye') !!}</span>
+                        <span class="sr-only">Voir</span>
                     </a>
                     @if(auth()->user()->hasGlobalVisibility())
-                        <a class="btn btn-sm btn-outline" href="{{ route('justificatifs.download', $piece) }}">
-                            <span class="icon">{!! app_icon('download') !!}</span> Télécharger
-                        </a>
+                        <a class="btn btn-sm btn-outline" href="{{ route('justificatifs.download', $piece) }}" title="Télécharger" aria-label="Télécharger">
+                                            <span class="icon">{!! app_icon('download') !!}</span>
+                                            <span class="sr-only">Télécharger</span>
+                                        </a>
                     @endif
                 </div>
             @endforeach

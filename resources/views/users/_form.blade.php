@@ -208,7 +208,7 @@
             <input type="checkbox" name="allow_multi_gare_entry" value="1" data-allow-multi-gare-entry @checked($allowMultiGareEntry)>
             <span>Autoriser la saisie sur plusieurs gares pour cet utilisateur</span>
         </label>
-        <small>Activez cette option pour les profils specifiques qui doivent enregistrer des operations sur plusieurs gares.</small>
+        <small>Activez cette option pour les profils specifiques qui doivent enregistrer des operations sur plusieurs gares. Si plusieurs gares sont rattachees, une gare virtuelle est creee et utilisee comme gare principale.</small>
     </div>
 
     <div class="col-span-2">

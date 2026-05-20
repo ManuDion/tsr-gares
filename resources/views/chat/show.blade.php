@@ -42,8 +42,9 @@
                                 <form method="POST" action="{{ route('chat.messages.destroy', ['message' => $message, 'module' => request('module')]) }}" onsubmit="return confirm('Supprimer ce message ?');">
                                     @csrf
                                     @method('DELETE')
-                                    <button class="btn btn-sm btn-outline" type="submit">
-                                        <span class="icon">{!! app_icon('trash') !!}</span> Supprimer
+                                    <button class="btn btn-sm btn-outline" type="submit" title="Supprimer" aria-label="Supprimer">
+                                        <span class="icon">{!! app_icon('trash') !!}</span>
+                                        <span class="sr-only">Supprimer</span>
                                     </button>
                                 </form>
                             </div>

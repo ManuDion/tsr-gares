@@ -7,6 +7,7 @@ use App\Models\Gare;
 use App\Models\Recette;
 use App\Support\ModuleContext;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\View\View;
 
 class PerformanceReportController extends Controller
@@ -17,16 +18,21 @@ class PerformanceReportController extends Controller
         abort_unless($module->supportsFinancialFlows(), 403);
         $scope = $module->financialScope() ?? 'gares';
         abort_unless($request->user()->canSuperviseFinancialScope($scope), 403);
+        $user = $request->user();
 
         $startDate = $request->date('start_date')?->toDateString() ?? now()->startOfMonth()->toDateString();
         $endDate = $request->date('end_date')?->toDateString() ?? now()->toDateString();
-        $allowedGares = $request->user()->canViewAllGares($scope) ? null : $request->user()->accessibleGareIds($scope);
+        $allowedGares = $user->canViewAllGares($scope) ? null : $user->accessibleGareIds($scope);
+        $cashierVirtualOnlyIds = $this->cashierVirtualOnlyGareIds($user, $scope);
+        if ($cashierVirtualOnlyIds->isNotEmpty()) {
+            $allowedGares = $cashierVirtualOnlyIds->all();
+        }
 
         $topSaisie = Gare::query()
             ->when($allowedGares, fn ($q) => $q->whereIn('id', $allowedGares))
             ->withCount([
-                'recettes as recettes_count' => fn ($q) => $q->where('service_scope', $scope)->whereBetween('operation_date', [$startDate, $endDate]),
-                'depenses as depenses_count' => fn ($q) => $q->where('service_scope', $scope)->whereBetween('operation_date', [$startDate, $endDate]),
+                'recettes as recettes_count' => fn ($q) => $q->financiallyValidated()->where('service_scope', $scope)->whereBetween('operation_date', [$startDate, $endDate]),
+                'depenses as depenses_count' => fn ($q) => $q->financiallyValidated()->where('service_scope', $scope)->whereBetween('operation_date', [$startDate, $endDate]),
                 'versementsBancaires as versements_count' => fn ($q) => $q->where('service_scope', $scope)->whereBetween('operation_date', [$startDate, $endDate]),
             ])
             ->get()
@@ -39,6 +45,7 @@ class PerformanceReportController extends Controller
             ->values();
 
         $topRecettes = Recette::query()
+            ->financiallyValidated()
             ->selectRaw('gare_id, SUM(amount) as total_amount')
             ->where('service_scope', $scope)
             ->whereBetween('operation_date', [$startDate, $endDate])
@@ -50,6 +57,7 @@ class PerformanceReportController extends Controller
             ->get();
 
         $topDepenses = Depense::query()
+            ->financiallyValidated()
             ->selectRaw('gare_id, SUM(amount) as total_amount')
             ->where('service_scope', $scope)
             ->whereBetween('operation_date', [$startDate, $endDate])
@@ -61,5 +69,21 @@ class PerformanceReportController extends Controller
             ->get();
 
         return view('reports.performance', compact('topSaisie', 'topRecettes', 'topDepenses', 'startDate', 'endDate', 'module'));
+    }
+
+    protected function cashierVirtualOnlyGareIds($user, string $scope): Collection
+    {
+        if (! $user->canActAsCashierForScope($scope) || $user->canActAsChefForScope($scope)) {
+            return collect();
+        }
+
+        return Gare::query()
+            ->where('is_active', true)
+            ->where('is_virtual', true)
+            ->where('virtual_owner_user_id', $user->id)
+            ->where('virtual_scope', $scope)
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->values();
     }
 }

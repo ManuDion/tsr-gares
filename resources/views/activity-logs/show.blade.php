@@ -12,8 +12,9 @@
         <form method="POST" action="{{ route('activity-logs.destroy', array_merge(['activityLog' => $log], request()->query())) }}" onsubmit="return confirm('Supprimer cet historique ?');" class="inline-flex-form">
             @csrf
             @method('DELETE')
-            <button class="btn btn-danger" type="submit">
-                <span class="icon">{!! app_icon('trash') !!}</span> Supprimer
+            <button class="btn btn-danger" type="submit" title="Supprimer" aria-label="Supprimer">
+                <span class="icon">{!! app_icon('trash') !!}</span>
+                <span class="sr-only">Supprimer</span>
             </button>
         </form>
     @endif

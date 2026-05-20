@@ -39,9 +39,11 @@
                         <td data-label="Télécharger">
                             <a
                                 class="btn btn-sm btn-outline"
-                                href="{{ route('justificatifs-batch.period', ['module' => request('module', $module->value), 'type' => $activeTab, 'gare' => $gare]) }}">
+                                href="{{ route('justificatifs-batch.period', ['module' => request('module', $module->value), 'type' => $activeTab, 'gare' => $gare]) }}"
+                                title="Télécharger"
+                                aria-label="Télécharger">
                                 <span class="icon">{!! app_icon('download') !!}</span>
-                                Télécharger
+                                <span class="sr-only">Télécharger</span>
                             </a>
                         </td>
                     </tr>

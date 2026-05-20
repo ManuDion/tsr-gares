@@ -38,9 +38,9 @@
                 @enderror
             </div>
             <div class="align-end">
-                <button class="btn btn-primary" type="submit">
+                <button class="btn btn-primary" type="submit" title="Télécharger" aria-label="Télécharger">
                     <span class="icon">{!! app_icon('download') !!}</span>
-                    Valider et telecharger
+                    <span class="sr-only">Télécharger</span>
                 </button>
             </div>
         </form>

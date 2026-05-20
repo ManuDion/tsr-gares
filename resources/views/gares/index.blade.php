@@ -53,12 +53,25 @@
                         <td>{{ $gare->zone ?: '—' }}</td>
                         <td><span class="badge {{ $gare->is_active ? 'badge-success' : 'badge-danger' }}">{{ $gare->is_active ? 'Active' : 'Inactive' }}</span></td>
                         <td class="actions-cell">
-                            <a class="btn btn-sm btn-outline" href="{{ route('gares.show', $gare) }}">Voir</a>
+                            <a class="btn btn-sm btn-outline" href="{{ route('gares.show', $gare) }}" title="Voir" aria-label="Voir">
+                                <span class="icon">{!! app_icon('eye') !!}</span>
+                                <span class="sr-only">Voir</span>
+                            </a>
                             @can('update', $gare)
-                                <a class="btn btn-sm btn-outline" href="{{ route('gares.edit', $gare) }}">Modifier</a>
-                                <form method="POST" action="{{ route('gares.toggle-active', $gare) }}">
+                                <a class="btn btn-sm btn-outline" href="{{ route('gares.edit', $gare) }}" title="Modifier" aria-label="Modifier">
+                                    <span class="icon">{!! app_icon('edit') !!}</span>
+                                    <span class="sr-only">Modifier</span>
+                                </a>
+                                <form method="POST" action="{{ route('gares.toggle-active', $gare) }}" class="inline-flex-form">
                                     @csrf
-                                    <button class="btn btn-sm btn-outline" type="submit">{{ $gare->is_active ? 'Désactiver' : 'Activer' }}</button>
+                                    <input
+                                        type="checkbox"
+                                        class="action-toggle-input"
+                                        @checked($gare->is_active)
+                                        title="{{ $gare->is_active ? 'Desactiver' : 'Activer' }}"
+                                        aria-label="{{ $gare->is_active ? 'Desactiver' : 'Activer' }}"
+                                        onchange="this.form.submit()"
+                                    >
                                 </form>
                             @endcan
                         </td>

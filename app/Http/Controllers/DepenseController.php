@@ -70,6 +70,10 @@ class DepenseController extends Controller
                 };
             });
 
+        if (! $request->filled('start_date') && ! $request->filled('end_date')) {
+            $query->whereDate('operation_date', now('Africa/Abidjan')->toDateString());
+        }
+
         return view('depenses.index', [
             'depenses' => $query->paginate(15)->withQueryString(),
             'gares' => $this->access->availableGares($user, $serviceScope),
@@ -92,7 +96,7 @@ class DepenseController extends Controller
             'gares' => $this->access->availableGares($request->user(), $serviceScope),
             'module' => $module,
             'virtualGare' => $virtualGare,
-            'maxSizeKb' => (int) env('JUSTIFICATIF_MAX_SIZE_KB', 5120),
+            'maxSizeKb' => (int) env('JUSTIFICATIF_MAX_SIZE_KB', 10240),
             'initialEntries' => old('entries', [[
                 'operation_date' => now()->toDateString(),
                 'amount' => null,
@@ -181,7 +185,7 @@ class DepenseController extends Controller
             'virtualGare' => auth()->user()->canActAsCashierForScope($depense->service_scope ?? 'gares')
                 ? $this->virtualGares->ensureForScope(auth()->user(), $depense->service_scope ?? 'gares')
                 : null,
-            'maxSizeKb' => (int) env('JUSTIFICATIF_MAX_SIZE_KB', 5120),
+            'maxSizeKb' => (int) env('JUSTIFICATIF_MAX_SIZE_KB', 10240),
         ]);
     }
 
@@ -269,7 +273,14 @@ class DepenseController extends Controller
 
     public function unlock(UnlockDepenseRequest $request, Depense $depense): RedirectResponse
     {
-        abort_unless($request->user()->canUnlockFinancialScope($depense->service_scope), 403);
+        $user = $request->user();
+        $scope = (string) ($depense->service_scope ?? 'gares');
+
+        abort_unless($user->canUnlockFinancialScope($scope), 403);
+        abort_unless(
+            $user->canAdministerFinancialScope($scope) || $user->hasAccessToGare((int) $depense->gare_id, $scope),
+            403
+        );
         $validated = $request->validated();
         $duration = (int) ($validated['unlock_duration'] ?? 0);
         $unit = (string) ($validated['unlock_unit'] ?? 'hours');
@@ -289,10 +300,10 @@ class DepenseController extends Controller
         $depense->update([
             'force_unlocked_until' => $until,
             'unlock_reason' => $validated['unlock_reason'],
-            'unlocked_by' => $request->user()->id,
+            'unlocked_by' => $user->id,
         ]);
 
-        $this->activity->log($request->user(), 'depense_unlocked', $depense, 'Déverrouillage superviseur d\'une dépense.', [
+        $this->activity->log($user, 'depense_unlocked', $depense, 'Déverrouillage superviseur d\'une dépense.', [
             'before' => $before,
             'after' => $depense->fresh()->only(['force_unlocked_until', 'unlock_reason', 'unlocked_by']),
             'gare_id' => $depense->gare_id,
@@ -306,7 +317,7 @@ class DepenseController extends Controller
             $depense->operation_date,
             $until,
             (string) ($validated['unlock_reason'] ?? ''),
-            $request->user()
+            $user
         );
 
         return back()->with('status', "Déverrouillage actif pour {$duration} {$unitLabel}.");
@@ -422,3 +433,4 @@ class DepenseController extends Controller
         return [];
     }
 }
+

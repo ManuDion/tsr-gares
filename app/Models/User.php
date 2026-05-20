@@ -331,7 +331,17 @@ class User extends Authenticatable
 
     public function canUnlockFinancialScope(?string $scope = null): bool
     {
-        return $this->canAdministerFinancialScope($scope);
+        $scope = $scope ?: $this->defaultModule()->financialScope();
+
+        if (! in_array($scope, ['gares', 'courrier'], true)) {
+            return false;
+        }
+
+        if ($this->canAdministerFinancialScope($scope)) {
+            return true;
+        }
+
+        return $this->canActAsCashierForScope($scope);
     }
 
     public function accessibleGareIds(?string $scope = null): array

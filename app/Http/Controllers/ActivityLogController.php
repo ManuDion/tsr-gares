@@ -42,6 +42,10 @@ class ActivityLogController extends Controller
             ->when($request->filled('start_date'), fn ($builder) => $builder->whereDate('created_at', '>=', $request->date('start_date')))
             ->when($request->filled('end_date'), fn ($builder) => $builder->whereDate('created_at', '<=', $request->date('end_date')));
 
+        if (! $request->filled('start_date') && ! $request->filled('end_date')) {
+            $query->whereDate('created_at', now('Africa/Abidjan')->toDateString());
+        }
+
         $eventLabels = [
             'gare_updated' => 'Gare modifiée',
             'gare_toggled' => 'Statut de gare modifié',

@@ -46,7 +46,7 @@ class CashierValidationNotificationService
                         'Les recettes de %s pour la date du %s ont ete validees par le caissier %s.',
                         $gareName,
                         $dateLabel,
-                        (string) ($cashier->name ?: 'N/A')
+                        (string) ($cashier->name ?: 'Manquant')
                     ),
                     'status' => 'generated',
                     'control_date' => now('Africa/Abidjan')->toDateString(),
@@ -64,3 +64,4 @@ class CashierValidationNotificationService
         }
     }
 }
+

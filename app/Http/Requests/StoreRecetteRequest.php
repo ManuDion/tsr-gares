@@ -31,7 +31,7 @@ class StoreRecetteRequest extends FormRequest
             'amount' => ['nullable', 'integer', 'min:0'],
             'description' => ['nullable', 'string', 'max:500'],
             'justificatif_name' => ['nullable', 'string', 'max:120'],
-            'justificatifs' => ['required', 'array', 'min:1', 'max:10'],
+            'justificatifs' => ['required', 'array', 'min:1'],
             'justificatifs.*' => JustificatifFileRules::single(true),
         ];
     }
@@ -120,7 +120,6 @@ class StoreRecetteRequest extends FormRequest
     {
         return [
             'justificatifs.required' => 'Le justificatif est obligatoire pour enregistrer une recette.',
-            'justificatifs.max' => 'Vous pouvez joindre au maximum 10 photos/fichiers justificatifs par recette.',
             'justificatifs.*.uploaded' => 'Le televersement du justificatif a echoue. Veuillez reessayer.',
         ];
     }

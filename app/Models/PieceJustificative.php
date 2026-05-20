@@ -56,6 +56,19 @@ class PieceJustificative extends Model
     }
 
     /**
+     * Expose computed disk/path candidates for production diagnostics.
+     *
+     * @return array{disks:array<int,string>,paths:array<int,string>}
+     */
+    public function storageCandidates(): array
+    {
+        return [
+            'disks' => $this->candidateDisks(),
+            'paths' => $this->candidatePaths(),
+        ];
+    }
+
+    /**
      * Resolve legacy/current storage location for this justificatif.
      *
      * @return array{disk:string,path:string}|null
@@ -106,13 +119,36 @@ class PieceJustificative extends Model
 
         $candidates = [];
         if ($rawPath !== '') {
-            $candidates[] = ltrim($rawPath, '/');
-            $candidates[] = ltrim(Str::after($rawPath, storage_path('app').DIRECTORY_SEPARATOR), '/');
-            $candidates[] = ltrim(Str::after($rawPath, str_replace('\\', '/', storage_path('app')).'/'), '/');
-            $candidates[] = ltrim(Str::after($rawPath, 'storage/app/'), '/');
-            $candidates[] = ltrim(Str::after($rawPath, 'storage/'), '/');
-            $candidates[] = ltrim(Str::after($rawPath, 'public/'), '/');
-            $candidates[] = ltrim(Str::after($rawPath, 'private/'), '/');
+            $normalizedRawPath = ltrim($rawPath, '/');
+            $candidates[] = $normalizedRawPath;
+
+            $appStoragePath = str_replace('\\', '/', storage_path('app'));
+            $prefixes = [
+                $appStoragePath.'/',
+                $appStoragePath.'/private/',
+                $appStoragePath.'/public/',
+                'storage/app/private/',
+                'storage/app/public/',
+                'storage/app/',
+                'app/private/',
+                'app/public/',
+                'private/',
+                'public/',
+                'storage/',
+            ];
+
+            foreach ($prefixes as $prefix) {
+                $stripped = preg_replace(
+                    '/^'.preg_quote($prefix, '/').'/i',
+                    '',
+                    $normalizedRawPath,
+                    1
+                );
+
+                if (is_string($stripped) && $stripped !== $normalizedRawPath) {
+                    $candidates[] = ltrim($stripped, '/');
+                }
+            }
         }
 
         if ($fileName !== '') {

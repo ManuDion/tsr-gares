@@ -137,7 +137,7 @@ class StoreUserRequest extends FormRequest
                 return;
             }
 
-            if ($role->requiresPrimaryGare() && ! $this->filled('gare_id')) {
+            if ($role->requiresPrimaryGare() && ! $this->filled('gare_id') && ! $this->qualifiesForAutoVirtualPrimary()) {
                 $validator->errors()->add('gare_id', 'Veuillez selectionner une gare principale pour ce role.');
             }
 
@@ -159,5 +159,22 @@ class StoreUserRequest extends FormRequest
                 }
             }
         });
+    }
+
+    protected function qualifiesForAutoVirtualPrimary(): bool
+    {
+        if (! $this->boolean('allow_multi_gare_entry')) {
+            return false;
+        }
+
+        if ($this->boolean('all_gares')) {
+            return true;
+        }
+
+        return collect($this->input('zone_gares', []))
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn (int $id) => $id > 0)
+            ->unique()
+            ->count() > 1;
     }
 }

@@ -51,18 +51,28 @@
                             </span>
                         </td>
                         <td class="actions-cell">
-                            <a class="btn btn-sm btn-outline" href="{{ route('users.edit', ['user' => $user, 'module' => request('module', 'gares')]) }}">
+                            <a class="btn btn-sm btn-outline" href="{{ route('users.edit', ['user' => $user, 'module' => request('module', 'gares')]) }}" title="Modifier" aria-label="Modifier">
                                 <span class="icon">{!! app_icon('edit') !!}</span>
+                                <span class="sr-only">Modifier</span>
                             </a>
-                            <form method="POST" action="{{ route('users.toggle-active', ['user' => $user, 'module' => request('module', 'gares')]) }}">
+                            <form method="POST" action="{{ route('users.toggle-active', ['user' => $user, 'module' => request('module', 'gares')]) }}" class="inline-flex-form">
                                 @csrf
-                                <button class="btn btn-sm btn-outline" type="submit">{{ $user->is_active ? 'Désactiver' : 'Activer' }}</button>
+                                <input
+                                    type="checkbox"
+                                    class="action-toggle-input"
+                                    @checked($user->is_active)
+                                    @disabled($user->is(auth()->user()) && $user->is_active)
+                                    title="{{ $user->is_active ? 'Desactiver' : 'Activer' }}"
+                                    aria-label="{{ $user->is_active ? 'Desactiver' : 'Activer' }}"
+                                    onchange="this.form.submit()"
+                                >
                             </form>
                             <form method="POST" action="{{ route('users.destroy', ['user' => $user, 'module' => request('module', 'gares')]) }}" onsubmit="return confirm('Supprimer cet utilisateur ?')">
                                 @csrf
                                 @method('DELETE')
-                                <button class="btn btn-sm btn-danger" type="submit">
+                                <button class="btn btn-sm btn-danger" type="submit" title="Supprimer" aria-label="Supprimer">
                                     <span class="icon">{!! app_icon('trash') !!}</span>
+                                    <span class="sr-only">Supprimer</span>
                                 </button>
                             </form>
                         </td>

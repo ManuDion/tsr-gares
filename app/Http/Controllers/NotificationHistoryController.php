@@ -71,6 +71,14 @@ class NotificationHistoryController extends Controller
         }
 
         $period = $request->string('period')->toString();
+        if (
+            $period === ''
+            && ! $request->filled('start_date')
+            && ! $request->filled('end_date')
+        ) {
+            $period = 'today';
+        }
+
         if ($period === 'today') {
             $query->whereDate('created_at', now('Africa/Abidjan')->toDateString());
         } else {

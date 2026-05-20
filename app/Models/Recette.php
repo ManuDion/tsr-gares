@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -133,5 +134,26 @@ class Recette extends Model
     public function nationalAmount(): int
     {
         return (int) round((float) $this->ticket_national_amount + (float) $this->bagage_national_amount, 0);
+    }
+
+    public function scopeFinanciallyValidated(Builder $query): Builder
+    {
+        return $query->where(function (Builder $inner) {
+            $inner
+                ->whereHas('gare', function (Builder $gareQuery) {
+                    $gareQuery->where('is_virtual', true)
+                        ->orWhere('versement_mode', '!=', 'cashier');
+                })
+                ->orWhereExists(function ($exists) {
+                    $exists->selectRaw('1')
+                        ->from('cashier_receipt_confirmations as crc')
+                        ->join('gares as g', 'g.id', '=', 'crc.gare_id')
+                        ->whereColumn('crc.service_scope', 'recettes.service_scope')
+                        ->whereColumn('crc.gare_id', 'recettes.gare_id')
+                        ->whereColumn('crc.operation_date', 'recettes.operation_date')
+                        ->whereColumn('crc.cashier_id', 'g.cashier_user_id')
+                        ->where('crc.is_verified', true);
+                });
+        });
     }
 }
