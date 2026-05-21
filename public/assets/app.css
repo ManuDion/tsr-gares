@@ -3250,8 +3250,122 @@ td {
     min-width: 0;
 }
 
+.missing-entries-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .55rem;
+    margin: .2rem 0 1.05rem;
+}
+
+.missing-entries-summary .summary-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    padding: .42rem .62rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, .86);
+    color: var(--muted);
+    font-size: .79rem;
+}
+
+.missing-entries-summary .summary-chip strong {
+    color: var(--ink);
+}
+
+.missing-entries-summary .summary-chip--ok {
+    border-color: rgba(22, 163, 74, .35);
+    background: rgba(22, 163, 74, .12);
+    color: #166534;
+}
+
+.missing-entries-summary .summary-chip--alert {
+    border-color: rgba(220, 38, 38, .35);
+    background: rgba(220, 38, 38, .1);
+    color: #991b1b;
+}
+
+.missing-entries-table {
+    overflow-x: auto;
+}
+
+.missing-entries-grid {
+    min-width: 1020px;
+    table-layout: fixed;
+    font-size: .84rem;
+    line-height: 1.3;
+}
+
+.missing-entries-grid thead th {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    background: linear-gradient(180deg, #ffffff, #f6f9fc);
+    font-size: .76rem;
+    letter-spacing: .01em;
+    padding: .5rem .62rem;
+}
+
+.missing-entries-grid th.col-gare,
+.missing-entries-grid td.col-gare {
+    width: 21%;
+}
+
+.missing-entries-grid th.col-date,
+.missing-entries-grid td.col-date {
+    width: 11%;
+    white-space: nowrap;
+    word-break: keep-all;
+    overflow-wrap: normal;
+    font-variant-numeric: tabular-nums;
+}
+
+.missing-entries-grid th.col-status,
+.missing-entries-grid td.col-status {
+    width: 12%;
+    text-align: center;
+}
+
+.missing-entries-grid th.col-depense {
+    white-space: nowrap;
+}
+
+.missing-entries-grid th.col-phone,
+.missing-entries-grid td.col-phone {
+    width: 20%;
+    white-space: nowrap;
+    word-break: keep-all;
+    overflow-wrap: normal;
+    font-variant-numeric: tabular-nums;
+}
+
+.missing-entries-grid tbody td {
+    padding: .52rem .62rem;
+}
+
+.missing-entries-grid tbody tr.row-ok:nth-child(odd) td {
+    background: rgba(255, 255, 255, .72);
+}
+
+.missing-entries-grid tbody tr.row-alert td {
+    background: rgba(255, 244, 244, .74);
+}
+
+.missing-entries-grid tbody tr:hover td {
+    background: rgba(241, 247, 255, .92);
+}
+
 .missing-entries-table .badge-nowrap {
     white-space: nowrap;
+}
+
+.missing-entries-table .badge {
+    font-size: .72rem;
+    padding: .18rem .45rem;
+}
+
+.missing-entries-table .cashier-progress-button {
+    font-size: .74rem;
 }
 
 .missing-entries-table .badge-centered {
@@ -3264,15 +3378,6 @@ td {
 
 .missing-entries-table .cashier-missing-cell {
     text-align: center;
-}
-
-.missing-entries-table th.col-date,
-.missing-entries-table td.col-date {
-    white-space: nowrap;
-}
-
-.missing-entries-table th.col-depense {
-    white-space: nowrap;
 }
 
 .missing-entries-table .cashier-popup-host,
@@ -3380,6 +3485,64 @@ td {
         word-break: normal !important;
         overflow-wrap: normal !important;
         hyphens: none;
+    }
+
+    .missing-entries-table {
+        overflow-x: auto !important;
+        border: 1px solid var(--border) !important;
+        box-shadow: var(--shadow) !important;
+        background: var(--panel) !important;
+    }
+
+    .missing-entries-table table.missing-entries-grid {
+        display: table !important;
+        width: auto !important;
+        min-width: 980px;
+    }
+
+    .missing-entries-table thead {
+        display: table-header-group !important;
+        position: static !important;
+        width: auto !important;
+        height: auto !important;
+        overflow: visible !important;
+        clip: auto !important;
+        white-space: normal !important;
+    }
+
+    .missing-entries-table tbody {
+        display: table-row-group !important;
+    }
+
+    .missing-entries-table tr {
+        display: table-row !important;
+        background: transparent !important;
+        border: 0 !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+        padding: 0 !important;
+    }
+
+    .missing-entries-table th,
+    .missing-entries-table td {
+        display: table-cell !important;
+        width: auto !important;
+        border-bottom: 1px solid var(--border) !important;
+        padding: .62rem .7rem !important;
+        text-align: left !important;
+    }
+
+    .missing-entries-table td::before {
+        content: none !important;
+    }
+
+    .missing-entries-table td.col-status {
+        text-align: center !important;
+    }
+
+    .missing-entries-table td.col-phone,
+    .missing-entries-table td.col-date {
+        white-space: nowrap !important;
     }
 }
 

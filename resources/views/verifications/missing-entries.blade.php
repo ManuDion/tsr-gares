@@ -32,19 +32,46 @@
         </form>
     </div>
 
+    @php
+        $rowsCount = $rows->count();
+        $alertCount = $rows->filter(function (array $row) {
+            $coverage = $row['cashier_coverage'] ?? null;
+            $isCashierVirtual = (bool) ($row['is_cashier_virtual_gare'] ?? false) && is_array($coverage);
+
+            if ($isCashierVirtual) {
+                $validated = (int) ($coverage['validated_count'] ?? 0);
+                $expected = (int) ($coverage['expected_count'] ?? 0);
+
+                return $expected > 0 && $validated < $expected;
+            }
+
+            return (bool) ($row['recette_missing'] ?? false)
+                || (bool) ($row['depense_missing'] ?? false)
+                || ((bool) ($row['versement_coris_applicable'] ?? true) && (bool) ($row['versement_coris_missing'] ?? false))
+                || ((bool) ($row['versement_ecobank_applicable'] ?? true) && (bool) ($row['versement_ecobank_missing'] ?? false));
+        })->count();
+        $okCount = max($rowsCount - $alertCount, 0);
+    @endphp
+
+    <div class="missing-entries-summary" aria-label="Résumé des résultats">
+        <span class="summary-chip">Lignes: <strong>{{ $rowsCount }}</strong></span>
+        <span class="summary-chip summary-chip--ok">OK: <strong>{{ $okCount }}</strong></span>
+        <span class="summary-chip summary-chip--alert">À corriger: <strong>{{ $alertCount }}</strong></span>
+    </div>
+
     <div class="text-muted compact-note">Période : {{ $periodLabel }}</div>
 
     <div class="table-wrapper missing-entries-table">
-        <table>
+        <table class="missing-entries-grid">
             <thead>
                 <tr>
-                    <th>Gare</th>
+                    <th class="col-gare">Gare</th>
                     <th class="col-date">Date</th>
-                    <th>Recette</th>
-                    <th class="col-depense">Dépense</th>
-                    <th>Versement Coris</th>
-                    <th>Versement Ecobank</th>
-                    <th>Numéro de téléphone</th>
+                    <th class="col-status">Recette</th>
+                    <th class="col-status col-depense">Dépense</th>
+                    <th class="col-status">Versement Coris</th>
+                    <th class="col-status">Versement Ecobank</th>
+                    <th class="col-phone">Numéro de téléphone</th>
                 </tr>
             </thead>
             <tbody>
@@ -56,11 +83,19 @@
                         $expectedCount = (int) ($coverage['expected_count'] ?? 0);
                         $isFullyValidated = $expectedCount === 0 || $validatedCount === $expectedCount;
                         $coveragePopupId = 'missing-coverage-'.$loop->index.'-'.md5(($row['gare'] ?? '').($row['operation_date'] ?? ''));
+                        $isAlertRow = $isCashierVirtual
+                            ? (! $isFullyValidated)
+                            : (
+                                (bool) ($row['recette_missing'] ?? false)
+                                || (bool) ($row['depense_missing'] ?? false)
+                                || ((bool) ($row['versement_coris_applicable'] ?? true) && (bool) ($row['versement_coris_missing'] ?? false))
+                                || ((bool) ($row['versement_ecobank_applicable'] ?? true) && (bool) ($row['versement_ecobank_missing'] ?? false))
+                            );
                     @endphp
-                    <tr>
-                        <td>{{ $row['gare'] }}</td>
+                    <tr class="{{ $isAlertRow ? 'row-alert' : 'row-ok' }}">
+                        <td class="col-gare">{{ $row['gare'] }}</td>
                         <td class="col-date">{{ \Carbon\Carbon::parse($row['operation_date'])->format('d/m/Y') }}</td>
-                        <td>
+                        <td class="col-status">
                             @if($isCashierVirtual)
                                 <span class="badge badge-nowrap {{ $isFullyValidated ? 'badge-success' : 'badge-danger' }}">OK</span>
                                 <div class="cashier-progress-block">
@@ -74,7 +109,7 @@
                                 </span>
                             @endif
                         </td>
-                        <td>
+                        <td class="col-status">
                             @if($isCashierVirtual)
                                 <span class="badge badge-nowrap {{ $isFullyValidated ? 'badge-success' : 'badge-danger' }}">OK</span>
                                 <div class="cashier-progress-block">
@@ -88,7 +123,7 @@
                                 </span>
                             @endif
                         </td>
-                        <td class="{{ $row['is_cashier_managed'] ? 'cashier-missing-cell' : '' }}">
+                        <td class="col-status {{ $row['is_cashier_managed'] ? 'cashier-missing-cell' : '' }}">
                             @if($row['is_cashier_managed'])
                                 <span class="text-muted">Confie au caissier : {{ $row['cashier_name'] ?? '-' }}</span>
                             @elseif(! ($row['versement_coris_applicable'] ?? true))
@@ -99,7 +134,7 @@
                                 <span class="badge badge-nowrap badge-success">OK</span>
                             @endif
                         </td>
-                        <td class="{{ $row['is_cashier_managed'] ? 'cashier-missing-cell' : '' }}">
+                        <td class="col-status {{ $row['is_cashier_managed'] ? 'cashier-missing-cell' : '' }}">
                             @if($row['is_cashier_managed'])
                                 <span class="text-muted">Confie au caissier : {{ $row['cashier_name'] ?? '-' }}</span>
                             @elseif(! ($row['versement_ecobank_applicable'] ?? true))
@@ -110,7 +145,7 @@
                                 <span class="badge badge-nowrap badge-success">OK</span>
                             @endif
                         </td>
-                        <td>{{ $row['phone'] ?: '-' }}</td>
+                        <td class="col-phone">{{ $row['phone'] ?: '-' }}</td>
                     </tr>
                     @if($isCashierVirtual)
                         <tr class="cashier-popup-host" aria-hidden="true">
