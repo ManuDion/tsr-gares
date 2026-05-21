@@ -24,7 +24,7 @@ class DailyMissingEntriesController extends Controller
         $user = $request->user();
         $module = ModuleContext::fromRequest($request, $user);
         abort_unless($module->supportsFinancialFlows(), 403);
-        abort_unless($user->canAccessFinancialScope($module->financialScope()), 403);
+        abort_unless($user->canSuperviseFinancialScope($module->financialScope()), 403);
 
         $scope = ModuleContext::financialScope($module);
         [$startDate, $endDate] = $this->resolveDateRange($request);
@@ -46,7 +46,7 @@ class DailyMissingEntriesController extends Controller
         $user = $request->user();
         $module = ModuleContext::fromRequest($request, $user);
         abort_unless($module->supportsFinancialFlows(), 403);
-        abort_unless($user->canAccessFinancialScope($module->financialScope()), 403);
+        abort_unless($user->canSuperviseFinancialScope($module->financialScope()), 403);
 
         $scope = ModuleContext::financialScope($module);
         [$startDate, $endDate] = $this->resolveDateRange($request);

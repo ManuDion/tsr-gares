@@ -1,9 +1,18 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Personnalisation du mot de passe · TSR</title>
+    <title>Personnalisation du mot de passe - TSR</title>
+    <meta name="theme-color" content="#8a2433">
+    <meta name="description" content="Plateforme de gestion TSR.">
+    <link rel="manifest" href="{{ asset('manifest.webmanifest') }}">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="TSR Finance">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('icons/apple-touch-icon.png') }}">
+    <link rel="icon" href="{{ asset('icons/icon-192.png') }}">
     <link rel="stylesheet" href="{{ asset('assets/app.css') }}">
 </head>
 <body class="auth-body">
@@ -11,7 +20,7 @@
         <section class="auth-card auth-card-modern">
             <div class="auth-card-head">
                 <h2>Personnalisation du mot de passe</h2>
-                <p>Pour sécuriser votre compte, personnalisez votre mot de passe avant d'accéder à l'application.</p>
+                <p>Pour securiser votre compte, personnalisez votre mot de passe avant d'acceder a l'application.</p>
             </div>
 
             @include('partials.flash')
@@ -41,5 +50,11 @@
             </form>
         </section>
     </div>
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => navigator.serviceWorker.register('{{ asset('sw.js') }}'));
+        }
+    </script>
 </body>
 </html>

@@ -17,7 +17,7 @@
     <link rel="stylesheet" href="{{ asset('assets/app.css') }}">
     @livewireStyles
 </head>
-<body class="app-body" data-session-timeout-ms="{{ max((int) config('session.lifetime', 5), 1) * 60 * 1000 }}">
+<body class="app-body" data-session-timeout-ms="{{ max((int) config('session.lifetime', 30), 1) * 60 * 1000 }}">
     @php
         use App\Enums\ServiceModule;
         use App\Support\ModuleContext;

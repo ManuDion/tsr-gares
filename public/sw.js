@@ -1,6 +1,8 @@
-﻿const CACHE_NAME = 'tsr-gares-finance-v2';
+﻿const CACHE_NAME = 'tsr-gares-finance-v3';
 const OFFLINE_URL = '/offline';
 const PRECACHE_URLS = [
+  '/',
+  '/login',
   OFFLINE_URL,
   '/manifest.webmanifest',
   '/assets/app.css',
@@ -61,3 +63,4 @@ self.addEventListener('fetch', (event) => {
     })
   );
 });
+

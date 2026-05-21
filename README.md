@@ -1,6 +1,12 @@
-# Progiciel TSR - README complet et a jour
+# Progiciel TSR - README complet et a jour (Version 1)
 
 Application Laravel 12 pour la gestion TSR, organisee par modules metiers.
+
+## Etat de version
+
+- Version applicative: `V1`
+- Derniere mise a jour du README: `2026-05-20`
+- Dernier commit de reference: `58cfb0f`
 
 ## 1) Vue d'ensemble
 
@@ -453,8 +459,9 @@ php artisan queue:restart
 Executer uniquement les scripts incrementaux necessaires:
 
 ```bash
-mysql -u VOTRE_USER -p VOTRE_BASE < docs/sql/mysql_upgrade_safe_2026_05_09.sql
-mysql -u VOTRE_USER -p VOTRE_BASE < docs/sql/mysql_upgrade_safe_2026_05_15.sql
+mysql -u gestiont_user -p gestiont_bd_tsr < docs/sql/mysql_upgrade_safe_2026_05_09.sql
+mysql -u gestiont_user -p gestiont_bd_tsr < docs/sql/mysql_upgrade_safe_2026_05_15.sql
+mysql -u gestiont_user -p gestiont_bd_tsr < docs/sql/mysql_upgrade_safe_2026_05_20.sql
 ```
 
 Puis relancer `php artisan migrate --force`.
@@ -495,6 +502,14 @@ Sauf cas exceptionnel explicitement valide, ne pas executer de `DROP TABLE`, `TR
 6. `php artisan up`
 
 ## 12) Changelog recent (mise a niveau)
+
+### 12.1 Mise a jour V1 - 2026-05-20
+
+- Renforcement des validations metier sur les formulaires (recettes, depenses, versements, utilisateurs).
+- Consolidation des controles journaliers et de la logique des ecritures manquantes.
+- Ajustements des regles de routage bancaire et des verifications associees.
+- Ameliorations d'ergonomie et d'interface sur les ecrans financiers, verification, notifications et utilisateurs.
+- Durcissement de la gestion des justificatifs (regles d'upload et normalisation des images).
 
 - Chat aligne sur 3 modalites: `general`, `service_internal`, `direct`
 - Ecran dedie `Nouvelle conversation`
