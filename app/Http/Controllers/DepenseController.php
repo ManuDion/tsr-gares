@@ -98,7 +98,7 @@ class DepenseController extends Controller
             'virtualGare' => $virtualGare,
             'maxSizeKb' => (int) env('JUSTIFICATIF_MAX_SIZE_KB', 10240),
             'initialEntries' => old('entries', [[
-                'operation_date' => now()->toDateString(),
+                'operation_date' => '',
                 'amount' => null,
                 'motif' => null,
                 'reference' => null,
