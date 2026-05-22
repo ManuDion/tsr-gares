@@ -11,14 +11,23 @@ class JustificatifFileRules
      */
     public static function single(bool $required = true, ?int $maxKb = null): array
     {
-        $max = $maxKb ?? (int) env('JUSTIFICATIF_MAX_SIZE_KB', 10240);
+        $max = $maxKb;
+        if ($max === null) {
+            $configuredMax = (int) env('JUSTIFICATIF_MAX_SIZE_KB', 10240);
+            $max = $configuredMax > 0 ? $configuredMax : null;
+        }
 
-        return [
+        $rules = [
             $required ? 'required' : 'nullable',
             'file',
             self::typeRule(),
-            self::sizeRule($max),
         ];
+
+        if (is_int($max) && $max > 0) {
+            $rules[] = self::sizeRule($max);
+        }
+
+        return $rules;
     }
 
     /**

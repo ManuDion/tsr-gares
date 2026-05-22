@@ -30,7 +30,7 @@
 
     <div>
         <label>Date operation</label>
-        <input type="date" name="operation_date" value="{{ old('operation_date', optional($recette->operation_date ?? null)->format('Y-m-d') ?? now()->toDateString()) }}" required>
+        <input type="date" name="operation_date" value="{{ old('operation_date', optional($recette->operation_date ?? null)->format('Y-m-d') ?? '') }}" required>
     </div>
 
     @if($scope === 'courrier')
@@ -95,7 +95,7 @@
     <div>
         <label>Fichier justificatif {{ isset($recette) ? '(optionnel en modification)' : '(obligatoire)' }}</label>
         <input type="file" name="justificatifs[]" accept="image/*,.heic,.heif,.webp,.jpg,.jpeg,.png,.pdf,application/pdf" multiple @required(!isset($recette))>
-        <small>Vous pouvez joindre plusieurs fichiers (PDF jusqu'a 10 Mo par fichier).</small>
+        <small>Vous pouvez joindre plusieurs fichiers (taille non limitee pour le moment).</small>
     </div>
     @isset($recette)
         <div class="col-span-2">

@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\EnsurePasswordIsPersonalized;
 use App\Http\Middleware\EnsureRole;
+use Illuminate\Http\Exceptions\PostTooLargeException;
 use Illuminate\Http\Request;
 use Illuminate\Session\TokenMismatchException;
 use Illuminate\Foundation\Application;
@@ -47,5 +48,15 @@ return Application::configure(basePath: dirname(__DIR__))
             }
 
             return $handleExpiredSession($request);
+        });
+
+        $exceptions->render(function (PostTooLargeException $exception, Request $request) {
+            $message = 'Fichier trop volumineux pour la configuration serveur actuelle. Utilisez le lanceur "serve-unlimited-upload".';
+
+            if ($request->expectsJson()) {
+                return response()->json(['message' => $message], 413);
+            }
+
+            return back()->withErrors(['justificatifs' => $message])->withInput();
         });
     })->create();

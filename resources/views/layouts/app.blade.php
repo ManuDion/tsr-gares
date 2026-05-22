@@ -283,6 +283,88 @@
         const autoLogoutForm = document.querySelector('[data-auto-logout-form]');
         const logoutUrl = @json(route('logout'));
         const loginUrl = @json(route('login'));
+        const defaultDatePlaceholder = "Choisir la date de l'opération";
+
+        function wireDatePlaceholderInput(input) {
+            if (!input || input.dataset.datePlaceholderWired === '1') {
+                return;
+            }
+
+            input.dataset.datePlaceholderWired = '1';
+            const placeholder = input.getAttribute('data-date-placeholder') || defaultDatePlaceholder;
+
+            function switchToTextIfEmpty() {
+                if ((input.value || '') !== '') {
+                    return;
+                }
+
+                input.type = 'text';
+                input.readOnly = true;
+                input.placeholder = placeholder;
+                input.classList.add('date-placeholder-mode');
+            }
+
+            function switchToDateInput() {
+                if (input.type !== 'date') {
+                    input.type = 'date';
+                }
+                input.readOnly = false;
+                input.placeholder = '';
+                input.classList.remove('date-placeholder-mode');
+            }
+
+            switchToTextIfEmpty();
+
+            input.addEventListener('focus', function () {
+                switchToDateInput();
+                if (typeof input.showPicker === 'function') {
+                    try {
+                        input.showPicker();
+                    } catch (error) {}
+                }
+            });
+
+            input.addEventListener('blur', function () {
+                switchToTextIfEmpty();
+            });
+
+            input.addEventListener('change', function () {
+                if ((input.value || '') === '') {
+                    switchToTextIfEmpty();
+                } else {
+                    switchToDateInput();
+                }
+            });
+        }
+
+        function wireDatePlaceholders(root) {
+            (root || document).querySelectorAll('input[type=\"date\"], input[data-date-placeholder-wired=\"1\"]')
+                .forEach(function (input) {
+                    if (input.type === 'date' || input.dataset.datePlaceholderWired === '1') {
+                        wireDatePlaceholderInput(input);
+                    }
+                });
+        }
+
+        wireDatePlaceholders(document);
+
+        const dateInputObserver = new MutationObserver(function (mutations) {
+            mutations.forEach(function (mutation) {
+                mutation.addedNodes.forEach(function (node) {
+                    if (!node || node.nodeType !== 1) {
+                        return;
+                    }
+
+                    if (node.matches && node.matches('input[type=\"date\"]')) {
+                        wireDatePlaceholderInput(node);
+                    } else if (node.querySelectorAll) {
+                        wireDatePlaceholders(node);
+                    }
+                });
+            });
+        });
+
+        dateInputObserver.observe(document.body, { childList: true, subtree: true });
 
         if (sessionTimeoutMs > 0 && autoLogoutForm) {
             let idleTimer = null;

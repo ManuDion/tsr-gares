@@ -25,14 +25,14 @@
             </div>
             <div>
                 <label>Date de debut</label>
-                <input type="date" name="start_date" value="{{ old('start_date', $defaultStartDate) }}" required data-period-start>
+                <input type="date" name="start_date" value="{{ old('start_date') }}" required data-period-start>
                 @error('start_date')
                     <small class="text-danger">{{ $message }}</small>
                 @enderror
             </div>
             <div>
                 <label>Date de fin</label>
-                <input type="date" name="end_date" value="{{ old('end_date', $defaultEndDate) }}" required data-period-end>
+                <input type="date" name="end_date" value="{{ old('end_date') }}" required data-period-end>
                 @error('end_date')
                     <small class="text-danger">{{ $message }}</small>
                 @enderror

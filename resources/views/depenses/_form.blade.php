@@ -29,7 +29,7 @@
 
     <div>
         <label>Date operation</label>
-        <input type="date" name="operation_date" value="{{ old('operation_date', isset($depense) && $depense->operation_date ? $depense->operation_date->toDateString() : now()->toDateString()) }}" required>
+        <input type="date" name="operation_date" value="{{ old('operation_date', isset($depense) && $depense->operation_date ? $depense->operation_date->toDateString() : '') }}" required>
     </div>
     <div>
         <label>Montant</label>
@@ -57,9 +57,9 @@
         <small>Optionnel. Le nom saisi sera utilise pour le fichier telecharge.</small>
     </div>
     <div>
-        <label>Justificatif {{ isset($depense) ? '(optionnel en modification)' : '(obligatoire)' }} (max 10 Mo par fichier)</label>
+        <label>Justificatif {{ isset($depense) ? '(optionnel en modification)' : '(obligatoire)' }} (taille non limitee pour le moment)</label>
         <input type="file" name="justificatifs[]" accept="image/*,.heic,.heif,.webp,.jpg,.jpeg,.png,.pdf,application/pdf" multiple @required(!isset($depense))>
-        <small>Vous pouvez joindre plusieurs fichiers (PDF jusqu'a 10 Mo par fichier).</small>
+        <small>Vous pouvez joindre plusieurs fichiers (taille non limitee pour le moment).</small>
     </div>
     @if(isset($depense))
         <div class="col-span-2">

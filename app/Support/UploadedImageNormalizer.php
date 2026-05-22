@@ -22,9 +22,13 @@ class UploadedImageNormalizer
         $initialQuality = min(92, max(60, (int) env('JUSTIFICATIF_IMAGE_STANDARD_QUALITY', 82)));
         $minQuality = min($initialQuality, max(45, (int) env('JUSTIFICATIF_IMAGE_STANDARD_MIN_QUALITY', 58)));
         $step = max(2, (int) env('JUSTIFICATIF_IMAGE_STANDARD_QUALITY_STEP', 6));
-        $maxKb = $targetMaxKb
-            ?: (int) env('JUSTIFICATIF_IMAGE_STANDARD_MAX_KB', min((int) env('JUSTIFICATIF_MAX_SIZE_KB', 10240), 1536));
-        $maxBytes = max(128 * 1024, $maxKb * 1024);
+        $configuredImageMaxKb = (int) env('JUSTIFICATIF_IMAGE_STANDARD_MAX_KB', 0);
+        $configuredGlobalMaxKb = (int) env('JUSTIFICATIF_MAX_SIZE_KB', 10240);
+        $defaultImageMaxKb = $configuredGlobalMaxKb > 0 ? min($configuredGlobalMaxKb, 1536) : 0;
+        $maxKb = $targetMaxKb && $targetMaxKb > 0
+            ? $targetMaxKb
+            : ($configuredImageMaxKb > 0 ? $configuredImageMaxKb : $defaultImageMaxKb);
+        $maxBytes = $maxKb > 0 ? max(128 * 1024, $maxKb * 1024) : PHP_INT_MAX;
 
         $imagickBlob = self::normalizeWithImagick($sourcePath, $maxWidth, $maxHeight, $initialQuality, $minQuality, $step, $maxBytes);
         if ($imagickBlob !== null) {

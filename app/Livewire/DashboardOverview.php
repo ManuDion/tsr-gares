@@ -33,12 +33,10 @@ class DashboardOverview extends Component
         $resolvedModule = ModuleContext::fromRequest(request(), auth()->user());
         $this->module = $resolvedModule->value;
 
-        $now = now('Africa/Abidjan');
         $user = auth()->user();
 
         if ($resolvedModule->supportsFinancialFlows()) {
             $this->period = $user->canViewAllGares($resolvedModule->financialScope()) ? 'week' : 'month';
-            $this->syncPeriodRange($now);
             if (($user->isChefDeGare() || $user->isAgentCourrierGare()) && ! $user->canUseMultiGareEntry()) {
                 $this->gare_id = $user->gare_id;
             }
@@ -60,16 +58,20 @@ class DashboardOverview extends Component
 
     protected function syncPeriodRange($now = null): void
     {
+        [$start, $end] = $this->computedPeriodRange($now);
+        $this->start_date = $start;
+        $this->end_date = $end;
+    }
+
+    protected function computedPeriodRange($now = null): array
+    {
         $now = $now ?: now('Africa/Abidjan');
 
-        [$start, $end] = match ($this->period) {
+        return match ($this->period) {
             'today' => [$now->copy()->toDateString(), $now->copy()->toDateString()],
             'week' => [$now->copy()->subDays(6)->toDateString(), $now->copy()->toDateString()],
             default => [$now->copy()->startOfMonth()->toDateString(), $now->copy()->toDateString()],
         };
-
-        $this->start_date = $start;
-        $this->end_date = $end;
     }
 
     protected function periodLabel(): string
@@ -533,6 +535,10 @@ class DashboardOverview extends Component
 
     protected function resolvedPeriod(?string $scope = null): array
     {
+        if ($this->start_date === '' || $this->end_date === '') {
+            return $this->computedPeriodRange();
+        }
+
         return [$this->start_date, $this->end_date];
     }
 

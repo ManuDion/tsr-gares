@@ -17,7 +17,7 @@
             </div>
             <div>
                 <label>Date début</label>
-                <input type="date" name="start_date" value="{{ old('start_date', now()->toDateString()) }}" required>
+                <input type="date" name="start_date" value="{{ old('start_date') }}" required>
             </div>
             <div>
                 <label>Date fin (optionnel)</label>

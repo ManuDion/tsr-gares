@@ -341,6 +341,10 @@ class User extends Authenticatable
             return true;
         }
 
+        if ($this->isVerificateur() && $this->canAccessFinancialScope($scope)) {
+            return true;
+        }
+
         return $this->canActAsCashierForScope($scope);
     }
 

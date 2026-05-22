@@ -39,7 +39,7 @@
 
         <div>
             <label>Date operation</label>
-            <input type="date" name="entries[{{ $index }}][operation_date]" value="{{ old($oldPrefix.'.operation_date', data_get($entry, 'operation_date', now()->toDateString())) }}" required>
+            <input type="date" name="entries[{{ $index }}][operation_date]" value="{{ old($oldPrefix.'.operation_date', data_get($entry, 'operation_date', '')) }}" required>
         </div>
         <div>
             <label>Montant</label>
@@ -66,7 +66,7 @@
             <input type="text" name="entries[{{ $index }}][justificatif_name]" value="{{ old($oldPrefix.'.justificatif_name', data_get($entry, 'justificatif_name')) }}" placeholder="Ex. Dépense billetage {{ is_numeric($index) ? ((int) $index + 1) : '' }}">
         </div>
         <div>
-            <label>Justificatifs (PDF jusqu'a 10 Mo par fichier)</label>
+            <label>Justificatifs (taille non limitee pour le moment)</label>
             <input type="file" name="entries[{{ $index }}][justificatifs][]" accept="image/*,.heic,.heif,.webp,.jpg,.jpeg,.png,.pdf,application/pdf" multiple required>
         </div>
     </div>

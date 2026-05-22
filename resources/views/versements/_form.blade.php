@@ -59,7 +59,7 @@
 
     <div>
         <label>Date operation</label>
-        <input type="date" name="operation_date" value="{{ old('operation_date', $versement?->operation_date?->toDateString() ?? now()->toDateString()) }}" required>
+        <input type="date" name="operation_date" value="{{ old('operation_date', $versement?->operation_date?->toDateString() ?? '') }}" required>
         @if($isCashierScope && $serverForcedAccountType)
             <small>Regle active: ce versement caissier est verrouille sur {{ $serverForcedAccountType === 'inter' ? 'Ecobank' : 'Coris Bank' }}.</small>
         @endif
@@ -115,9 +115,9 @@
     </div>
 
     <div>
-        <label>Bordereaux justificatifs {{ isset($versement) ? '(optionnels en modification)' : '(au moins un obligatoire)' }} (max 10 Mo par fichier)</label>
+        <label>Bordereaux justificatifs {{ isset($versement) ? '(optionnels en modification)' : '(au moins un obligatoire)' }} (taille non limitee pour le moment)</label>
         <input type="file" name="bordereaux[]" accept="image/*,.heic,.heif,.webp,.jpg,.jpeg,.png,.pdf,application/pdf" multiple @required(!isset($versement))>
-        <small>Vous pouvez joindre plusieurs fichiers (PDF jusqu'a 10 Mo par fichier).</small>
+        <small>Vous pouvez joindre plusieurs fichiers (taille non limitee pour le moment).</small>
     </div>
 
     @if($existingPieces->isNotEmpty())

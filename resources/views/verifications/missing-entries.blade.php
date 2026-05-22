@@ -15,11 +15,11 @@
             <input type="hidden" name="module" value="{{ $module->value }}">
             <div>
                 <label>Date début</label>
-                <input type="date" name="start_date" value="{{ $startDate }}">
+                <input type="date" name="start_date" value="{{ request('start_date') }}">
             </div>
             <div>
                 <label>Date fin</label>
-                <input type="date" name="end_date" value="{{ $endDate }}">
+                <input type="date" name="end_date" value="{{ request('end_date') }}">
             </div>
             <div class="align-end gap-sm">
                 <button class="btn btn-outline" type="submit">

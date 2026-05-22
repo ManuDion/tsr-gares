@@ -28,11 +28,11 @@
                 </div>
                 <div>
                     <label>Date début</label>
-                    <input type="date" name="start_date" value="{{ request('start_date', now('Africa/Abidjan')->toDateString()) }}">
+                    <input type="date" name="start_date" value="{{ request('start_date') }}">
                 </div>
                 <div>
                     <label>Date fin</label>
-                    <input type="date" name="end_date" value="{{ request('end_date', now('Africa/Abidjan')->toDateString()) }}">
+                    <input type="date" name="end_date" value="{{ request('end_date') }}">
                 </div>
                 <div class="align-end gap-sm">
                     <button class="btn btn-outline" type="submit"><span class="icon">{!! app_icon('filter') !!}</span> Filtrer</button>

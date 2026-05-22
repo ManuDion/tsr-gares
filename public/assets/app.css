@@ -3368,6 +3368,16 @@ td {
     font-size: .74rem;
 }
 
+.date-placeholder-mode {
+    color: var(--muted);
+    cursor: pointer;
+}
+
+.date-placeholder-mode::placeholder {
+    color: var(--muted);
+    opacity: .9;
+}
+
 .missing-entries-table .badge-centered {
     display: inline-flex;
     text-align: center;

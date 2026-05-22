@@ -14,11 +14,11 @@
             <input type="hidden" name="module" value="{{ $module->value }}">
             <div>
                 <label>Date début</label>
-                <input type="date" name="start_date" value="{{ $startDate }}">
+                <input type="date" name="start_date" value="{{ request('start_date') }}">
             </div>
             <div>
                 <label>Date fin</label>
-                <input type="date" name="end_date" value="{{ $endDate }}">
+                <input type="date" name="end_date" value="{{ request('end_date') }}">
             </div>
             <div>
                 @php
@@ -79,11 +79,11 @@
                 @method('DELETE')
                 <div>
                     <label>Date début</label>
-                    <input type="date" name="start_date" value="{{ $startDate }}" required>
+                    <input type="date" name="start_date" value="{{ request('start_date') }}" required>
                 </div>
                 <div>
                     <label>Date fin</label>
-                    <input type="date" name="end_date" value="{{ $endDate }}" required>
+                    <input type="date" name="end_date" value="{{ request('end_date') }}" required>
                 </div>
                 <div class="align-end">
                     <button class="btn btn-outline" type="submit" title="Supprimer" aria-label="Supprimer">
